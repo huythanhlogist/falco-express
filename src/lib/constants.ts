@@ -4,9 +4,9 @@ export const SITE = {
   tagline: "Kết nối giá trị – Giao hàng tận tâm",
   description:
     "Falco Express – chuyên gửi hàng hoá đi quốc tế. Nhanh – an toàn – minh bạch.",
-  hotline: "0343 535 802",
-  hotlineHref: "tel:0343535802",
-  zaloHref: "https://zalo.me/0343535802",
+  hotline: "0383 700 663",
+  hotlineHref: "tel:0383700663",
+  zaloHref: "https://zalo.me/0383700663",
   email: "info@falcoexpress.vn",
 };
 
