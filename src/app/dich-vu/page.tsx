@@ -12,6 +12,12 @@ import {
   TruckIcon,
   WarehouseIcon,
 } from "@/components/icons";
+import {
+  CargoIllustration,
+  DomesticIllustration,
+  InternationalIllustration,
+  WarehouseIllustration,
+} from "@/components/ServiceIllustrations";
 
 export const metadata: Metadata = {
   title: "Dịch vụ",
@@ -26,6 +32,13 @@ const ICONS = {
   warehouse: WarehouseIcon,
 } as const;
 
+const ILLUSTRATIONS = {
+  domestic: DomesticIllustration,
+  international: InternationalIllustration,
+  cargo: CargoIllustration,
+  warehouse: WarehouseIllustration,
+} as const;
+
 export default function ServicesPage() {
   return (
     <>
@@ -38,6 +51,7 @@ export default function ServicesPage() {
       <div className="divide-y divide-line">
         {SERVICES.map((service, i) => {
           const Icon = ICONS[service.icon];
+          const Illustration = ILLUSTRATIONS[service.icon];
           const reversed = i % 2 === 1;
           return (
             <section
@@ -77,18 +91,7 @@ export default function ServicesPage() {
                   </Reveal>
 
                   <Reveal delay={0.1}>
-                    <div className="relative aspect-[4/3] overflow-hidden rounded-3xl bg-navy-gradient">
-                      <div
-                        className="absolute inset-0 opacity-[0.12]"
-                        style={{
-                          backgroundImage:
-                            "radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 1px)",
-                          backgroundSize: "20px 20px",
-                        }}
-                        aria-hidden
-                      />
-                      <Icon className="absolute inset-0 m-auto h-32 w-32 text-white/15 sm:h-40 sm:w-40" />
-                    </div>
+                    <Illustration />
                   </Reveal>
                 </div>
               </div>
