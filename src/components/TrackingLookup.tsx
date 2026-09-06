@@ -170,7 +170,7 @@ export default function TrackingLookup() {
                       rel="noopener noreferrer"
                       className="btn-primary"
                     >
-                      Xem chi tiết hành trình tại Kango
+                      Xem chi tiết hành trình vận chuyển
                       <ArrowRightIcon className="h-4 w-4" />
                     </a>
                   )}

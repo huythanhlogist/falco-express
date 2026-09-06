@@ -13,6 +13,8 @@ const ROUTE_POINTS = [
   { code: "HCM", label: "TP.HCM" },
 ];
 
+const POPULAR_COUNTRIES = ["Anh", "Đức", "Pháp", "Hà Lan", "Séc", "Ba Lan"];
+
 export default function Hero() {
   const [code, setCode] = useState("");
   const router = useRouter();
@@ -27,7 +29,7 @@ export default function Hero() {
     <section className="section pb-0 pt-12 sm:pt-16">
       <div className="container-page">
         <Reveal>
-          <span className="eyebrow">Vận chuyển nội địa &amp; quốc tế</span>
+          <span className="eyebrow">Gửi hàng Việt Nam ➜ Châu Âu &amp; Anh</span>
         </Reveal>
 
         <div className="mt-6 grid gap-8 lg:grid-cols-[1.35fr_1fr] lg:items-end lg:gap-10">
@@ -43,8 +45,9 @@ export default function Hero() {
 
           <Reveal delay={0.12}>
             <p className="text-base leading-relaxed text-ink/65 sm:text-lg">
-              Falco Express – chuyên gửi hàng hoá đi quốc tế. Nhanh, an toàn và
-              minh bạch trong từng chặng đường, từ nội địa đến toàn cầu.
+              Falco Express chuyên gửi hàng, thực phẩm và quà từ Việt Nam sang
+              Châu Âu, Vương quốc Anh cho cộng đồng người Việt xa xứ — nhanh
+              chóng, an toàn và minh bạch trong từng chặng đường.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link href="/dich-vu" className="btn-primary">
@@ -57,6 +60,22 @@ export default function Hero() {
             </div>
           </Reveal>
         </div>
+
+        <Reveal delay={0.16} className="mt-6">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="text-sm font-medium text-ink/50">
+              Tuyến phổ biến:
+            </span>
+            {POPULAR_COUNTRIES.map((country) => (
+              <span
+                key={country}
+                className="rounded-full border border-line bg-white px-3.5 py-1.5 text-sm font-semibold text-navy-800"
+              >
+                {country}
+              </span>
+            ))}
+          </div>
+        </Reveal>
 
         <Reveal delay={0.18} className="mt-12 lg:mt-16">
           <div className="relative overflow-hidden rounded-[28px] bg-navy-gradient sm:rounded-[32px]">

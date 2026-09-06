@@ -77,14 +77,14 @@ export const SERVICES: Service[] = [
   {
     slug: "chuyen-phat-quoc-te",
     title: "Chuyển phát nhanh quốc tế",
-    short: "Kết nối hàng hoá Việt Nam với thị trường toàn cầu.",
+    short: "Gửi hàng, thực phẩm và quà từ Việt Nam sang Châu Âu, Anh cho người Việt xa xứ.",
     description:
-      "Dịch vụ chuyển phát quốc tế chuyên biệt, hỗ trợ đầy đủ thủ tục hải quan, tối ưu chi phí và thời gian cho hàng thương mại điện tử xuyên biên giới.",
+      "Falco Express chuyên nhận gửi hàng từ Việt Nam sang Châu Âu và Vương quốc Anh — phục vụ đúng nhu cầu của cộng đồng người Việt: gửi thực phẩm khô, đặc sản quê nhà, quà và đồ dùng cá nhân cho người thân đang sinh sống, học tập tại Anh, Đức, Pháp, Hà Lan, Séc, Ba Lan và nhiều nước Châu Âu khác. Đội ngũ Falco lo trọn thủ tục hải quan, khách chỉ cần đóng gói và gửi.",
     bullets: [
-      "Hỗ trợ thủ tục hải quan, chứng từ xuất khẩu",
-      "Kết nối các tuyến vận chuyển quốc tế trọng điểm",
-      "Tư vấn tối ưu chi phí theo tuyến và khối lượng",
-      "Cập nhật hành trình vận đơn xuyên suốt",
+      "Nhận gửi thực phẩm khô, đặc sản, quà cho người Việt tại Anh, Đức, Pháp, Hà Lan, Séc, Ba Lan...",
+      "Hỗ trợ trọn gói thủ tục hải quan, chứng từ xuất khẩu",
+      "Tư vấn đóng gói đúng quy định để hàng thông quan thuận lợi",
+      "Cập nhật hành trình vận đơn xuyên suốt tới tận tay người nhận",
     ],
     icon: "international",
   },

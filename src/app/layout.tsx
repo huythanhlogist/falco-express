@@ -12,24 +12,30 @@ const beVietnamPro = Be_Vietnam_Pro({
   display: "swap",
 });
 
+const SEO_DESCRIPTION =
+  "Falco Express – gửi hàng, thực phẩm và quà từ Việt Nam sang Châu Âu, Vương quốc Anh (Anh, Đức, Pháp, Hà Lan, Séc, Ba Lan...) cho người Việt xa xứ. Nhanh chóng, an toàn, minh bạch, hỗ trợ trọn gói thủ tục hải quan.";
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://falcoexpress.vn"),
   title: {
-    default: `${SITE.name} – ${SITE.tagline}`,
+    default: `${SITE.name} – Gửi hàng Việt Nam sang Châu Âu & Anh`,
     template: `%s | ${SITE.name}`,
   },
-  description: SITE.description,
+  description: SEO_DESCRIPTION,
   keywords: [
     "Falco Express",
-    "chuyển phát nhanh",
-    "vận chuyển quốc tế",
+    "gửi hàng đi Anh",
+    "gửi hàng đi Đức",
+    "gửi hàng từ Việt Nam sang Châu Âu",
+    "gửi thực phẩm Việt sang Anh",
+    "chuyển phát nhanh quốc tế",
     "vận chuyển hàng hóa",
     "kho vận",
     "tra cứu vận đơn",
   ],
   openGraph: {
-    title: `${SITE.name} – ${SITE.tagline}`,
-    description: SITE.description,
+    title: `${SITE.name} – Gửi hàng Việt Nam sang Châu Âu & Anh`,
+    description: SEO_DESCRIPTION,
     siteName: SITE.name,
     locale: "vi_VN",
     type: "website",
