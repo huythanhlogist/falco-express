@@ -24,7 +24,7 @@ export type TrackingStep = {
 
 export type LastMileLink = {
   code: string;
-  carrier: "UPS" | "DHL";
+  carrier: string;
   url: string;
 };
 
@@ -40,20 +40,65 @@ export type PublicOrder = {
 };
 
 /**
- * Đoán hãng vận chuyển last-mile từ định dạng mã tracking, vì file Kango
- * xuất ra không có cột ghi rõ tên hãng. Mã dạng UPS "1Z..." rất đặc trưng,
- * mọi định dạng khác (số 10-20 chữ số, hoặc dạng bưu chính quốc tế S10 như
- * "CE960073115DE") đều tra cứu tốt trên trang DHL nên mặc định là DHL.
+ * Mapping hãng last-mile theo đúng SERVICE thật của Falco (file Kango
+ * không có cột ghi tên hãng, nhưng mỗi mã SERVICE luôn cố định một hãng).
+ * Xác nhận trực tiếp từ người vận hành — không suy đoán từ định dạng mã.
  */
-export function detectCarrier(code: string): "UPS" | "DHL" {
-  return /^1Z[0-9A-Z]{10,}$/i.test(code.trim()) ? "UPS" : "DHL";
-}
+const SERVICE_CARRIER: Record<
+  string,
+  { carrier: string; buildUrl: (code: string) => string }
+> = {
+  "AIR-UK-PRIORITY": {
+    carrier: "DPD UK",
+    buildUrl: (c) => `https://www.dpd.co.uk/apps/tracking/?parcel=${encodeURIComponent(c)}`,
+  },
+  "AIR-EU-DHL-PRIORITY": {
+    carrier: "DHL",
+    buildUrl: (c) =>
+      `https://www.dhl.com/vn-vi/home/tracking/tracking-express.html?submit=1&tracking-id=${encodeURIComponent(c)}`,
+  },
+  "AIR-EU-DL-BH": {
+    carrier: "DPD EU",
+    buildUrl: (c) => `https://tracking.dpd.de/status/en_US/parcel/${encodeURIComponent(c)}`,
+  },
+  "AIR-CAD": {
+    carrier: "USPS",
+    buildUrl: (c) => `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(c)}`,
+  },
+};
 
-export function carrierTrackingUrl(carrier: "UPS" | "DHL", code: string) {
-  if (carrier === "UPS") {
-    return `https://www.ups.com/track?tracknum=${encodeURIComponent(code)}`;
+/**
+ * Với dịch vụ chưa có trong bảng trên (tuyến mới), suy luận tạm theo từ khoá
+ * trong tên dịch vụ (vd "AIR-EU-UPS-PRIORITY" → UPS). Nếu không nhận diện
+ * được, KHÔNG đoán bừa hãng cụ thể — trả về mã theo dõi kèm link tra cứu đa
+ * hãng (17TRACK) để tránh gắn nhầm thương hiệu như đã từng xảy ra.
+ */
+function resolveCarrier(service: string): {
+  carrier: string;
+  buildUrl: (code: string) => string;
+} {
+  const exact = SERVICE_CARRIER[service.trim().toUpperCase()];
+  if (exact) return exact;
+
+  const s = service.toUpperCase();
+  if (s.includes("UPS")) {
+    return {
+      carrier: "UPS",
+      buildUrl: (c) => `https://www.ups.com/track?tracknum=${encodeURIComponent(c)}`,
+    };
   }
-  return `https://www.dhl.com/vn-vi/home/tracking/tracking-express.html?submit=1&tracking-id=${encodeURIComponent(code)}`;
+  if (s.includes("DHL")) {
+    return {
+      carrier: "DHL",
+      buildUrl: (c) =>
+        `https://www.dhl.com/vn-vi/home/tracking/tracking-express.html?submit=1&tracking-id=${encodeURIComponent(c)}`,
+    };
+  }
+
+  return {
+    carrier: "Đối tác vận chuyển",
+    buildUrl: (c) => `https://t.17track.net/en#nums=${encodeURIComponent(c)}`,
+  };
 }
 
 function getAuthClient() {
@@ -134,10 +179,12 @@ function toPublicOrder(order: OrderRow): PublicOrder {
     ? order.lastMileCodes.split(",").map((c) => c.trim()).filter(Boolean)
     : [];
 
-  const lastMile: LastMileLink[] = lastMileCodes.map((code) => {
-    const carrier = detectCarrier(code);
-    return { code, carrier, url: carrierTrackingUrl(carrier, code) };
-  });
+  const { carrier, buildUrl } = resolveCarrier(order.service);
+  const lastMile: LastMileLink[] = lastMileCodes.map((code) => ({
+    code,
+    carrier,
+    url: buildUrl(code),
+  }));
 
   return {
     falcoCode: order.falcoCode,
