@@ -2,19 +2,54 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { DEMO_CODES, DEMO_TRACKING, type TrackingResult } from "@/lib/tracking-demo";
-import { CheckCircleIcon, ClockIcon, SearchIcon } from "@/components/icons";
+import type { PublicOrder } from "@/lib/sheets";
+import {
+  ArrowRightIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  SearchIcon,
+} from "@/components/icons";
+
+type Status = "idle" | "loading" | "done";
+
+function carrierTrackingUrl(carrier: string, code: string) {
+  const c = carrier.trim().toLowerCase();
+  if (c === "dhl") {
+    return `https://www.dhl.com/vn-vi/home/tracking/tracking-express.html?submit=1&tracking-id=${encodeURIComponent(code)}`;
+  }
+  if (c === "ups") {
+    return `https://www.ups.com/track?tracknum=${encodeURIComponent(code)}`;
+  }
+  return "";
+}
 
 export default function TrackingLookup() {
   const searchParams = useSearchParams();
   const [value, setValue] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [result, setResult] = useState<TrackingResult | null>(null);
+  const [status, setStatus] = useState<Status>("idle");
+  const [result, setResult] = useState<PublicOrder | null>(null);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  function lookup(raw: string) {
-    const code = raw.trim().toUpperCase();
-    setSubmitted(true);
-    setResult(DEMO_TRACKING[code] ?? null);
+  async function lookup(raw: string) {
+    const code = raw.trim();
+    if (!code) return;
+
+    setStatus("loading");
+    setErrorMsg("");
+
+    try {
+      const res = await fetch(`/api/tracking?code=${encodeURIComponent(code)}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Có lỗi xảy ra");
+      setResult(json.found ? json.data : null);
+    } catch (err) {
+      setErrorMsg(
+        err instanceof Error ? err.message : "Không thể tra cứu lúc này"
+      );
+      setResult(null);
+    } finally {
+      setStatus("done");
+    }
   }
 
   useEffect(() => {
@@ -42,37 +77,22 @@ export default function TrackingLookup() {
           id="tracking-code"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="Nhập mã vận đơn, VD: FL123456789VN"
+          placeholder="Nhập mã vận đơn, VD: FL250906001"
           className="w-full rounded-full border border-line bg-white px-5 py-3.5 text-sm text-ink placeholder:text-ink/35 focus:border-flame-400"
         />
-        <button type="submit" className="btn-primary shrink-0">
+        <button type="submit" disabled={status === "loading"} className="btn-primary shrink-0">
           <SearchIcon className="h-4 w-4" />
-          Tra cứu
+          {status === "loading" ? "Đang tra cứu..." : "Tra cứu"}
         </button>
       </form>
 
-      <p className="mx-auto mt-3 max-w-xl text-center text-xs text-ink/45">
-        Đây là trang minh hoạ chức năng tra cứu. Thử các mã demo:{" "}
-        {DEMO_CODES.map((c, i) => (
-          <span key={c}>
-            <button
-              type="button"
-              onClick={() => {
-                setValue(c);
-                lookup(c);
-              }}
-              className="font-semibold text-navy-700 underline decoration-dotted underline-offset-2 hover:text-flame-600"
-            >
-              {c}
-            </button>
-            {i < DEMO_CODES.length - 1 ? ", " : "."}
-          </span>
-        ))}
-      </p>
-
-      {submitted && (
+      {status === "done" && (
         <div className="mx-auto mt-10 max-w-2xl">
-          {result ? (
+          {errorMsg ? (
+            <div className="card p-8 text-center">
+              <p className="font-semibold text-navy-900">{errorMsg}</p>
+            </div>
+          ) : result ? (
             <div className="card p-6 sm:p-8">
               <div className="flex flex-col gap-4 border-b border-line pb-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -80,26 +100,32 @@ export default function TrackingLookup() {
                     Mã vận đơn
                   </p>
                   <p className="mt-1 font-display text-lg font-bold text-navy-900">
-                    {result.code}
+                    {result.falcoCode}
                   </p>
                 </div>
                 <span className="inline-flex w-fit items-center gap-2 rounded-full bg-flame-50 px-4 py-1.5 text-sm font-bold text-flame-700">
-                  {result.status}
+                  {result.currentStatus}
                 </span>
               </div>
 
-              <div className="mt-5 grid grid-cols-3 gap-4 text-sm">
+              <div className="mt-5 grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
                 <div>
                   <p className="text-xs text-ink/45">Dịch vụ</p>
-                  <p className="mt-1 font-medium text-navy-900">{result.service}</p>
+                  <p className="mt-1 font-medium text-navy-900">
+                    {result.service || "—"}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs text-ink/45">Từ</p>
-                  <p className="mt-1 font-medium text-navy-900">{result.from}</p>
+                  <p className="text-xs text-ink/45">Điểm đến</p>
+                  <p className="mt-1 font-medium text-navy-900">
+                    {result.destination || "—"}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs text-ink/45">Đến</p>
-                  <p className="mt-1 font-medium text-navy-900">{result.to}</p>
+                  <p className="text-xs text-ink/45">Số bill</p>
+                  <p className="mt-1 font-medium text-navy-900">
+                    {result.billNumber || "—"}
+                  </p>
                 </div>
               </div>
 
@@ -137,16 +163,49 @@ export default function TrackingLookup() {
                         >
                           {step.title}
                         </p>
-                        {step.time && (
-                          <p className="mt-0.5 text-xs text-ink/50">
-                            {step.time} · {step.location}
-                          </p>
+                        {step.date && (
+                          <p className="mt-0.5 text-xs text-ink/50">{step.date}</p>
                         )}
                       </div>
                     </li>
                   );
                 })}
               </ol>
+
+              {(result.ksnPostUrl || result.lastMileCodes.length > 0) && (
+                <div className="mt-7 flex flex-wrap gap-3 border-t border-line pt-6">
+                  {result.ksnPostUrl && (
+                    <a
+                      href={result.ksnPostUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-primary"
+                    >
+                      Xem tiến trình hải quan tại KSN Post
+                      <ArrowRightIcon className="h-4 w-4" />
+                    </a>
+                  )}
+                  {result.lastMileCodes.map((code, i) => {
+                    const url = carrierTrackingUrl(result.lastMileCarrier, code);
+                    const label =
+                      result.lastMileCodes.length > 1
+                        ? `Kiện ${i + 1} · ${result.lastMileCarrier} ${code}`
+                        : `${result.lastMileCarrier} ${code}`;
+                    return url ? (
+                      <a key={code} href={url} target="_blank" rel="noopener noreferrer" className="btn-outline">
+                        {label}
+                      </a>
+                    ) : (
+                      <span
+                        key={code}
+                        className="btn-outline pointer-events-none"
+                      >
+                        {label}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ) : (
             <div className="card p-8 text-center">
@@ -154,9 +213,11 @@ export default function TrackingLookup() {
                 Không tìm thấy vận đơn &ldquo;{value}&rdquo;
               </p>
               <p className="mt-2 text-sm text-ink/55">
-                Đây là bản demo minh hoạ giao diện tra cứu. Hệ thống tra cứu
-                thực tế sẽ được kết nối với dữ liệu vận đơn chính thức của
-                Falco Express.
+                Vui lòng kiểm tra lại mã vận đơn, hoặc liên hệ hotline{" "}
+                <span className="font-semibold text-navy-800">
+                  0383 700 663
+                </span>{" "}
+                để được hỗ trợ.
               </p>
             </div>
           )}

@@ -26,19 +26,19 @@ src/
   components/          Header, Footer, Hero, các section UI dùng chung
   lib/
     constants.ts       Thông tin công ty, chi nhánh, dịch vụ (chỉnh nội dung ở đây)
-    tracking-demo.ts   Dữ liệu demo cho trang tra cứu vận đơn
+    sheets.ts          Đọc/ghi Google Sheet cho tra cứu vận đơn thật
 public/
   falco-logo.png       Logo chính thức
+scripts/
+  import-kango-orders.ts   Nhập đơn hàng mới từ file Excel Kango vào Google Sheet
 ```
 
 ### Chỉnh nội dung nhanh
 
 - Thông tin liên hệ, hotline, chi nhánh, danh sách dịch vụ: sửa trong
   [`src/lib/constants.ts`](src/lib/constants.ts).
-- Trang tra cứu vận đơn hiện là **bản demo** với dữ liệu mẫu trong
-  [`src/lib/tracking-demo.ts`](src/lib/tracking-demo.ts). Khi có hệ thống quản
-  lý vận đơn thật, thay `TrackingLookup` component để gọi API thật thay vì
-  tra cứu trong object tĩnh.
+- Dữ liệu tra cứu vận đơn lấy trực tiếp từ Google Sheet — xem mục
+  "Tra cứu vận đơn qua Google Sheet" bên dưới.
 
 ## Form liên hệ (gửi email)
 
@@ -63,6 +63,81 @@ CONTACT_TO_EMAIL=info@falcoexpress.com
 
 > Hostinger cung cấp SMTP cho email theo tên miền trong hPanel → Email
 > Accounts. Dùng đúng host/port của Hostinger cho tên miền của bạn.
+
+## Tra cứu vận đơn qua Google Sheet
+
+Trang "Tra cứu vận đơn" đọc dữ liệu **trực tiếp từ 1 Google Sheet** mỗi khi
+khách tra cứu — không cần deploy lại code khi có đơn hàng mới, chỉ cần cập
+nhật Sheet.
+
+### 1. Tạo Google Sheet
+
+Tạo 1 sheet tên `Orders` với các cột theo đúng thứ tự (dòng 1 là tiêu đề,
+dữ liệu bắt đầu từ dòng 2):
+
+| Cột | Tên | Ví dụ |
+|---|---|---|
+| A | Mã Falco | `FL250906001` |
+| B | Số bill | `2026800812` |
+| C | Tên khách hàng | (nội bộ) |
+| D | SĐT khách hàng | (nội bộ) |
+| E | Dịch vụ | `Quốc tế` |
+| F | Nước đến | `Hoa Kỳ` |
+| G | Hãng last-mile | `DHL` |
+| H | Mã tracking last-mile | `DHL123456, DHL123457` (nhiều mã cách nhau bởi dấu phẩy nếu bill có nhiều kiện) |
+| I | Ngày tiếp nhận | `05/09/2026` |
+| J | Ngày xử lý tại kho | |
+| K | Ngày bàn giao đối tác vận chuyển | |
+| L | Ngày giao thành công | |
+| M | Ghi chú nội bộ | |
+
+Cột C, D, M **không bao giờ** hiển thị công khai trên web — chỉ đọc nội bộ.
+Trạng thái hiển thị cho khách được suy ra tự động từ cột I–L (mốc gần nhất
+có ngày = trạng thái hiện tại), nên **không cần** một cột "trạng thái"
+riêng.
+
+### 2. Tạo Service Account (Google Cloud) — làm 1 lần
+
+1. Vào [console.cloud.google.com](https://console.cloud.google.com), tạo
+   project mới (hoặc dùng project có sẵn).
+2. Vào **APIs & Services → Library**, bật **Google Sheets API**.
+3. Vào **APIs & Services → Credentials → Create Credentials → Service
+   Account**, đặt tên bất kỳ (vd `falco-tracking`).
+4. Mở service account vừa tạo → tab **Keys → Add Key → Create new key →
+   JSON**. Tải file JSON về — file này chứa `client_email` và
+   `private_key`.
+5. Mở Google Sheet đã tạo ở bước 1 → **Share** → dán đúng `client_email`
+   trong file JSON vào, chọn quyền **Editor**.
+
+### 3. Cấu hình biến môi trường
+
+Từ file JSON tải ở bước trên, điền vào `.env.local`:
+
+```
+GOOGLE_SERVICE_ACCOUNT_EMAIL=<client_email trong file JSON>
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="<private_key trong file JSON, giữ nguyên \n>"
+GOOGLE_SHEET_ID=<lấy từ URL Sheet, đoạn giữa /d/ và /edit>
+GOOGLE_SHEET_RANGE=Orders!A2:M1000
+```
+
+Khi deploy lên Hostinger, nhập 4 biến này vào **Environment variables**
+của Node.js App, giống cách làm với `SMTP_*`.
+
+### 4. Nhập đơn hàng mới từ file Excel Kango xuất định kỳ
+
+Kango xuất được file Excel chứa mã AWB (dùng làm "Số bill"). Mỗi khi có
+file mới, chạy:
+
+```bash
+npm run import:kango -- /duong/dan/file-kango.xlsx
+```
+
+Script tự động: đọc file, bỏ qua các AWB đã có sẵn trong Sheet (khử trùng
+lặp do file Kango xuất theo tháng), sinh Mã Falco mới cho AWB chưa có, rồi
+thêm dòng mới vào Google Sheet. Nếu tên cột trong file Excel thật khác với
+danh sách trong `COLUMN_ALIASES` ở đầu file
+[`scripts/import-kango-orders.ts`](scripts/import-kango-orders.ts), thêm
+tên cột thật vào danh sách alias tương ứng.
 
 ## Build production
 
@@ -95,7 +170,9 @@ Hostinger mà không cần cài lại `node_modules` đầy đủ trên server.
    ```
 5. **Cấu hình biến môi trường** trong hPanel → Node.js → Environment
    variables: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`,
-   `CONTACT_TO_EMAIL`.
+   `CONTACT_TO_EMAIL`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`,
+   `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`, `GOOGLE_SHEET_ID`,
+   `GOOGLE_SHEET_RANGE` (xem mục "Tra cứu vận đơn qua Google Sheet").
 6. **Khởi động ứng dụng**: dùng nút Restart trong hPanel Node.js, hoặc trỏ
    startup file tới `server.js` dưới đây nếu Hostinger yêu cầu một entry
    point cố định:
