@@ -50,12 +50,18 @@ const SERVICE_CARRIER: Record<
 > = {
   "AIR-UK-PRIORITY": {
     carrier: "DPD UK",
-    buildUrl: (c) => `https://www.dpd.co.uk/apps/tracking/?parcel=${encodeURIComponent(c)}`,
+    // Đã kiểm tra trực tiếp: DPD UK bắt buộc kèm mã xác minh theo mã bưu
+    // chính người nhận (dạng /parcels/<code>*<hash>), hash này DPD tự tính
+    // khi khách nhập đúng mã bưu chính trên form — không thể tự ghép link
+    // từ mã tracking đơn thuần (sẽ báo lỗi "invalid parcel number and
+    // session"). Vì vậy trỏ thẳng tới trang tra cứu, khách tự nhập mã
+    // tracking (đã hiển thị sẵn bên cạnh) + mã bưu chính người nhận.
+    buildUrl: () => `https://track.dpd.co.uk/`,
   },
   "AIR-EU-DHL-PRIORITY": {
     carrier: "DHL",
     buildUrl: (c) =>
-      `https://www.dhl.com/vn-vi/home/tracking/tracking-express.html?submit=1&tracking-id=${encodeURIComponent(c)}`,
+      `https://www.dhl.de/en/privatkunden/pakete-empfangen/verfolgen.html?piececode=${encodeURIComponent(c)}`,
   },
   "AIR-EU-DL-BH": {
     carrier: "DPD EU",
