@@ -17,7 +17,8 @@
  * File Kango xuất theo tháng nên các lần xuất sau sẽ trùng lặp AWB của lần
  * trước — script bỏ qua AWB đã có sẵn trong Sheet.
  */
-import "dotenv/config";
+import { config } from "dotenv";
+config({ path: ".env.local" });
 import { readFileSync } from "node:fs";
 import * as XLSX from "xlsx";
 import { appendOrders, getAllOrders, type OrderRow } from "../src/lib/sheets";
