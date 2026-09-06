@@ -1,21 +1,19 @@
 import { google } from "googleapis";
 
-const SHEET_RANGE = process.env.GOOGLE_SHEET_RANGE || "Orders!A2:M1000";
+const SHEET_RANGE = process.env.GOOGLE_SHEET_RANGE || "Orders!A2:K1000";
 
 export type OrderRow = {
   falcoCode: string;
   billNumber: string;
-  customerName: string;
-  customerPhone: string;
+  recipientName: string;
+  recipientPhone: string;
   service: string;
   destination: string;
-  lastMileCarrier: string;
   lastMileCodes: string;
   receivedDate: string;
   warehouseDate: string;
   handoverDate: string;
   deliveredDate: string;
-  note: string;
 };
 
 export type TrackingStep = {
@@ -24,17 +22,39 @@ export type TrackingStep = {
   done: boolean;
 };
 
+export type LastMileLink = {
+  code: string;
+  carrier: "UPS" | "DHL";
+  url: string;
+};
+
 export type PublicOrder = {
   falcoCode: string;
   billNumber: string;
   service: string;
   destination: string;
-  lastMileCarrier: string;
-  lastMileCodes: string[];
+  lastMile: LastMileLink[];
   currentStatus: string;
   steps: TrackingStep[];
   ksnPostUrl: string;
 };
+
+/**
+ * Đoán hãng vận chuyển last-mile từ định dạng mã tracking, vì file Kango
+ * xuất ra không có cột ghi rõ tên hãng. Mã dạng UPS "1Z..." rất đặc trưng,
+ * mọi định dạng khác (số 10-20 chữ số, hoặc dạng bưu chính quốc tế S10 như
+ * "CE960073115DE") đều tra cứu tốt trên trang DHL nên mặc định là DHL.
+ */
+export function detectCarrier(code: string): "UPS" | "DHL" {
+  return /^1Z[0-9A-Z]{10,}$/i.test(code.trim()) ? "UPS" : "DHL";
+}
+
+export function carrierTrackingUrl(carrier: "UPS" | "DHL", code: string) {
+  if (carrier === "UPS") {
+    return `https://www.ups.com/track?tracknum=${encodeURIComponent(code)}`;
+  }
+  return `https://www.dhl.com/vn-vi/home/tracking/tracking-express.html?submit=1&tracking-id=${encodeURIComponent(code)}`;
+}
 
 function getAuthClient() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -65,17 +85,15 @@ function rowToOrder(row: string[]): OrderRow {
   return {
     falcoCode: (row[0] || "").trim(),
     billNumber: (row[1] || "").trim(),
-    customerName: (row[2] || "").trim(),
-    customerPhone: (row[3] || "").trim(),
+    recipientName: (row[2] || "").trim(),
+    recipientPhone: (row[3] || "").trim(),
     service: (row[4] || "").trim(),
     destination: (row[5] || "").trim(),
-    lastMileCarrier: (row[6] || "").trim(),
-    lastMileCodes: (row[7] || "").trim(),
-    receivedDate: (row[8] || "").trim(),
-    warehouseDate: (row[9] || "").trim(),
-    handoverDate: (row[10] || "").trim(),
-    deliveredDate: (row[11] || "").trim(),
-    note: (row[12] || "").trim(),
+    lastMileCodes: (row[6] || "").trim(),
+    receivedDate: (row[7] || "").trim(),
+    warehouseDate: (row[8] || "").trim(),
+    handoverDate: (row[9] || "").trim(),
+    deliveredDate: (row[10] || "").trim(),
   };
 }
 
@@ -116,13 +134,17 @@ function toPublicOrder(order: OrderRow): PublicOrder {
     ? order.lastMileCodes.split(",").map((c) => c.trim()).filter(Boolean)
     : [];
 
+  const lastMile: LastMileLink[] = lastMileCodes.map((code) => {
+    const carrier = detectCarrier(code);
+    return { code, carrier, url: carrierTrackingUrl(carrier, code) };
+  });
+
   return {
     falcoCode: order.falcoCode,
     billNumber: order.billNumber,
     service: order.service,
     destination: order.destination,
-    lastMileCarrier: order.lastMileCarrier,
-    lastMileCodes,
+    lastMile,
     currentStatus,
     steps,
     ksnPostUrl: order.billNumber
@@ -154,17 +176,15 @@ export async function appendOrders(rows: OrderRow[]): Promise<void> {
   const values = rows.map((r) => [
     r.falcoCode,
     r.billNumber,
-    r.customerName,
-    r.customerPhone,
+    r.recipientName,
+    r.recipientPhone,
     r.service,
     r.destination,
-    r.lastMileCarrier,
     r.lastMileCodes,
     r.receivedDate,
     r.warehouseDate,
     r.handoverDate,
     r.deliveredDate,
-    r.note,
   ]);
 
   await sheets.spreadsheets.values.append({

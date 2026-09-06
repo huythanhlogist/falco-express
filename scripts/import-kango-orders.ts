@@ -1,64 +1,100 @@
 /**
- * Nhập đơn hàng mới từ file Excel Kango xuất định kỳ vào Google Sheet.
+ * Nhập đơn hàng mới từ file "ListShipment" Kango xuất định kỳ vào Google
+ * Sheet dùng cho tra cứu vận đơn trên web Falco.
  *
  * Cách chạy:
- *   npm run import:kango -- /duong/dan/file.xlsx
+ *   npm run import:kango -- /duong/dan/ListShipment.xlsx
  *
- * File Excel cần có các cột (tên cột không phân biệt hoa/thường, có thể
- * lệch thứ tự — script tự dò theo tên cột):
- *   - AWB (mã dùng để tra cứu trên KSN Post / bill number)
- *   - Tên khách hàng
- *   - Số điện thoại
- *   - Nước đến
- *   - Hãng vận chuyển last-mile (DHL/UPS)
- *   - Mã tracking last-mile
+ * File Kango xuất ra có các cột cố định (theo mẫu thực tế):
+ *   AWB, HAWB, TRACKING NUMBER, SERVICE, DATE, COMPANY, CONTACT,
+ *   ADDRESS 1-3, CITY, STATE/PROVINCE, COUNTRY, POSTAL CODE, TELEPHONE, ...
  *
- * Script sẽ:
- *   1. Đọc toàn bộ đơn đã có trong Google Sheet để biết AWB nào đã tồn tại.
- *   2. Bỏ qua các dòng trong file Excel có AWB đã có trong Sheet (khử trùng
- *      lặp do file Kango xuất theo tháng).
- *   3. Với AWB mới: tự sinh Mã Falco kế tiếp, append vào Sheet.
+ * Một bill (AWB) có thể có 2-3 kiện: dòng đầu tiên của bill có ô AWB, các
+ * dòng kiện tiếp theo của CÙNG bill đó để trống ô AWB (nhưng vẫn có
+ * TRACKING NUMBER riêng) — script gộp các dòng liền kề có AWB trống vào
+ * bill của dòng AWB gần nhất phía trên.
+ *
+ * File Kango xuất theo tháng nên các lần xuất sau sẽ trùng lặp AWB của lần
+ * trước — script bỏ qua AWB đã có sẵn trong Sheet.
  */
 import "dotenv/config";
 import { readFileSync } from "node:fs";
 import * as XLSX from "xlsx";
 import { appendOrders, getAllOrders, type OrderRow } from "../src/lib/sheets";
 
-const COLUMN_ALIASES: Record<keyof RawColumns, string[]> = {
-  awb: ["awb", "mã awb", "ma awb", "awb number", "tracking", "mã bill", "so bill"],
-  customerName: ["tên khách hàng", "ten khach hang", "customer name", "khách hàng"],
-  customerPhone: ["số điện thoại", "so dien thoai", "phone", "sđt", "sdt"],
-  destination: ["nước đến", "nuoc den", "destination", "quốc gia", "country"],
-  carrier: ["hãng vận chuyển", "hang van chuyen", "carrier", "hãng last-mile"],
-  lastMileCode: [
-    "mã tracking last-mile",
-    "ma tracking last-mile",
-    "last mile tracking",
-    "mã tracking",
-    "tracking number",
-  ],
-};
+// Vị trí cột trong file Kango xuất ra (0-indexed). Nếu Kango đổi cấu trúc
+// cột, chỉ cần sửa các số bên dưới cho khớp.
+const COL = {
+  AWB: 8,
+  TRACKING_NUMBER: 10,
+  SERVICE: 11,
+  DATE: 13,
+  CONTACT: 15,
+  CITY: 19,
+  COUNTRY: 21,
+  TELEPHONE: 23,
+} as const;
 
-type RawColumns = {
+type ShipmentGroup = {
   awb: string;
-  customerName: string;
-  customerPhone: string;
-  destination: string;
-  carrier: string;
-  lastMileCode: string;
+  service: string;
+  date: string;
+  contact: string;
+  telephone: string;
+  city: string;
+  country: string;
+  trackingNumbers: string[];
 };
 
-function normalizeHeader(h: string) {
-  return h.trim().toLowerCase();
+/**
+ * Chuyển giá trị ô Excel thành chuỗi an toàn. Bắt buộc phải đọc sheet với
+ * `raw: true` và dùng hàm này cho MỌI cột số (AWB, TRACKING NUMBER...) —
+ * nếu dùng `raw: false`, SheetJS format số nguyên dài (>11 chữ số) theo
+ * kiểu "General" của Excel và trả về dạng khoa học méo mó (vd
+ * "1.5503E+13"), làm mất số/trùng dữ liệu giữa các kiện khác nhau. Các mã
+ * tracking 14 chữ số trong dữ liệu Kango vẫn nằm trong giới hạn số nguyên
+ * an toàn của JS (Number.isSafeInteger) nên String(number) không mất độ
+ * chính xác.
+ */
+function cellToString(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "number") return String(value);
+  return String(value).trim();
 }
 
-function findColumnIndex(headers: string[], aliases: string[]): number {
-  const normalized = headers.map(normalizeHeader);
-  for (const alias of aliases) {
-    const idx = normalized.indexOf(alias);
-    if (idx !== -1) return idx;
+function excelDateToVN(raw: string): string {
+  // File Kango xuất ngày dạng dd-mm-yyyy, chuyển sang dd/mm/yyyy cho quen thuộc.
+  const m = raw.trim().match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  return m ? `${m[1]}/${m[2]}/${m[3]}` : raw.trim();
+}
+
+function groupRowsByAwb(rows: unknown[][]): ShipmentGroup[] {
+  const groups: ShipmentGroup[] = [];
+  let current: ShipmentGroup | null = null;
+
+  for (const row of rows) {
+    const awb = cellToString(row[COL.AWB]);
+    const tracking = cellToString(row[COL.TRACKING_NUMBER]);
+
+    if (awb) {
+      current = {
+        awb,
+        service: cellToString(row[COL.SERVICE]),
+        date: excelDateToVN(cellToString(row[COL.DATE])),
+        contact: cellToString(row[COL.CONTACT]),
+        telephone: cellToString(row[COL.TELEPHONE]),
+        city: cellToString(row[COL.CITY]),
+        country: cellToString(row[COL.COUNTRY]),
+        trackingNumbers: tracking ? [tracking] : [],
+      };
+      groups.push(current);
+    } else if (current && tracking) {
+      // Dòng kiện tiếp theo của cùng bill phía trên (không có AWB riêng).
+      current.trackingNumbers.push(tracking);
+    }
   }
-  return -1;
+
+  return groups;
 }
 
 function nextFalcoCode(existingCodes: Set<string>): string {
@@ -88,9 +124,9 @@ async function main() {
   const workbook = XLSX.read(buffer, { type: "buffer" });
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
-  const rows: string[][] = XLSX.utils.sheet_to_json(sheet, {
+  const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, {
     header: 1,
-    raw: false,
+    raw: true,
     defval: "",
   });
 
@@ -99,26 +135,10 @@ async function main() {
     return;
   }
 
-  const headers = rows[0];
-  const colIndex: Record<keyof RawColumns, number> = {
-    awb: findColumnIndex(headers, COLUMN_ALIASES.awb),
-    customerName: findColumnIndex(headers, COLUMN_ALIASES.customerName),
-    customerPhone: findColumnIndex(headers, COLUMN_ALIASES.customerPhone),
-    destination: findColumnIndex(headers, COLUMN_ALIASES.destination),
-    carrier: findColumnIndex(headers, COLUMN_ALIASES.carrier),
-    lastMileCode: findColumnIndex(headers, COLUMN_ALIASES.lastMileCode),
-  };
-
-  if (colIndex.awb === -1) {
-    console.error(
-      "Không tìm thấy cột mã AWB trong file. Các cột đọc được:",
-      headers
-    );
-    console.error(
-      "Sửa COLUMN_ALIASES.awb trong scripts/import-kango-orders.ts cho khớp tên cột thật."
-    );
-    process.exit(1);
-  }
+  const groups = groupRowsByAwb(rows.slice(1));
+  console.log(
+    `Đọc được ${groups.length} bill (${rows.length - 1} dòng) từ file.`
+  );
 
   console.log("Đang tải danh sách đơn hàng hiện có từ Google Sheet...");
   const existingOrders = await getAllOrders();
@@ -132,49 +152,39 @@ async function main() {
   const newRows: OrderRow[] = [];
   let skipped = 0;
 
-  for (const row of rows.slice(1)) {
-    const awb = (row[colIndex.awb] || "").toString().trim();
-    if (!awb) continue;
-
-    if (existingBillNumbers.has(awb.toUpperCase())) {
+  for (const g of groups) {
+    if (existingBillNumbers.has(g.awb.toUpperCase())) {
       skipped += 1;
       continue;
     }
 
     const falcoCode = nextFalcoCode(existingFalcoCodes);
     existingFalcoCodes.add(falcoCode);
-    existingBillNumbers.add(awb.toUpperCase());
+    existingBillNumbers.add(g.awb.toUpperCase());
 
     newRows.push({
       falcoCode,
-      billNumber: awb,
-      customerName:
-        colIndex.customerName !== -1 ? (row[colIndex.customerName] || "").toString().trim() : "",
-      customerPhone:
-        colIndex.customerPhone !== -1 ? (row[colIndex.customerPhone] || "").toString().trim() : "",
-      service: "Quốc tế",
-      destination:
-        colIndex.destination !== -1 ? (row[colIndex.destination] || "").toString().trim() : "",
-      lastMileCarrier:
-        colIndex.carrier !== -1 ? (row[colIndex.carrier] || "").toString().trim() : "",
-      lastMileCodes:
-        colIndex.lastMileCode !== -1 ? (row[colIndex.lastMileCode] || "").toString().trim() : "",
-      receivedDate: new Date().toLocaleDateString("vi-VN"),
+      billNumber: g.awb,
+      recipientName: g.contact,
+      recipientPhone: g.telephone,
+      service: g.service,
+      destination: [g.city, g.country].filter(Boolean).join(", "),
+      lastMileCodes: g.trackingNumbers.join(", "),
+      receivedDate: g.date,
       warehouseDate: "",
       handoverDate: "",
       deliveredDate: "",
-      note: "",
     });
   }
 
   if (newRows.length === 0) {
-    console.log(`Không có đơn mới. Đã bỏ qua ${skipped} đơn trùng lặp.`);
+    console.log(`Không có bill mới. Đã bỏ qua ${skipped} bill trùng lặp.`);
     return;
   }
 
   await appendOrders(newRows);
   console.log(
-    `Đã thêm ${newRows.length} đơn mới vào Google Sheet. Bỏ qua ${skipped} đơn trùng lặp.`
+    `Đã thêm ${newRows.length} bill mới vào Google Sheet. Bỏ qua ${skipped} bill trùng lặp.`
   );
   console.log("Mã Falco mới:", newRows.map((r) => r.falcoCode).join(", "));
 }

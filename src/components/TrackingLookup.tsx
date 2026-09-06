@@ -12,17 +12,6 @@ import {
 
 type Status = "idle" | "loading" | "done";
 
-function carrierTrackingUrl(carrier: string, code: string) {
-  const c = carrier.trim().toLowerCase();
-  if (c === "dhl") {
-    return `https://www.dhl.com/vn-vi/home/tracking/tracking-express.html?submit=1&tracking-id=${encodeURIComponent(code)}`;
-  }
-  if (c === "ups") {
-    return `https://www.ups.com/track?tracknum=${encodeURIComponent(code)}`;
-  }
-  return "";
-}
-
 export default function TrackingLookup() {
   const searchParams = useSearchParams();
   const [value, setValue] = useState("");
@@ -172,7 +161,7 @@ export default function TrackingLookup() {
                 })}
               </ol>
 
-              {(result.ksnPostUrl || result.lastMileCodes.length > 0) && (
+              {(result.ksnPostUrl || result.lastMile.length > 0) && (
                 <div className="mt-7 flex flex-wrap gap-3 border-t border-line pt-6">
                   {result.ksnPostUrl && (
                     <a
@@ -181,27 +170,25 @@ export default function TrackingLookup() {
                       rel="noopener noreferrer"
                       className="btn-primary"
                     >
-                      Xem tiến trình hải quan tại KSN Post
+                      Xem chi tiết hành trình tại Kango
                       <ArrowRightIcon className="h-4 w-4" />
                     </a>
                   )}
-                  {result.lastMileCodes.map((code, i) => {
-                    const url = carrierTrackingUrl(result.lastMileCarrier, code);
+                  {result.lastMile.map((item, i) => {
                     const label =
-                      result.lastMileCodes.length > 1
-                        ? `Kiện ${i + 1} · ${result.lastMileCarrier} ${code}`
-                        : `${result.lastMileCarrier} ${code}`;
-                    return url ? (
-                      <a key={code} href={url} target="_blank" rel="noopener noreferrer" className="btn-outline">
-                        {label}
-                      </a>
-                    ) : (
-                      <span
-                        key={code}
-                        className="btn-outline pointer-events-none"
+                      result.lastMile.length > 1
+                        ? `Kiện ${i + 1} · ${item.carrier} ${item.code}`
+                        : `${item.carrier} ${item.code}`;
+                    return (
+                      <a
+                        key={item.code}
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-outline"
                       >
                         {label}
-                      </span>
+                      </a>
                     );
                   })}
                 </div>

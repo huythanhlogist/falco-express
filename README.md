@@ -78,23 +78,25 @@ dữ liệu bắt đầu từ dòng 2):
 | Cột | Tên | Ví dụ |
 |---|---|---|
 | A | Mã Falco | `FL250906001` |
-| B | Số bill | `2026800812` |
-| C | Tên khách hàng | (nội bộ) |
-| D | SĐT khách hàng | (nội bộ) |
-| E | Dịch vụ | `Quốc tế` |
-| F | Nước đến | `Hoa Kỳ` |
-| G | Hãng last-mile | `DHL` |
-| H | Mã tracking last-mile | `DHL123456, DHL123457` (nhiều mã cách nhau bởi dấu phẩy nếu bill có nhiều kiện) |
-| I | Ngày tiếp nhận | `05/09/2026` |
-| J | Ngày xử lý tại kho | |
-| K | Ngày bàn giao đối tác vận chuyển | |
-| L | Ngày giao thành công | |
-| M | Ghi chú nội bộ | |
+| B | Số bill (AWB) | `2026800812` — dùng để tạo link "Xem chi tiết hành trình tại Kango" |
+| C | Người nhận | (nội bộ) |
+| D | SĐT người nhận | (nội bộ) |
+| E | Dịch vụ | `AIR-UK-PRIORITY` (lấy nguyên từ cột SERVICE trong file Kango) |
+| F | Điểm đến | `London, United Kingdom` |
+| G | Mã tracking last-mile | `15503037282262, 15503037282263` (nhiều mã cách nhau bởi dấu phẩy nếu bill có nhiều kiện) |
+| H | Ngày tiếp nhận | `05/09/2026` |
+| I | Ngày xử lý tại kho | |
+| J | Ngày bàn giao đối tác vận chuyển | |
+| K | Ngày giao thành công | |
 
-Cột C, D, M **không bao giờ** hiển thị công khai trên web — chỉ đọc nội bộ.
-Trạng thái hiển thị cho khách được suy ra tự động từ cột I–L (mốc gần nhất
+Cột C, D **không bao giờ** hiển thị công khai trên web — chỉ đọc nội bộ.
+Trạng thái hiển thị cho khách được suy ra tự động từ cột H–K (mốc gần nhất
 có ngày = trạng thái hiện tại), nên **không cần** một cột "trạng thái"
-riêng.
+riêng. Hãng vận chuyển last-mile (DHL/UPS) cũng **không cần cột riêng** —
+web tự nhận diện qua định dạng mã (mã bắt đầu `1Z` → UPS, còn lại → DHL,
+theo `detectCarrier()` trong
+[`src/lib/sheets.ts`](src/lib/sheets.ts)) vì file Kango xuất ra không có
+cột ghi tên hãng.
 
 ### 2. Tạo Service Account (Google Cloud) — làm 1 lần
 
@@ -117,27 +119,28 @@ Từ file JSON tải ở bước trên, điền vào `.env.local`:
 GOOGLE_SERVICE_ACCOUNT_EMAIL=<client_email trong file JSON>
 GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="<private_key trong file JSON, giữ nguyên \n>"
 GOOGLE_SHEET_ID=<lấy từ URL Sheet, đoạn giữa /d/ và /edit>
-GOOGLE_SHEET_RANGE=Orders!A2:M1000
+GOOGLE_SHEET_RANGE=Orders!A2:K1000
 ```
 
 Khi deploy lên Hostinger, nhập 4 biến này vào **Environment variables**
 của Node.js App, giống cách làm với `SMTP_*`.
 
-### 4. Nhập đơn hàng mới từ file Excel Kango xuất định kỳ
+### 4. Nhập đơn hàng mới từ file Excel Kango ("ListShipment") xuất định kỳ
 
-Kango xuất được file Excel chứa mã AWB (dùng làm "Số bill"). Mỗi khi có
-file mới, chạy:
+Mỗi khi có file mới từ Kango, chạy:
 
 ```bash
-npm run import:kango -- /duong/dan/file-kango.xlsx
+npm run import:kango -- /duong/dan/ListShipment.xlsx
 ```
 
-Script tự động: đọc file, bỏ qua các AWB đã có sẵn trong Sheet (khử trùng
-lặp do file Kango xuất theo tháng), sinh Mã Falco mới cho AWB chưa có, rồi
-thêm dòng mới vào Google Sheet. Nếu tên cột trong file Excel thật khác với
-danh sách trong `COLUMN_ALIASES` ở đầu file
-[`scripts/import-kango-orders.ts`](scripts/import-kango-orders.ts), thêm
-tên cột thật vào danh sách alias tương ứng.
+Script tự động: đọc file theo đúng cấu trúc cột thật của Kango (AWB,
+TRACKING NUMBER, SERVICE, DATE, CONTACT, CITY, COUNTRY, TELEPHONE — xem vị
+trí cột trong `COL` ở đầu file
+[`scripts/import-kango-orders.ts`](scripts/import-kango-orders.ts)), gộp
+các dòng kiện cùng một bill (dòng kiện sau để trống ô AWB), bỏ qua AWB đã
+có sẵn trong Sheet (khử trùng lặp do file Kango xuất theo tháng), sinh Mã
+Falco mới cho bill chưa có, rồi thêm dòng mới vào Google Sheet. Nếu Kango
+đổi cấu trúc cột, chỉ cần sửa lại các số trong object `COL`.
 
 ## Build production
 
