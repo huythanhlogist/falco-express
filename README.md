@@ -175,6 +175,13 @@ nếu chưa đăng nhập). Gồm:
   cho nhập tay **Thu** (`orders.amount`) và **Chi** (`orders.cost`) từng đơn,
   tự tính Lãi/lỗ mỗi dòng, lọc theo trạng thái thu. Bảng **Chi phí phát
   sinh** (bảng `expenses`) nhập tay chi phí chung, sửa/xoá được từng dòng.
+- **Upload tài liệu** (`/admin/upload`): nhân viên tự upload file Excel
+  "ListShipment" Kango xuất ra ngay trên web (không cần chạy CLI nữa). Bill
+  mới được thêm vào (khử trùng theo AWB); bill AWB đã có sẵn chỉ được **điền
+  vào các trường đang trống** (vd file lần trước thiếu mã tracking, lần sau
+  upload lại có sẽ tự bổ sung) — không ghi đè dữ liệu đã có. Logic đọc/gộp/
+  merge dùng chung với `scripts/import-kango-orders.ts` qua
+  `src/lib/kango-import.ts`.
 - **SEO** (`/admin/seo`): sửa tiêu đề (title) và mô tả (description) cho
   từng trang công khai. Để trống ô nào thì trang đó dùng nội dung mặc định
   có sẵn trong code. Lưu vào bảng `seo_settings`, các trang công khai đọc
