@@ -28,6 +28,7 @@ type TrackingParcel = {
 type TrackingResult = {
   falcoCode: string;
   awb: string;
+  recipientName: string;
   service: string;
   destination: string;
   currentStatus: string;
@@ -124,7 +125,13 @@ export default function TrackingLookup() {
                 </span>
               </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
+              <div className="mt-5 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+                <div>
+                  <p className="text-xs text-ink/45">Người nhận</p>
+                  <p className="mt-1 font-medium text-navy-900">
+                    {result.recipientName || "—"}
+                  </p>
+                </div>
                 <div>
                   <p className="text-xs text-ink/45">Dịch vụ</p>
                   <p className="mt-1 font-medium text-navy-900">

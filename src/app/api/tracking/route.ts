@@ -25,6 +25,7 @@ export async function GET(request: Request) {
         data: {
           falcoCode: order.falco_code,
           awb: order.awb,
+          recipientName: order.recipient_name || "",
           service: order.service || "",
           destination: order.destination || "",
           currentStatus: "Đã tiếp nhận, đang chờ cập nhật từ đối tác vận chuyển",
@@ -45,9 +46,14 @@ export async function GET(request: Request) {
     const data = {
       falcoCode: order.falco_code,
       awb: order.awb,
+      recipientName: order.recipient_name || "",
       service: kango.additional_notes.service || order.service || "",
       destination: kango.additional_notes.country || order.destination || "",
-      currentStatus: currentParcel?.status || kango.trackings[0]?.title || "Chưa cập nhật",
+      // Ưu tiên tiêu đề mốc thời gian mới nhất (trackings[0]) thay vì
+      // currentParcel.status — trường status của Kango có thể chưa đồng bộ
+      // kịp (vd vẫn ghi "In Transit" dù mốc mới nhất đã là "delivered"),
+      // trong khi trackings[0] luôn khớp với mốc đầu tiên hiển thị bên dưới.
+      currentStatus: kango.trackings[0]?.title || currentParcel?.status || "Chưa cập nhật",
       steps: kango.trackings.map((t) => ({
         title: t.title,
         time: t.time,

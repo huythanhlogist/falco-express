@@ -157,7 +157,7 @@ export async function listOrders(params: {
      LEFT JOIN order_parcels p ON p.order_id = o.id
      ${where}
      GROUP BY o.id
-     ORDER BY o.created_at DESC
+     ORDER BY o.id DESC
      LIMIT ? OFFSET ?`,
     [...whereArgs, limit, offset]
   );
