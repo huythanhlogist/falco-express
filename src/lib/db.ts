@@ -255,7 +255,10 @@ export async function deleteAdminUser(id: number): Promise<boolean> {
 
 // ---------- Admin: quản lý đơn hàng ----------
 
-export type OrderListItem = OrderRecord & { parcel_count: number };
+export type OrderListItem = OrderRecord & {
+  parcel_count: number;
+  tracking_codes: string | null; // các mã tracking nối bằng dấu "," — dùng cho nút copy gửi khách
+};
 
 export async function listOrders(params: {
   search: string;
@@ -292,7 +295,8 @@ export async function listOrders(params: {
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const [rows] = await getPool().query(
-    `SELECT o.*, COUNT(p.id) AS parcel_count
+    `SELECT o.*, COUNT(p.id) AS parcel_count,
+       GROUP_CONCAT(p.tracking_code ORDER BY p.id SEPARATOR ',') AS tracking_codes
      FROM orders o
      LEFT JOIN order_parcels p ON p.order_id = o.id
      ${where}
