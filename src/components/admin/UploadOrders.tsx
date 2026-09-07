@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { UploadIcon } from "@/components/icons";
 
 type UploadState = "idle" | "uploading" | "done" | "error";
@@ -14,12 +14,51 @@ type UploadResult = {
   errors: string[];
 };
 
+type HistoryEntry = {
+  id: number;
+  file_name: string;
+  uploaded_by: string;
+  total_bills: number;
+  inserted: number;
+  updated: number;
+  unchanged: number;
+  errors: string | null;
+  created_at: string;
+};
+
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default function UploadOrders() {
   const [state, setState] = useState<UploadState>("idle");
   const [fileName, setFileName] = useState("");
   const [result, setResult] = useState<UploadResult | null>(null);
   const [error, setError] = useState("");
+  const [history, setHistory] = useState<HistoryEntry[] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  async function loadHistory() {
+    try {
+      const res = await fetch("/api/admin/upload-history");
+      if (!res.ok) return;
+      const json = await res.json();
+      setHistory(json.history as HistoryEntry[]);
+    } catch {
+      // Lỗi tải lịch sử không quan trọng bằng việc upload — bỏ qua âm thầm,
+      // khu vực lịch sử chỉ đơn giản không hiện gì.
+    }
+  }
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
 
   async function handleFile(file: File) {
     setFileName(file.name);
@@ -39,6 +78,7 @@ export default function UploadOrders() {
       }
       setResult(json as UploadResult);
       setState("done");
+      loadHistory();
     } catch {
       setError("Không kết nối được tới máy chủ — thử lại sau");
       setState("error");
@@ -61,7 +101,7 @@ export default function UploadOrders() {
   const busy = state === "uploading";
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-3xl">
       <div
         onDragOver={(e) => e.preventDefault()}
         onDrop={onDrop}
@@ -117,7 +157,7 @@ export default function UploadOrders() {
           </div>
           <p className="mt-3 text-xs text-ink/50">
             Đọc được {result.totalBills} bill trong file. Bill mới đã được ghi vào hệ thống và mirror sang
-            Google Sheet; bill đã có được điền thêm thông tin/mã tracking còn thiếu.
+            Google Sheet; bill đã có được cập nhật thông tin/mã tracking thay đổi hoặc còn thiếu.
           </p>
           {result.insertedCodes.length > 0 && (
             <p className="mt-2 text-xs text-ink/60">
@@ -147,6 +187,64 @@ export default function UploadOrders() {
           </button>
         </div>
       )}
+
+      <div className="mt-8">
+        <h2 className="font-display text-base font-bold text-navy-900">Lịch sử upload</h2>
+        <p className="mt-0.5 text-xs text-ink/50">
+          Chỉ lưu lại kết quả xử lý (không lưu file gốc) — 20 lần gần nhất.
+        </p>
+        <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-white">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-line bg-mist/60 text-left text-xs font-semibold uppercase tracking-wide text-ink/45">
+                <th className="px-3 py-2">Thời gian</th>
+                <th className="px-3 py-2">File</th>
+                <th className="px-3 py-2">Người upload</th>
+                <th className="px-3 py-2">Tổng bill</th>
+                <th className="px-3 py-2">Mới</th>
+                <th className="px-3 py-2">Cập nhật</th>
+                <th className="px-3 py-2">Không đổi</th>
+                <th className="px-3 py-2">Lỗi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(history ?? []).map((h) => {
+                const errs: string[] = h.errors ? JSON.parse(h.errors) : [];
+                return (
+                  <tr key={h.id} className="border-b border-line last:border-0 hover:bg-mist/40">
+                    <td className="px-3 py-2 text-ink/70">{formatDateTime(h.created_at)}</td>
+                    <td className="px-3 py-2 text-ink/70">{h.file_name}</td>
+                    <td className="px-3 py-2 text-ink/70">{h.uploaded_by}</td>
+                    <td className="px-3 py-2 text-ink/70">{h.total_bills}</td>
+                    <td className="px-3 py-2 font-medium text-emerald-700">{h.inserted}</td>
+                    <td className="px-3 py-2 font-medium text-navy-800">{h.updated}</td>
+                    <td className="px-3 py-2 text-ink/50">{h.unchanged}</td>
+                    <td className="px-3 py-2">
+                      {errs.length > 0 ? (
+                        <span
+                          title={errs.join("\n")}
+                          className="inline-flex items-center rounded-full bg-flame-50 px-2.5 py-1 text-xs font-bold text-flame-700"
+                        >
+                          {errs.length} lỗi
+                        </span>
+                      ) : (
+                        <span className="text-ink/30">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {history !== null && history.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-5 py-8 text-center text-ink/45">
+                    Chưa có lần upload nào.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

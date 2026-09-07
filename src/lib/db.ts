@@ -506,3 +506,56 @@ export async function upsertSeoSetting(
     [pagePath, metaTitle, metaDescription]
   );
 }
+
+// ---------- Admin: lịch sử upload tài liệu ----------
+
+/**
+ * Chỉ lưu LẠI KẾT QUẢ xử lý (tên file, ai upload, số bill mới/cập nhật/
+ * không đổi, lỗi nếu có) — KHÔNG lưu nội dung file gốc, tránh phình dung
+ * lượng DB vì file Kango upload đều đặn 2 ngày/lần.
+ */
+export type UploadHistoryEntry = {
+  id: number;
+  file_name: string;
+  uploaded_by: string;
+  total_bills: number;
+  inserted: number;
+  updated: number;
+  unchanged: number;
+  errors: string | null; // JSON.stringify(string[]) hoặc null nếu không có lỗi
+  created_at: string;
+};
+
+export async function insertUploadHistory(entry: {
+  fileName: string;
+  uploadedBy: string;
+  totalBills: number;
+  inserted: number;
+  updated: number;
+  unchanged: number;
+  errors: string[];
+}): Promise<number> {
+  const [result] = await getPool().query(
+    `INSERT INTO upload_history
+       (file_name, uploaded_by, total_bills, inserted, updated, unchanged, errors)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      entry.fileName,
+      entry.uploadedBy,
+      entry.totalBills,
+      entry.inserted,
+      entry.updated,
+      entry.unchanged,
+      entry.errors.length > 0 ? JSON.stringify(entry.errors) : null,
+    ]
+  );
+  return (result as mysql.ResultSetHeader).insertId;
+}
+
+export async function listUploadHistory(limit = 20): Promise<UploadHistoryEntry[]> {
+  const [rows] = await getPool().query(
+    "SELECT * FROM upload_history ORDER BY id DESC LIMIT ?",
+    [limit]
+  );
+  return rows as UploadHistoryEntry[];
+}

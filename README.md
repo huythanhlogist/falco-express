@@ -177,11 +177,15 @@ nếu chưa đăng nhập). Gồm:
   sinh** (bảng `expenses`) nhập tay chi phí chung, sửa/xoá được từng dòng.
 - **Upload tài liệu** (`/admin/upload`): nhân viên tự upload file Excel
   "ListShipment" Kango xuất ra ngay trên web (không cần chạy CLI nữa). Bill
-  mới được thêm vào (khử trùng theo AWB); bill AWB đã có sẵn chỉ được **điền
-  vào các trường đang trống** (vd file lần trước thiếu mã tracking, lần sau
-  upload lại có sẽ tự bổ sung) — không ghi đè dữ liệu đã có. Logic đọc/gộp/
-  merge dùng chung với `scripts/import-kango-orders.ts` qua
-  `src/lib/kango-import.ts`.
+  mới được thêm vào (khử trùng theo AWB); bill AWB đã có sẵn được **cập nhật
+  khi file mới có giá trị khác** — vừa điền vào chỗ đang trống (vd mã
+  tracking chưa có ở lần trước), vừa cập nhật khi thông tin thực sự thay đổi
+  (vd đổi tên/SĐT) — ô nào file mới để trống thì giữ nguyên dữ liệu cũ, không
+  xoá mất. Logic đọc/gộp/merge dùng chung với `scripts/import-kango-orders.ts`
+  qua `src/lib/kango-import.ts`. Có bảng **lịch sử upload** (bảng
+  `upload_history`) hiện 20 lần gần nhất — chỉ lưu kết quả xử lý (ai upload,
+  file gì, số bill mới/cập nhật/không đổi, lỗi), KHÔNG lưu nội dung file gốc
+  để tránh phình dung lượng DB.
 - **SEO** (`/admin/seo`): sửa tiêu đề (title) và mô tả (description) cho
   từng trang công khai. Để trống ô nào thì trang đó dùng nội dung mặc định
   có sẵn trong code. Lưu vào bảng `seo_settings`, các trang công khai đọc
@@ -226,6 +230,12 @@ nếu chưa đăng nhập). Gồm:
      amount DECIMAL(12,2) NOT NULL, expense_date DATETIME NOT NULL,
      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)\`);
+   await conn.query(\`CREATE TABLE IF NOT EXISTS upload_history (
+     id INT AUTO_INCREMENT PRIMARY KEY, file_name VARCHAR(255) NOT NULL,
+     uploaded_by VARCHAR(255) NOT NULL, total_bills INT NOT NULL DEFAULT 0,
+     inserted INT NOT NULL DEFAULT 0, updated INT NOT NULL DEFAULT 0,
+     unchanged INT NOT NULL DEFAULT 0, errors TEXT NULL,
+     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)\`);
    console.log('done'); await conn.end();
    "
    ```

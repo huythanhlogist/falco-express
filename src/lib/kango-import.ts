@@ -13,9 +13,10 @@
  * dòng AWB gần nhất phía trên.
  *
  * File Kango xuất theo đợt nên các lần xuất sau sẽ trùng lặp AWB của lần
- * trước — với AWB đã có: chỉ ĐIỀN thêm vào các trường đang trống (vd mã
- * tracking chưa có ở lần trước) và mã tracking mới xuất hiện, KHÔNG ghi đè
- * dữ liệu đã có sẵn.
+ * trước — với AWB đã có: cập nhật các trường khi file mới có giá trị KHÁC
+ * dữ liệu hiện tại (vừa điền chỗ trống — vd mã tracking chưa có ở lần
+ * trước — vừa cập nhật khi thông tin thực sự thay đổi, vd đổi tên/SĐT). Ô
+ * nào file mới để trống thì giữ nguyên dữ liệu cũ, không xoá mất.
  *
  * MySQL là nguồn dữ liệu CHÍNH. Google Sheet chỉ là bản mirror để tải file
  * Excel tổng hợp khi cần (chỉ mirror bill MỚI, không mirror bill được cập
@@ -120,6 +121,23 @@ function groupRowsByAwb(rows: unknown[][]): ShipmentGroup[] {
   return groups;
 }
 
+/**
+ * mysql2 trả cột DATE về dưới dạng `Date` object (giờ local), không phải
+ * chuỗi — không được lấy ISO string rồi cắt chuỗi (`toISOString().slice`),
+ * vì `toISOString()` quy về UTC và có thể lùi lại 1 ngày ở múi giờ UTC+7
+ * (đã từng gây lỗi thật, xem OrderRowActions.toDateInputValue). Dùng đúng
+ * các thành phần ngày/tháng/năm local để so sánh cho khớp giá trị đã lưu.
+ */
+function toIsoDate(value: string | Date | null): string | null {
+  if (!value) return null;
+  if (value instanceof Date) {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+  }
+  const m = value.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : null;
+}
+
 function nextFalcoCode(existingCodes: Set<string>): string {
   const today = new Date();
   const y = String(today.getFullYear()).slice(2);
@@ -212,14 +230,26 @@ export async function processKangoWorkbook(
           continue;
         }
 
-        // Chỉ điền vào các trường đang TRỐNG — không ghi đè dữ liệu admin
-        // hoặc lần nhập trước đã có, vì lần nhập sau đôi khi thiếu thông tin.
+        // Cập nhật khi file mới có giá trị KHÁC với dữ liệu hiện tại — bao
+        // gồm cả điền vào chỗ đang trống LẪN thông tin đã đổi (vd khách đổi
+        // SĐT). Nếu file mới để trống ô đó thì giữ nguyên dữ liệu cũ, không
+        // xoá mất — vì 1 lần xuất file có thể thiếu thông tin.
         const fields: OrderEditableFields = {};
-        if (!existing.recipient_name && g.contact) fields.recipientName = g.contact;
-        if (!existing.recipient_phone && g.telephone) fields.recipientPhone = g.telephone;
-        if (!existing.service && g.service) fields.service = g.service;
-        if (!existing.destination && destination) fields.destination = destination;
-        if (!existing.received_date && g.dateIso) fields.receivedDate = g.dateIso;
+        if (g.contact && g.contact !== (existing.recipient_name ?? "")) {
+          fields.recipientName = g.contact;
+        }
+        if (g.telephone && g.telephone !== (existing.recipient_phone ?? "")) {
+          fields.recipientPhone = g.telephone;
+        }
+        if (g.service && g.service !== (existing.service ?? "")) {
+          fields.service = g.service;
+        }
+        if (destination && destination !== (existing.destination ?? "")) {
+          fields.destination = destination;
+        }
+        if (g.dateIso && g.dateIso !== toIsoDate(existing.received_date)) {
+          fields.receivedDate = g.dateIso;
+        }
 
         let parcelsChanged = false;
         if (g.trackingNumbers.length > 0) {

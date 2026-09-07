@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentAdminSession } from "@/lib/auth";
 import { processKangoWorkbook } from "@/lib/kango-import";
+import { insertUploadHistory } from "@/lib/db";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB — file Kango vài trăm dòng, đủ dư.
 
@@ -32,6 +33,17 @@ export async function POST(request: Request) {
 
   try {
     const result = await processKangoWorkbook(buffer);
+    // Chỉ lưu lại kết quả xử lý để hiện lịch sử — không lưu nội dung file,
+    // tránh phình dung lượng DB vì file này upload đều đặn 2 ngày/lần.
+    await insertUploadHistory({
+      fileName: file.name,
+      uploadedBy: session.email,
+      totalBills: result.totalBills,
+      inserted: result.inserted,
+      updated: result.updated,
+      unchanged: result.unchanged,
+      errors: result.errors,
+    });
     return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(
