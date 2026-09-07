@@ -75,30 +75,3 @@ export async function fetchKangoTracking(
 
   return data;
 }
-
-export type ShipmentStage = "delivered" | "customs_cleared" | "in_transit";
-
-const SHIPMENT_STAGE_LABELS: Record<ShipmentStage, string> = {
-  delivered: "Đã giao hàng",
-  customs_cleared: "Đã thông quan",
-  in_transit: "In Transit",
-};
-
-/**
- * Phân loại mốc thời gian mới nhất thành 1 trong 3 nhóm trạng thái để hiển
- * thị gọn trong trang admin. Đây là suy đoán theo từ khoá trong tiêu đề mốc
- * thời gian (dữ liệu Kango không có sẵn trường "giai đoạn" chuẩn hoá) — nếu
- * Kango đổi cách đặt tiêu đề mốc, có thể cần cập nhật lại các từ khoá này.
- */
-export function classifyShipmentStage(
-  latestEventTitle: string | undefined
-): ShipmentStage {
-  const title = (latestEventTitle || "").toLowerCase();
-  if (/deliver/.test(title)) return "delivered";
-  if (/custom|thông quan/.test(title)) return "customs_cleared";
-  return "in_transit";
-}
-
-export function shipmentStageLabel(stage: ShipmentStage): string {
-  return SHIPMENT_STAGE_LABELS[stage];
-}

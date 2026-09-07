@@ -163,7 +163,8 @@ Sheet**. Nếu Kango đổi cấu trúc cột, chỉ cần sửa lại các số
 Truy cập `https://falcoexpress.com/admin` (chuyển hướng tới `/admin/login`
 nếu chưa đăng nhập). Gồm:
 
-- **Đơn hàng** (`/admin/orders`): danh sách toàn bộ đơn từ MySQL, tìm theo
+- **Đơn hàng** (`/admin/orders`): danh sách toàn bộ đơn từ MySQL (sắp xếp
+  theo ngày nhận, mới nhất trước), lọc theo trạng thái thanh toán, tìm theo
   mã Falco/AWB/tên/SĐT, bấm để đổi **Đã thanh toán ↔ Chưa thanh toán** (chỉ
   đánh dấu thủ công, không có cổng thanh toán).
 - **SEO** (`/admin/seo`): sửa tiêu đề (title) và mô tả (description) cho
@@ -173,6 +174,11 @@ nếu chưa đăng nhập). Gồm:
 - **Search Console** (`/admin/search-console`): khung hiển thị báo cáo —
   hiện là placeholder, sẽ có số liệu thật khi làm Giai đoạn 3 (kết nối
   Google Search Console).
+- **Nhân viên** (`/admin/staff`): mỗi tài khoản có `role` là `owner` (chủ
+  tài khoản) hoặc `staff` (nhân viên). Nhân viên có toàn quyền xem/sửa mọi
+  mục trên — chỉ riêng việc **tạo hoặc xoá tài khoản khác** là giới hạn cho
+  `owner` (cả UI lẫn API `/api/admin/staff` đều kiểm tra `role` từ JWT
+  session, không chỉ ẩn nút trên giao diện).
 
 ### Thiết lập lần đầu
 
@@ -190,6 +196,7 @@ nếu chưa đăng nhập). Gồm:
    await conn.query(\`CREATE TABLE IF NOT EXISTS admin_users (
      id INT AUTO_INCREMENT PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL,
      password_hash VARCHAR(255) NOT NULL,
+     role ENUM('owner','staff') NOT NULL DEFAULT 'staff',
      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)\`);
    await conn.query(\`CREATE TABLE IF NOT EXISTS seo_settings (
      page_path VARCHAR(255) PRIMARY KEY, meta_title VARCHAR(255),
@@ -225,12 +232,15 @@ nếu chưa đăng nhập). Gồm:
    });
    const hash = await bcrypt.hash('MAT_KHAU_MOI', 12);
    await conn.query(
-     'INSERT INTO admin_users (email, password_hash) VALUES (?, ?) ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash)',
+     \"INSERT INTO admin_users (email, password_hash, role) VALUES (?, ?, 'owner') ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash)\",
      ['ban@falcoexpress.com', hash]
    );
    console.log('done'); await conn.end();
    "
    ```
+
+   Tài khoản đầu tiên nên là `owner` (như trên) — đây là tài khoản duy nhất
+   có thể tạo/xoá các tài khoản nhân viên khác trong `/admin/staff` sau này.
 
 Middleware xác thực nằm ở [`src/proxy.ts`](src/proxy.ts) (Next.js 16 đổi
 tên quy ước từ `middleware.ts` sang `proxy.ts`), chặn toàn bộ `/admin/*` và

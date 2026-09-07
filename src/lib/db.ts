@@ -54,6 +54,12 @@ export async function findOrderByFalcoCode(
   return list[0] ?? null;
 }
 
+export async function findOrderById(id: number): Promise<OrderRecord | null> {
+  const [rows] = await getPool().query("SELECT * FROM orders WHERE id = ? LIMIT 1", [id]);
+  const list = rows as OrderRecord[];
+  return list[0] ?? null;
+}
+
 export async function findOrderByAwb(
   awb: string
 ): Promise<OrderRecord | null> {
@@ -118,10 +124,13 @@ export async function listFalcoCodeSet(): Promise<Set<string>> {
 
 // ---------- Admin: người dùng quản trị ----------
 
+export type AdminRole = "owner" | "staff";
+
 export type AdminUser = {
   id: number;
   email: string;
   password_hash: string;
+  role: AdminRole;
 };
 
 export async function findAdminByEmail(
@@ -133,6 +142,32 @@ export async function findAdminByEmail(
   );
   const list = rows as AdminUser[];
   return list[0] ?? null;
+}
+
+export type AdminUserListItem = { id: number; email: string; role: AdminRole; created_at: string };
+
+export async function listAdminUsers(): Promise<AdminUserListItem[]> {
+  const [rows] = await getPool().query(
+    "SELECT id, email, role, created_at FROM admin_users ORDER BY id ASC"
+  );
+  return rows as AdminUserListItem[];
+}
+
+export async function insertAdminUser(
+  email: string,
+  passwordHash: string,
+  role: AdminRole
+): Promise<number> {
+  const [result] = await getPool().query(
+    "INSERT INTO admin_users (email, password_hash, role) VALUES (?, ?, ?)",
+    [email.trim().toLowerCase(), passwordHash, role]
+  );
+  return (result as mysql.ResultSetHeader).insertId;
+}
+
+export async function deleteAdminUser(id: number): Promise<boolean> {
+  const [result] = await getPool().query("DELETE FROM admin_users WHERE id = ?", [id]);
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
 }
 
 // ---------- Admin: quản lý đơn hàng ----------
