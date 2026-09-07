@@ -18,31 +18,60 @@ const STAGE_BADGE_CLASS: Record<ShipmentStage, string> = {
   in_transit: "bg-flame-50 text-flame-700",
 };
 
+// Cache trạng thái Kango trong bộ nhớ tiến trình Node — trang admin trước
+// đây gọi Kango cho cả 20 đơn trên MỖI lần tải trang (kể cả khi chỉ chuyển
+// trang/tìm kiếm lại đơn cũ), gây trang bị lag và một số đơn timeout thành
+// "Chưa cập nhật" khi 20 request chạy song song. Cache theo AWB trong vài
+// phút giúp các lần tải sau gần như tức thì; lỗi/timeout được cache ngắn
+// hơn để tự thử lại sớm thay vì lỗi cố định.
+const STAGE_CACHE_TTL_MS = 3 * 60 * 1000;
+const STAGE_ERROR_CACHE_TTL_MS = 20 * 1000;
+const stageCache = new Map<string, { stage: ShipmentStage | null; expiresAt: number }>();
+
 async function fetchStage(awb: string): Promise<ShipmentStage | null> {
+  const cached = stageCache.get(awb);
+  if (cached && cached.expiresAt > Date.now()) return cached.stage;
+
   try {
     const kango = await fetchKangoTracking(awb);
-    if (!kango) return null;
-    return classifyShipmentStage(kango.trackings[0]?.title);
+    const stage = kango ? classifyShipmentStage(kango.trackings[0]?.title) : null;
+    stageCache.set(awb, { stage, expiresAt: Date.now() + STAGE_CACHE_TTL_MS });
+    return stage;
   } catch {
+    stageCache.set(awb, { stage: null, expiresAt: Date.now() + STAGE_ERROR_CACHE_TTL_MS });
     return null;
   }
 }
 
+const STATUS_TABS: { value: "all" | "paid" | "unpaid"; label: string }[] = [
+  { value: "all", label: "Tất cả" },
+  { value: "unpaid", label: "Chưa thanh toán" },
+  { value: "paid", label: "Đã thanh toán" },
+];
+
 export default async function AdminOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; status?: string }>;
 }) {
   const params = await searchParams;
   const search = params.q || "";
   const page = Math.max(1, Number(params.page) || 1);
+  const status: "all" | "paid" | "unpaid" =
+    params.status === "paid" || params.status === "unpaid" ? params.status : "all";
 
-  const { orders, total, } = await listOrders({
+  const { orders, total, paidCount, unpaidCount } = await listOrders({
     search,
+    status,
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
   });
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const tabCounts: Record<"all" | "paid" | "unpaid", number> = {
+    all: paidCount + unpaidCount,
+    paid: paidCount,
+    unpaid: unpaidCount,
+  };
 
   // Chỉ gọi Kango cho các đơn đang hiển thị trên trang hiện tại (tối đa
   // PAGE_SIZE) — không gọi cho toàn bộ đơn hàng để tránh trang admin bị
@@ -57,6 +86,7 @@ export default async function AdminOrdersPage({
           <p className="mt-1 text-sm text-ink/55">{total} đơn hàng</p>
         </div>
         <form className="flex gap-2">
+          {status !== "all" && <input type="hidden" name="status" value={status} />}
           <input
             type="text"
             name="q"
@@ -70,7 +100,33 @@ export default async function AdminOrdersPage({
         </form>
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-line bg-white">
+      <div className="mt-5 flex gap-2">
+        {STATUS_TABS.map((tab) => (
+          <Link
+            key={tab.value}
+            href={`/admin/orders?${new URLSearchParams({
+              ...(search ? { q: search } : {}),
+              ...(tab.value !== "all" ? { status: tab.value } : {}),
+            })}`}
+            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+              status === tab.value
+                ? "bg-navy-800 text-white"
+                : "bg-mist text-ink/60 hover:bg-line"
+            }`}
+          >
+            {tab.label}
+            <span
+              className={`rounded-full px-1.5 text-xs ${
+                status === tab.value ? "bg-white/20" : "bg-white text-ink/45"
+              }`}
+            >
+              {tabCounts[tab.value]}
+            </span>
+          </Link>
+        ))}
+      </div>
+
+      <div className="mt-4 overflow-x-auto rounded-2xl border border-line bg-white">
         <table className="w-full min-w-[960px] text-sm">
           <thead>
             <tr className="border-b border-line text-left text-xs font-semibold uppercase tracking-wide text-ink/45">
@@ -134,7 +190,11 @@ export default async function AdminOrdersPage({
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
             <Link
               key={p}
-              href={`/admin/orders?${new URLSearchParams({ ...(search ? { q: search } : {}), page: String(p) })}`}
+              href={`/admin/orders?${new URLSearchParams({
+                ...(search ? { q: search } : {}),
+                ...(status !== "all" ? { status } : {}),
+                page: String(p),
+              })}`}
               className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
                 p === page
                   ? "bg-navy-800 text-white"

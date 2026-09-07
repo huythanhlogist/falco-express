@@ -143,13 +143,24 @@ export async function listOrders(params: {
   search: string;
   limit: number;
   offset: number;
-}): Promise<{ orders: OrderListItem[]; total: number }> {
-  const { search, limit, offset } = params;
+  status?: "all" | "paid" | "unpaid";
+}): Promise<{ orders: OrderListItem[]; total: number; paidCount: number; unpaidCount: number }> {
+  const { search, limit, offset, status = "all" } = params;
   const like = `%${search.trim()}%`;
-  const where = search.trim()
-    ? "WHERE o.falco_code LIKE ? OR o.awb LIKE ? OR o.recipient_name LIKE ? OR o.recipient_phone LIKE ?"
-    : "";
-  const whereArgs = search.trim() ? [like, like, like, like] : [];
+
+  const conditions: string[] = [];
+  const whereArgs: unknown[] = [];
+  if (search.trim()) {
+    conditions.push(
+      "(o.falco_code LIKE ? OR o.awb LIKE ? OR o.recipient_name LIKE ? OR o.recipient_phone LIKE ?)"
+    );
+    whereArgs.push(like, like, like, like);
+  }
+  if (status === "paid" || status === "unpaid") {
+    conditions.push("o.payment_status = ?");
+    whereArgs.push(status);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const [rows] = await getPool().query(
     `SELECT o.*, COUNT(p.id) AS parcel_count
@@ -157,7 +168,7 @@ export async function listOrders(params: {
      LEFT JOIN order_parcels p ON p.order_id = o.id
      ${where}
      GROUP BY o.id
-     ORDER BY o.id DESC
+     ORDER BY o.received_date DESC, o.id DESC
      LIMIT ? OFFSET ?`,
     [...whereArgs, limit, offset]
   );
@@ -168,7 +179,24 @@ export async function listOrders(params: {
   );
   const total = (countRows as { total: number }[])[0]?.total ?? 0;
 
-  return { orders: rows as OrderListItem[], total };
+  // Đếm riêng theo trạng thái thanh toán (không áp bộ lọc status, chỉ áp
+  // tìm kiếm) để hiển thị số lượng trên các tab lọc.
+  const searchOnlyWhere = search.trim()
+    ? "WHERE o.falco_code LIKE ? OR o.awb LIKE ? OR o.recipient_name LIKE ? OR o.recipient_phone LIKE ?"
+    : "";
+  const searchOnlyArgs = search.trim() ? [like, like, like, like] : [];
+  const [statusRows] = await getPool().query(
+    `SELECT payment_status, COUNT(*) AS c FROM orders o ${searchOnlyWhere} GROUP BY payment_status`,
+    searchOnlyArgs
+  );
+  let paidCount = 0;
+  let unpaidCount = 0;
+  for (const r of statusRows as { payment_status: "paid" | "unpaid"; c: number }[]) {
+    if (r.payment_status === "paid") paidCount = r.c;
+    else unpaidCount = r.c;
+  }
+
+  return { orders: rows as OrderListItem[], total, paidCount, unpaidCount };
 }
 
 export async function updatePaymentStatus(

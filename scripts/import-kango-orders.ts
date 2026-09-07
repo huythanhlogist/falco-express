@@ -48,7 +48,8 @@ const COL = {
 type ShipmentGroup = {
   awb: string;
   service: string;
-  date: string;
+  date: string; // dd/mm/yyyy — để mirror sang Sheet
+  dateIso: string | null; // yyyy-mm-dd — để ghi vào MySQL
   contact: string;
   telephone: string;
   city: string;
@@ -93,10 +94,12 @@ function groupRowsByAwb(rows: unknown[][]): ShipmentGroup[] {
     const tracking = cellToString(row[COL.TRACKING_NUMBER]);
 
     if (awb) {
+      const rawDate = cellToString(row[COL.DATE]);
       current = {
         awb,
         service: cellToString(row[COL.SERVICE]),
-        date: excelDateToVN(cellToString(row[COL.DATE])),
+        date: excelDateToVN(rawDate),
+        dateIso: excelDateToISO(rawDate),
         contact: cellToString(row[COL.CONTACT]),
         telephone: cellToString(row[COL.TELEPHONE]),
         city: cellToString(row[COL.CITY]),
@@ -183,7 +186,7 @@ async function main() {
       recipientPhone: g.telephone,
       service: g.service,
       destination,
-      receivedDate: excelDateToISO(g.date),
+      receivedDate: g.dateIso,
     });
     await insertParcels(
       orderId,
