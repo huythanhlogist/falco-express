@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  listOrdersForAccounting,
+  listOrders,
   listExpenses,
   getOrderFinanceTotals,
   sumExpenses,
@@ -13,6 +13,8 @@ import MonthFilterSelect from "@/components/admin/MonthFilterSelect";
 import { WalletIcon, ClockIcon, PackageCheckIcon } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 20;
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -40,11 +42,6 @@ function getMonthRange(month: string) {
   return { start, end };
 }
 
-function currentMonth(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
-}
-
 function money(n: number): string {
   return `${n.toLocaleString("vi-VN")}đ`;
 }
@@ -59,28 +56,44 @@ const STATUS_TABS: { value: "all" | PaymentStatus; label: string }[] = [
 export default async function KeToanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string; status?: string }>;
+  searchParams: Promise<{ month?: string; status?: string; q?: string; page?: string }>;
 }) {
   const params = await searchParams;
-  const month = params.month || currentMonth();
+  // Không truyền month = xem toàn bộ thời gian (khớp hành vi "Tất cả các
+  // tháng" ở trang Đơn hàng) — khác với trước đây luôn ép về tháng hiện tại,
+  // khiến chọn "Tất cả các tháng" không có tác dụng gì (cảm giác như lỗi).
+  const month = params.month || "";
+  const search = params.q || "";
+  const page = Math.max(1, Number(params.page) || 1);
   const status: "all" | PaymentStatus =
     params.status === "unpaid" || params.status === "collected_by_staff" || params.status === "paid"
       ? params.status
       : "all";
 
   const weekRange = getWeekRange();
-  const monthRange = getMonthRange(month);
+  const monthRange = month ? getMonthRange(month) : null;
 
-  const [weekFinance, weekExpenseTotal, monthFinance, monthExpenseTotal, orders, expenses, months] =
-    await Promise.all([
-      getOrderFinanceTotals(weekRange.start, weekRange.end),
-      sumExpenses(weekRange.start, weekRange.end),
-      getOrderFinanceTotals(monthRange.start, monthRange.end),
-      sumExpenses(monthRange.start, monthRange.end),
-      listOrdersForAccounting({ month, status }),
-      listExpenses(),
-      listOrderMonths(),
-    ]);
+  const [
+    weekFinance,
+    weekExpenseTotal,
+    monthFinance,
+    monthExpenseTotal,
+    { orders, total },
+    expenses,
+    months,
+  ] = await Promise.all([
+    getOrderFinanceTotals(weekRange.start, weekRange.end),
+    sumExpenses(weekRange.start, weekRange.end),
+    getOrderFinanceTotals(monthRange?.start ?? null, monthRange?.end ?? null),
+    sumExpenses(monthRange?.start ?? null, monthRange?.end ?? null),
+    // Dùng chung listOrders với trang Đơn hàng để 2 danh sách luôn đồng bộ
+    // (cùng cột, cùng phân trang, cùng bộ lọc) — trước đây dùng 1 hàm fetch
+    // riêng khiến danh sách ở đây khác và thiếu so với trang Đơn hàng.
+    listOrders({ search, status, month: month || undefined, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
+    listExpenses(),
+    listOrderMonths(),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const weekChi = weekFinance.chiDon + weekExpenseTotal;
   const weekLaiLo = weekFinance.thu - weekChi;
@@ -102,7 +115,7 @@ export default async function KeToanPage({
           laiLo={weekLaiLo}
         />
         <SummaryCard
-          title="Theo tháng"
+          title={month ? `Theo tháng` : "Toàn bộ thời gian"}
           thu={monthFinance.thu}
           chi={monthChi}
           laiLo={monthLaiLo}
@@ -112,29 +125,69 @@ export default async function KeToanPage({
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="font-display text-base font-bold text-navy-900">Danh sách đơn</h2>
-        <div className="flex gap-2 overflow-x-auto">
-          {STATUS_TABS.map((tab) => (
-            <Link
-              key={tab.value}
-              href={`/admin/ke-toan?${new URLSearchParams({
-                month,
-                ...(tab.value !== "all" ? { status: tab.value } : {}),
-              })}`}
-              className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
-                status === tab.value
-                  ? "bg-navy-800 text-white"
-                  : "bg-mist text-ink/60 hover:bg-line"
-              }`}
-            >
-              {tab.label}
-            </Link>
-          ))}
-        </div>
+        <form className="flex gap-2">
+          {month && <input type="hidden" name="month" value={month} />}
+          {status !== "all" && <input type="hidden" name="status" value={status} />}
+          <input
+            type="text"
+            name="q"
+            defaultValue={search}
+            placeholder="Tìm mã Falco, AWB, tên, SĐT..."
+            className="w-52 rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink focus:border-flame-400 focus:outline-none focus:ring-2 focus:ring-flame-100 sm:w-60"
+          />
+          <button type="submit" className="btn-outline !px-3.5 !py-2 text-sm">
+            Tìm
+          </button>
+        </form>
+      </div>
+
+      <div className="mt-3 flex gap-2 overflow-x-auto">
+        {STATUS_TABS.map((tab) => (
+          <Link
+            key={tab.value}
+            href={`/admin/ke-toan?${new URLSearchParams({
+              ...(month ? { month } : {}),
+              ...(search ? { q: search } : {}),
+              ...(tab.value !== "all" ? { status: tab.value } : {}),
+            })}`}
+            className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+              status === tab.value
+                ? "bg-navy-800 text-white"
+                : "bg-mist text-ink/60 hover:bg-line"
+            }`}
+          >
+            {tab.label}
+          </Link>
+        ))}
       </div>
 
       <div className="mt-3">
-        <AccountingOrderList initialRows={orders} />
+        <AccountingOrderList
+          key={`${month}-${status}-${search}-${page}`}
+          initialRows={orders}
+        />
       </div>
+
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-center gap-2">
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            <Link
+              key={p}
+              href={`/admin/ke-toan?${new URLSearchParams({
+                ...(month ? { month } : {}),
+                ...(search ? { q: search } : {}),
+                ...(status !== "all" ? { status } : {}),
+                page: String(p),
+              })}`}
+              className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium ${
+                p === page ? "bg-navy-800 text-white" : "text-ink/60 hover:bg-mist"
+              }`}
+            >
+              {p}
+            </Link>
+          ))}
+        </div>
+      )}
 
       <div className="mt-6">
         <h2 className="font-display text-base font-bold text-navy-900">Chi phí phát sinh</h2>

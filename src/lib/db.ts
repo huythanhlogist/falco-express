@@ -360,57 +360,27 @@ export async function updatePaymentStatus(
 
 // ---------- Admin: kế toán (thu/chi/lãi lỗ) ----------
 
-export type AccountingOrderRow = {
-  id: number;
-  falco_code: string;
-  recipient_name: string | null;
-  received_date: string | null;
-  payment_status: PaymentStatus;
-  amount: string | null;
-  cost: string | null;
-};
-
-export async function listOrdersForAccounting(params: {
-  month?: string; // "YYYY-MM"
-  status?: "all" | PaymentStatus;
-}): Promise<AccountingOrderRow[]> {
-  const { month, status = "all" } = params;
-  const conditions: string[] = [];
-  const args: unknown[] = [];
-  if (month) {
-    conditions.push("DATE_FORMAT(received_date, '%Y-%m') = ?");
-    args.push(month);
-  }
-  if (status !== "all") {
-    conditions.push("payment_status = ?");
-    args.push(status);
-  }
-  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-  const [rows] = await getPool().query(
-    `SELECT id, falco_code, recipient_name, received_date, payment_status, amount, cost
-     FROM orders ${where}
-     ORDER BY received_date DESC, id DESC`,
-    args
-  );
-  return rows as AccountingOrderRow[];
-}
-
 /**
  * Tổng thu/chi/lãi-lỗ của các đơn nhận trong khoảng ngày [start, end] (YYYY-MM-DD,
- * bao gồm cả 2 đầu). Thu gồm cả "Đã thu" và "Thu hộ" — tiền coi như đã về công ty
- * dù chưa chắc đã về tài khoản chủ, theo yêu cầu gộp khi tính lãi/lỗ.
+ * bao gồm cả 2 đầu) — truyền null cho cả 2 để tính trên toàn bộ đơn (không giới
+ * hạn ngày). Thu = tổng cột "amount" đã nhập, Chi = tổng cột "cost" đã nhập —
+ * KHÔNG lọc theo trạng thái thu tiền. Trạng thái (Chưa thu/Thu hộ/Đã thu) chỉ
+ * là chỉ báo vận hành riêng; ban đầu Thu từng chỉ tính cho đơn Thu hộ/Đã thu,
+ * nhưng gây hiểu lầm khó phát hiện: nhập số vào ô Thu cho 1 đơn còn "Chưa thu"
+ * (trạng thái mặc định) không lên tổng, trông giống như chỉ Chi hoạt động.
  */
 export async function getOrderFinanceTotals(
-  start: string,
-  end: string
+  start: string | null,
+  end: string | null
 ): Promise<{ thu: number; chiDon: number }> {
+  const where = start && end ? "WHERE received_date BETWEEN ? AND ?" : "";
+  const args = start && end ? [start, end] : [];
   const [rows] = await getPool().query(
     `SELECT
-       COALESCE(SUM(CASE WHEN payment_status IN ('paid','collected_by_staff') THEN amount ELSE 0 END), 0) AS thu,
+       COALESCE(SUM(amount), 0) AS thu,
        COALESCE(SUM(cost), 0) AS chiDon
-     FROM orders
-     WHERE received_date BETWEEN ? AND ?`,
-    [start, end]
+     FROM orders ${where}`,
+    args
   );
   const row = (rows as { thu: string; chiDon: string }[])[0];
   return { thu: Number(row?.thu ?? 0), chiDon: Number(row?.chiDon ?? 0) };
@@ -436,7 +406,7 @@ export async function listExpenses(params?: {
     args.push(params.start);
   }
   if (params?.end) {
-    conditions.push("expense_date <= ?");
+    conditions.push("expense_date < DATE_ADD(?, INTERVAL 1 DAY)");
     args.push(params.end);
   }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -447,10 +417,15 @@ export async function listExpenses(params?: {
   return rows as Expense[];
 }
 
-export async function sumExpenses(start: string, end: string): Promise<number> {
+export async function sumExpenses(start: string | null, end: string | null): Promise<number> {
+  // expense_date là DATETIME (có giờ) — so sánh "<= 'YYYY-MM-DD'" sẽ ép về
+  // 00:00:00 và bỏ sót mọi chi phí ghi sau nửa đêm của ngày cuối cùng, nên
+  // dùng "< ngày kế tiếp" để lấy trọn ngày cuối.
+  const where = start && end ? "WHERE expense_date >= ? AND expense_date < DATE_ADD(?, INTERVAL 1 DAY)" : "";
+  const args = start && end ? [start, end] : [];
   const [rows] = await getPool().query(
-    "SELECT COALESCE(SUM(amount), 0) AS total FROM expenses WHERE expense_date BETWEEN ? AND ?",
-    [start, end]
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM expenses ${where}`,
+    args
   );
   return Number((rows as { total: string }[])[0]?.total ?? 0);
 }

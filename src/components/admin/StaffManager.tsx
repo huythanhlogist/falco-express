@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import { EyeIcon } from "@/components/icons";
 
 type StaffItem = { id: number; email: string; role: "owner" | "staff"; created_at: string };
 
@@ -14,16 +15,35 @@ export default function StaffManager({
   canManage: boolean;
 }) {
   const [staff, setStaff] = useState(initialStaff);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
 
-  function createStaff(e: React.FormEvent) {
+  function createStaff(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
     setSuccess("");
+
+    // Đọc trực tiếp từ FormData (giá trị DOM thật tại thời điểm bấm nút) thay
+    // vì chỉ tin vào state — tránh trường hợp form vừa hiện xong, người dùng
+    // gõ ngay khi React chưa kịp gắn xong sự kiện (hydrate), khiến ô nhìn có
+    // chữ nhưng state rỗng và tài khoản được tạo với email/mật khẩu trống.
+    const form = e.currentTarget;
+    const data = new FormData(form);
+    const email = String(data.get("email") || "").trim();
+    const password = String(data.get("password") || "");
+
+    if (!email) {
+      setError("Vui lòng nhập email");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Mật khẩu phải có ít nhất 8 ký tự");
+      return;
+    }
+
     startTransition(async () => {
       const res = await fetch("/api/admin/staff", {
         method: "POST",
@@ -37,12 +57,12 @@ export default function StaffManager({
       }
       setStaff((prev) => [
         ...prev,
-        { id: json.id, email: email.trim().toLowerCase(), role: "staff", created_at: new Date().toISOString() },
+        { id: json.id, email: email.toLowerCase(), role: "staff", created_at: new Date().toISOString() },
       ]);
-      setEmail("");
-      setPassword("");
-      setSuccess("Đã tạo tài khoản nhân viên");
-      setTimeout(() => setSuccess(""), 3000);
+      form.reset();
+      setSuccess(
+        `Đã tạo tài khoản ${email} — hãy lưu lại mật khẩu vừa nhập để gửi cho nhân viên, mật khẩu sẽ không hiển thị lại được.`
+      );
     });
   }
 
@@ -109,6 +129,7 @@ export default function StaffManager({
 
       {canManage && (
         <form
+          ref={formRef}
           onSubmit={createStaff}
           className="w-full shrink-0 rounded-xl border border-line bg-white p-5 lg:w-80"
         >
@@ -121,25 +142,38 @@ export default function StaffManager({
             <div>
               <label className="text-xs font-semibold text-ink/60">Email</label>
               <input
+                name="email"
                 type="email"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="off"
                 className="mt-1 w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink focus:border-flame-400 focus:outline-none focus:ring-2 focus:ring-flame-100"
                 placeholder="nhanvien@falcoexpress.com"
               />
             </div>
             <div>
               <label className="text-xs font-semibold text-ink/60">Mật khẩu</label>
-              <input
-                type="password"
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-sm text-ink focus:border-flame-400 focus:outline-none focus:ring-2 focus:ring-flame-100"
-                placeholder="Tối thiểu 8 ký tự"
-              />
+              <div className="relative mt-1">
+                <input
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  className="w-full rounded-lg border border-line bg-white px-3.5 py-2.5 pr-10 text-sm text-ink focus:border-flame-400 focus:outline-none focus:ring-2 focus:ring-flame-100"
+                  placeholder="Tối thiểu 8 ký tự"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-ink/40 hover:text-ink/70"
+                  title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                >
+                  <EyeIcon className="h-4 w-4" />
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-ink/40">
+                Kiểm tra lại bằng nút hiện mật khẩu trước khi tạo — mật khẩu không thể xem lại sau khi tạo xong.
+              </p>
             </div>
           </div>
 
