@@ -193,6 +193,36 @@ export function LogoutIcon(props: IconProps) {
   );
 }
 
+export function WalletIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M3.5 7.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2v-9Z" />
+      <path d="M15.5 12.5h3a1 1 0 0 1 1 1v1.5a1 1 0 0 1-1 1h-3a1.75 1.75 0 0 1 0-3.5Z" />
+      <path d="M6 7.5V6a1.5 1.5 0 0 1 1.5-1.5h8" />
+    </svg>
+  );
+}
+
+export function TrashIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M4.5 6.5h15" />
+      <path d="M9 6.5V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v1.5" />
+      <path d="M6.5 6.5 7.3 19a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4l.8-12.5" />
+      <path d="M10 10.5v6M14 10.5v6" />
+    </svg>
+  );
+}
+
+export function PencilIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...base} {...props}>
+      <path d="m15 4.5 4.5 4.5-10 10-5 .5.5-5 10-10Z" />
+      <path d="m13.5 6 4.5 4.5" />
+    </svg>
+  );
+}
+
 export function LayoutGridIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" {...base} {...props}>

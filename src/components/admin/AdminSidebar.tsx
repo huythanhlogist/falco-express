@@ -12,10 +12,12 @@ import {
   LogoutIcon,
   MenuIcon,
   CloseIcon,
+  WalletIcon,
 } from "@/components/icons";
 
 const LINKS = [
   { href: "/admin/orders", label: "Đơn hàng", icon: CargoIcon },
+  { href: "/admin/ke-toan", label: "Kế toán", icon: WalletIcon },
   { href: "/admin/seo", label: "SEO", icon: SearchIcon },
   { href: "/admin/search-console", label: "Search Console", icon: GlobeIcon },
   { href: "/admin/staff", label: "Nhân viên", icon: UsersIcon },
@@ -39,7 +41,7 @@ export default function AdminSidebar({
   }
 
   const nav = (
-    <nav className="flex flex-1 flex-col gap-1 px-3">
+    <nav className="flex flex-1 flex-col gap-0.5 px-2.5">
       {LINKS.map((link) => {
         const active = pathname === link.href;
         const Icon = link.icon;
@@ -48,13 +50,13 @@ export default function AdminSidebar({
             key={link.href}
             href={link.href}
             onClick={() => setOpen(false)}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+            className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
               active
                 ? "bg-white/10 text-white"
                 : "text-navy-200 hover:bg-white/5 hover:text-white"
             }`}
           >
-            <Icon className="h-5 w-5 shrink-0" />
+            <Icon className="h-4 w-4 shrink-0" />
             {link.label}
           </Link>
         );
@@ -99,11 +101,11 @@ export default function AdminSidebar({
 
       {/* Sidebar (desktop: static, mobile: slide-in drawer) */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col bg-navy-900 pb-4 pt-5 transition-transform duration-200 md:sticky md:top-0 md:h-screen md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-56 shrink-0 flex-col bg-navy-900 pb-3 pt-4 transition-transform duration-200 md:sticky md:top-0 md:h-screen md:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex items-center gap-2 px-5 pb-6">
+        <div className="flex items-center gap-2 px-4 pb-5">
           <Image
             src="/falco-logo.png"
             alt="Falco Express logo"
@@ -119,7 +121,7 @@ export default function AdminSidebar({
 
         {nav}
 
-        <div className="mt-4 border-t border-white/10 px-5 pt-4">
+        <div className="mt-3 border-t border-white/10 px-4 pt-3">
           <p className="truncate text-xs text-navy-300">{email}</p>
           <p className="mt-0.5 text-xs font-semibold text-flame-400">
             {role === "owner" ? "Chủ tài khoản" : "Nhân viên"}
@@ -127,9 +129,9 @@ export default function AdminSidebar({
           <button
             type="button"
             onClick={handleLogout}
-            className="mt-3 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-navy-200 transition-colors hover:bg-white/5 hover:text-white"
+            className="mt-2.5 flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium text-navy-200 transition-colors hover:bg-white/5 hover:text-white"
           >
-            <LogoutIcon className="h-5 w-5" />
+            <LogoutIcon className="h-4 w-4" />
             Đăng xuất
           </button>
         </div>

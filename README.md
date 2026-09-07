@@ -164,9 +164,17 @@ Truy cập `https://falcoexpress.com/admin` (chuyển hướng tới `/admin/log
 nếu chưa đăng nhập). Gồm:
 
 - **Đơn hàng** (`/admin/orders`): danh sách toàn bộ đơn từ MySQL (sắp xếp
-  theo ngày nhận, mới nhất trước), lọc theo trạng thái thanh toán, tìm theo
-  mã Falco/AWB/tên/SĐT, bấm để đổi **Đã thanh toán ↔ Chưa thanh toán** (chỉ
-  đánh dấu thủ công, không có cổng thanh toán).
+  theo ngày nhận, mới nhất trước), lọc theo tháng và theo **trạng thái thu
+  tiền** (`unpaid` Chưa thu / `collected_by_staff` Thu hộ / `paid` Đã thu —
+  chỉ đánh dấu thủ công, không có cổng thanh toán), tìm theo mã Falco/AWB/
+  tên/SĐT. Mỗi đơn có thể **sửa** (mọi trường + danh sách mã tracking) hoặc
+  **xoá** trực tiếp trên trang.
+- **Kế toán** (`/admin/ke-toan`): tổng kết Thu/Chi/Lãi-lỗ theo tuần hiện tại
+  và theo tháng (có bộ lọc tháng) — Thu gộp cả "Đã thu" và "Thu hộ", Chi gồm
+  cột `cost` của từng đơn cộng bảng chi phí phát sinh chung. Danh sách đơn
+  cho nhập tay **Thu** (`orders.amount`) và **Chi** (`orders.cost`) từng đơn,
+  tự tính Lãi/lỗ mỗi dòng, lọc theo trạng thái thu. Bảng **Chi phí phát
+  sinh** (bảng `expenses`) nhập tay chi phí chung, sửa/xoá được từng dòng.
 - **SEO** (`/admin/seo`): sửa tiêu đề (title) và mô tả (description) cho
   từng trang công khai. Để trống ô nào thì trang đó dùng nội dung mặc định
   có sẵn trong code. Lưu vào bảng `seo_settings`, các trang công khai đọc
@@ -201,6 +209,15 @@ nếu chưa đăng nhập). Gồm:
    await conn.query(\`CREATE TABLE IF NOT EXISTS seo_settings (
      page_path VARCHAR(255) PRIMARY KEY, meta_title VARCHAR(255),
      meta_description VARCHAR(500),
+     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)\`);
+   await conn.query(\`ALTER TABLE orders MODIFY COLUMN payment_status
+     ENUM('unpaid','collected_by_staff','paid') NOT NULL DEFAULT 'unpaid'\`);
+   await conn.query(\`ALTER TABLE orders ADD COLUMN IF NOT EXISTS amount DECIMAL(12,2) NULL\`);
+   await conn.query(\`ALTER TABLE orders ADD COLUMN IF NOT EXISTS cost DECIMAL(12,2) NULL\`);
+   await conn.query(\`CREATE TABLE IF NOT EXISTS expenses (
+     id INT AUTO_INCREMENT PRIMARY KEY, description VARCHAR(500) NOT NULL,
+     amount DECIMAL(12,2) NOT NULL, expense_date DATETIME NOT NULL,
+     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)\`);
    console.log('done'); await conn.end();
    "

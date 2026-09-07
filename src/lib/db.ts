@@ -29,6 +29,8 @@ export function getPool(): mysql.Pool {
   return pool;
 }
 
+export type PaymentStatus = "unpaid" | "collected_by_staff" | "paid";
+
 export type OrderRecord = {
   id: number;
   falco_code: string;
@@ -38,7 +40,9 @@ export type OrderRecord = {
   service: string | null;
   destination: string | null;
   received_date: string | null;
-  payment_status: "unpaid" | "paid";
+  payment_status: PaymentStatus;
+  amount: string | null;
+  cost: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -110,6 +114,85 @@ export async function insertParcels(
   );
 }
 
+export type OrderParcel = { id: number; hawb: string; tracking_code: string };
+
+export async function listOrderParcels(orderId: number): Promise<OrderParcel[]> {
+  const [rows] = await getPool().query(
+    "SELECT id, hawb, tracking_code FROM order_parcels WHERE order_id = ? ORDER BY id",
+    [orderId]
+  );
+  return rows as OrderParcel[];
+}
+
+/** Thay toàn bộ danh sách kiện của 1 đơn — dùng cho form sửa đơn trong admin. */
+export async function replaceOrderParcels(
+  orderId: number,
+  trackingCodes: string[]
+): Promise<void> {
+  await getPool().query("DELETE FROM order_parcels WHERE order_id = ?", [orderId]);
+  const codes = trackingCodes.map((c) => c.trim()).filter(Boolean);
+  if (codes.length === 0) return;
+  const values = codes.map((code) => [orderId, "", code]);
+  await getPool().query(
+    "INSERT INTO order_parcels (order_id, hawb, tracking_code) VALUES ?",
+    [values]
+  );
+}
+
+export type OrderEditableFields = Partial<{
+  awb: string;
+  recipientName: string;
+  recipientPhone: string;
+  service: string;
+  destination: string;
+  receivedDate: string | null;
+  paymentStatus: PaymentStatus;
+  amount: number | null;
+  cost: number | null;
+}>;
+
+const ORDER_FIELD_COLUMNS: Record<keyof OrderEditableFields, string> = {
+  awb: "awb",
+  recipientName: "recipient_name",
+  recipientPhone: "recipient_phone",
+  service: "service",
+  destination: "destination",
+  receivedDate: "received_date",
+  paymentStatus: "payment_status",
+  amount: "amount",
+  cost: "cost",
+};
+
+export async function updateOrder(
+  id: number,
+  fields: OrderEditableFields
+): Promise<boolean> {
+  const entries = Object.entries(fields) as [keyof OrderEditableFields, unknown][];
+  if (entries.length === 0) return false;
+  const setClause = entries.map(([key]) => `${ORDER_FIELD_COLUMNS[key]} = ?`).join(", ");
+  const values = entries.map(([, value]) => value);
+  const [result] = await getPool().query(
+    `UPDATE orders SET ${setClause} WHERE id = ?`,
+    [...values, id]
+  );
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
+export async function deleteOrder(id: number): Promise<boolean> {
+  const [result] = await getPool().query("DELETE FROM orders WHERE id = ?", [id]);
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
+/** Danh sách các tháng (YYYY-MM) có đơn, mới nhất trước — dùng cho bộ lọc tháng. */
+export async function listOrderMonths(): Promise<string[]> {
+  const [rows] = await getPool().query(
+    `SELECT DISTINCT DATE_FORMAT(received_date, '%Y-%m') AS month
+     FROM orders WHERE received_date IS NOT NULL
+     ORDER BY month DESC`
+  );
+  return (rows as { month: string }[]).map((r) => r.month);
+}
+
 export async function listAwbSet(): Promise<Set<string>> {
   const [rows] = await getPool().query("SELECT awb FROM orders");
   return new Set((rows as { awb: string }[]).map((r) => r.awb.toUpperCase()));
@@ -178,9 +261,16 @@ export async function listOrders(params: {
   search: string;
   limit: number;
   offset: number;
-  status?: "all" | "paid" | "unpaid";
-}): Promise<{ orders: OrderListItem[]; total: number; paidCount: number; unpaidCount: number }> {
-  const { search, limit, offset, status = "all" } = params;
+  status?: "all" | PaymentStatus;
+  month?: string; // "YYYY-MM"
+}): Promise<{
+  orders: OrderListItem[];
+  total: number;
+  paidCount: number;
+  collectedByStaffCount: number;
+  unpaidCount: number;
+}> {
+  const { search, limit, offset, status = "all", month } = params;
   const like = `%${search.trim()}%`;
 
   const conditions: string[] = [];
@@ -191,7 +281,11 @@ export async function listOrders(params: {
     );
     whereArgs.push(like, like, like, like);
   }
-  if (status === "paid" || status === "unpaid") {
+  if (month) {
+    conditions.push("DATE_FORMAT(o.received_date, '%Y-%m') = ?");
+    whereArgs.push(month);
+  }
+  if (status === "paid" || status === "unpaid" || status === "collected_by_staff") {
     conditions.push("o.payment_status = ?");
     whereArgs.push(status);
   }
@@ -214,34 +308,187 @@ export async function listOrders(params: {
   );
   const total = (countRows as { total: number }[])[0]?.total ?? 0;
 
-  // Đếm riêng theo trạng thái thanh toán (không áp bộ lọc status, chỉ áp
-  // tìm kiếm) để hiển thị số lượng trên các tab lọc.
-  const searchOnlyWhere = search.trim()
-    ? "WHERE o.falco_code LIKE ? OR o.awb LIKE ? OR o.recipient_name LIKE ? OR o.recipient_phone LIKE ?"
+  // Đếm riêng theo trạng thái thu tiền (không áp bộ lọc status, chỉ áp tìm
+  // kiếm + tháng) để hiển thị số lượng trên các tab lọc.
+  const searchMonthConditions: string[] = [];
+  const searchMonthArgs: unknown[] = [];
+  if (search.trim()) {
+    searchMonthConditions.push(
+      "(o.falco_code LIKE ? OR o.awb LIKE ? OR o.recipient_name LIKE ? OR o.recipient_phone LIKE ?)"
+    );
+    searchMonthArgs.push(like, like, like, like);
+  }
+  if (month) {
+    searchMonthConditions.push("DATE_FORMAT(o.received_date, '%Y-%m') = ?");
+    searchMonthArgs.push(month);
+  }
+  const searchOnlyWhere = searchMonthConditions.length
+    ? `WHERE ${searchMonthConditions.join(" AND ")}`
     : "";
-  const searchOnlyArgs = search.trim() ? [like, like, like, like] : [];
   const [statusRows] = await getPool().query(
     `SELECT payment_status, COUNT(*) AS c FROM orders o ${searchOnlyWhere} GROUP BY payment_status`,
-    searchOnlyArgs
+    searchMonthArgs
   );
   let paidCount = 0;
+  let collectedByStaffCount = 0;
   let unpaidCount = 0;
-  for (const r of statusRows as { payment_status: "paid" | "unpaid"; c: number }[]) {
+  for (const r of statusRows as { payment_status: PaymentStatus; c: number }[]) {
     if (r.payment_status === "paid") paidCount = r.c;
+    else if (r.payment_status === "collected_by_staff") collectedByStaffCount = r.c;
     else unpaidCount = r.c;
   }
 
-  return { orders: rows as OrderListItem[], total, paidCount, unpaidCount };
+  return {
+    orders: rows as OrderListItem[],
+    total,
+    paidCount,
+    collectedByStaffCount,
+    unpaidCount,
+  };
 }
 
 export async function updatePaymentStatus(
   id: number,
-  status: "paid" | "unpaid"
+  status: PaymentStatus
 ): Promise<boolean> {
   const [result] = await getPool().query(
     "UPDATE orders SET payment_status = ? WHERE id = ?",
     [status, id]
   );
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
+// ---------- Admin: kế toán (thu/chi/lãi lỗ) ----------
+
+export type AccountingOrderRow = {
+  id: number;
+  falco_code: string;
+  recipient_name: string | null;
+  received_date: string | null;
+  payment_status: PaymentStatus;
+  amount: string | null;
+  cost: string | null;
+};
+
+export async function listOrdersForAccounting(params: {
+  month?: string; // "YYYY-MM"
+  status?: "all" | PaymentStatus;
+}): Promise<AccountingOrderRow[]> {
+  const { month, status = "all" } = params;
+  const conditions: string[] = [];
+  const args: unknown[] = [];
+  if (month) {
+    conditions.push("DATE_FORMAT(received_date, '%Y-%m') = ?");
+    args.push(month);
+  }
+  if (status !== "all") {
+    conditions.push("payment_status = ?");
+    args.push(status);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const [rows] = await getPool().query(
+    `SELECT id, falco_code, recipient_name, received_date, payment_status, amount, cost
+     FROM orders ${where}
+     ORDER BY received_date DESC, id DESC`,
+    args
+  );
+  return rows as AccountingOrderRow[];
+}
+
+/**
+ * Tổng thu/chi/lãi-lỗ của các đơn nhận trong khoảng ngày [start, end] (YYYY-MM-DD,
+ * bao gồm cả 2 đầu). Thu gồm cả "Đã thu" và "Thu hộ" — tiền coi như đã về công ty
+ * dù chưa chắc đã về tài khoản chủ, theo yêu cầu gộp khi tính lãi/lỗ.
+ */
+export async function getOrderFinanceTotals(
+  start: string,
+  end: string
+): Promise<{ thu: number; chiDon: number }> {
+  const [rows] = await getPool().query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN payment_status IN ('paid','collected_by_staff') THEN amount ELSE 0 END), 0) AS thu,
+       COALESCE(SUM(cost), 0) AS chiDon
+     FROM orders
+     WHERE received_date BETWEEN ? AND ?`,
+    [start, end]
+  );
+  const row = (rows as { thu: string; chiDon: string }[])[0];
+  return { thu: Number(row?.thu ?? 0), chiDon: Number(row?.chiDon ?? 0) };
+}
+
+export type Expense = {
+  id: number;
+  description: string;
+  amount: string;
+  expense_date: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export async function listExpenses(params?: {
+  start?: string;
+  end?: string;
+}): Promise<Expense[]> {
+  const conditions: string[] = [];
+  const args: unknown[] = [];
+  if (params?.start) {
+    conditions.push("expense_date >= ?");
+    args.push(params.start);
+  }
+  if (params?.end) {
+    conditions.push("expense_date <= ?");
+    args.push(params.end);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const [rows] = await getPool().query(
+    `SELECT * FROM expenses ${where} ORDER BY expense_date DESC, id DESC`,
+    args
+  );
+  return rows as Expense[];
+}
+
+export async function sumExpenses(start: string, end: string): Promise<number> {
+  const [rows] = await getPool().query(
+    "SELECT COALESCE(SUM(amount), 0) AS total FROM expenses WHERE expense_date BETWEEN ? AND ?",
+    [start, end]
+  );
+  return Number((rows as { total: string }[])[0]?.total ?? 0);
+}
+
+export async function insertExpense(data: {
+  description: string;
+  amount: number;
+  expenseDate: string; // "YYYY-MM-DD HH:mm:ss"
+}): Promise<number> {
+  const [result] = await getPool().query(
+    "INSERT INTO expenses (description, amount, expense_date) VALUES (?, ?, ?)",
+    [data.description, data.amount, data.expenseDate]
+  );
+  return (result as mysql.ResultSetHeader).insertId;
+}
+
+export async function updateExpense(
+  id: number,
+  data: Partial<{ description: string; amount: number; expenseDate: string }>
+): Promise<boolean> {
+  const map: Record<string, string> = {
+    description: "description",
+    amount: "amount",
+    expenseDate: "expense_date",
+  };
+  const entries = Object.entries(data).filter(([, v]) => v !== undefined);
+  if (entries.length === 0) return false;
+  const setClause = entries.map(([key]) => `${map[key]} = ?`).join(", ");
+  const values = entries.map(([, value]) => value);
+  const [result] = await getPool().query(
+    `UPDATE expenses SET ${setClause} WHERE id = ?`,
+    [...values, id]
+  );
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
+export async function deleteExpense(id: number): Promise<boolean> {
+  const [result] = await getPool().query("DELETE FROM expenses WHERE id = ?", [id]);
   return (result as mysql.ResultSetHeader).affectedRows > 0;
 }
 
