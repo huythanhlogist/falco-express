@@ -13,11 +13,13 @@ import {
   MenuIcon,
   CloseIcon,
   WalletIcon,
+  UploadIcon,
 } from "@/components/icons";
 
 const LINKS = [
   { href: "/admin/orders", label: "Đơn hàng", icon: CargoIcon },
   { href: "/admin/ke-toan", label: "Kế toán", icon: WalletIcon },
+  { href: "/admin/upload", label: "Upload tài liệu", icon: UploadIcon },
   { href: "/admin/seo", label: "SEO", icon: SearchIcon },
   { href: "/admin/search-console", label: "Search Console", icon: GlobeIcon },
   { href: "/admin/staff", label: "Nhân viên", icon: UsersIcon },

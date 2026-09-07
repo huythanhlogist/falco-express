@@ -233,3 +233,13 @@ export function LayoutGridIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function UploadIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M12 15.5V4" />
+      <path d="m7.5 8.5 4.5-4.5 4.5 4.5" />
+      <path d="M4.5 15.5V18a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-2.5" />
+    </svg>
+  );
+}
