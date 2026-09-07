@@ -26,19 +26,22 @@ src/
   components/          Header, Footer, Hero, các section UI dùng chung
   lib/
     constants.ts       Thông tin công ty, chi nhánh, dịch vụ (chỉnh nội dung ở đây)
-    sheets.ts          Đọc/ghi Google Sheet cho tra cứu vận đơn thật
+    db.ts              Kết nối MySQL — nguồn dữ liệu chính cho đơn hàng
+    kango.ts           Gọi API tracking chính thức của Kango
+    sheets.ts          Ghi mirror sang Google Sheet (chỉ để tải Excel, không đọc lại)
 public/
   falco-logo.png       Logo chính thức
 scripts/
-  import-kango-orders.ts   Nhập đơn hàng mới từ file Excel Kango vào Google Sheet
+  import-kango-orders.ts   Nhập đơn hàng mới từ file Excel Kango vào MySQL (+ mirror Sheet)
 ```
 
 ### Chỉnh nội dung nhanh
 
 - Thông tin liên hệ, hotline, chi nhánh, danh sách dịch vụ: sửa trong
   [`src/lib/constants.ts`](src/lib/constants.ts).
-- Dữ liệu tra cứu vận đơn lấy trực tiếp từ Google Sheet — xem mục
-  "Tra cứu vận đơn qua Google Sheet" bên dưới.
+- Dữ liệu tra cứu vận đơn: mã Falco + AWB lấy từ **MySQL**, trạng thái/hành
+  trình thật lấy **trực tiếp từ API Kango** mỗi lần khách tra cứu — xem mục
+  "Tra cứu vận đơn: MySQL + API Kango" bên dưới.
 
 ## Form liên hệ (gửi email)
 
@@ -64,66 +67,70 @@ CONTACT_TO_EMAIL=info@falcoexpress.com
 > Hostinger cung cấp SMTP cho email theo tên miền trong hPanel → Email
 > Accounts. Dùng đúng host/port của Hostinger cho tên miền của bạn.
 
-## Tra cứu vận đơn qua Google Sheet
+## Tra cứu vận đơn: MySQL + API Kango
 
-Trang "Tra cứu vận đơn" đọc dữ liệu **trực tiếp từ 1 Google Sheet** mỗi khi
-khách tra cứu — không cần deploy lại code khi có đơn hàng mới, chỉ cần cập
-nhật Sheet.
+Kiến trúc hiện tại:
 
-### 1. Tạo Google Sheet
+1. **MySQL** (`orders`, `order_parcels`) lưu **Mã Falco ↔ AWB** — nguồn
+   dữ liệu chính, web đọc trực tiếp từ đây.
+2. Khi khách tra cứu, `/api/tracking` lấy AWB từ MySQL rồi gọi **thẳng API
+   tracking chính thức của Kango** (`src/lib/kango.ts`) để lấy hành trình,
+   trạng thái và link tra cứu hãng last-mile **thật 100%** — không còn
+   suy đoán hãng vận chuyển như trước.
+3. **Google Sheet chỉ còn là bản mirror**: script nhập liệu vẫn ghi thêm
+   vào Sheet sau khi ghi MySQL, để bạn tải file Excel tổng hợp khi cần —
+   **web không đọc lại Sheet nữa**.
 
-Tạo 1 sheet tên `Orders` với các cột theo đúng thứ tự (dòng 1 là tiêu đề,
-dữ liệu bắt đầu từ dòng 2):
+### 1. Lấy API key Kango
 
-| Cột | Tên | Ví dụ |
-|---|---|---|
-| A | Mã Falco | `FL250906001` |
-| B | Số bill (AWB) | `2026800812` — dùng để tạo link "Xem chi tiết hành trình tại Kango" |
-| C | Người nhận | (nội bộ) |
-| D | SĐT người nhận | (nội bộ) |
-| E | Dịch vụ | `AIR-UK-PRIORITY` (lấy nguyên từ cột SERVICE trong file Kango) |
-| F | Điểm đến | `London, United Kingdom` |
-| G | Mã tracking last-mile | `15503037282262, 15503037282263` (nhiều mã cách nhau bởi dấu phẩy nếu bill có nhiều kiện) |
-| H | Ngày tiếp nhận | `05/09/2026` |
-| I | Ngày xử lý tại kho | |
-| J | Ngày bàn giao đối tác vận chuyển | |
-| K | Ngày giao thành công | |
+Đăng nhập kango-post.com → phần thông tin tài khoản → copy API key.
 
-Cột C, D **không bao giờ** hiển thị công khai trên web — chỉ đọc nội bộ.
-Trạng thái hiển thị cho khách được suy ra tự động từ cột H–K (mốc gần nhất
-có ngày = trạng thái hiện tại), nên **không cần** một cột "trạng thái"
-riêng. Hãng vận chuyển last-mile (DHL/UPS) cũng **không cần cột riêng** —
-web tự nhận diện qua định dạng mã (mã bắt đầu `1Z` → UPS, còn lại → DHL,
-theo `detectCarrier()` trong
-[`src/lib/sheets.ts`](src/lib/sheets.ts)) vì file Kango xuất ra không có
-cột ghi tên hãng.
+### 2. Tạo MySQL trên Hostinger
 
-### 2. Tạo Service Account (Google Cloud) — làm 1 lần
+hPanel → Website → Cơ sở dữ liệu → tạo 1 database + user mới (khuyến nghị
+tạo user riêng cho web, không dùng chung với user khác). Sau đó chạy 1 lần
+để tạo bảng:
 
-1. Vào [console.cloud.google.com](https://console.cloud.google.com), tạo
-   project mới (hoặc dùng project có sẵn).
-2. Vào **APIs & Services → Library**, bật **Google Sheets API**.
-3. Vào **APIs & Services → Credentials → Create Credentials → Service
-   Account**, đặt tên bất kỳ (vd `falco-tracking`).
-4. Mở service account vừa tạo → tab **Keys → Add Key → Create new key →
-   JSON**. Tải file JSON về — file này chứa `client_email` và
-   `private_key`.
-5. Mở Google Sheet đã tạo ở bước 1 → **Share** → dán đúng `client_email`
-   trong file JSON vào, chọn quyền **Editor**.
+```bash
+npx tsx -e "
+import { config } from 'dotenv'; config({ path: '.env.local' });
+import mysql from 'mysql2/promise';
+const conn = await mysql.createConnection({
+  host: process.env.DB_HOST, port: Number(process.env.DB_PORT),
+  user: process.env.DB_USER, password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+});
+await conn.query(\`CREATE TABLE IF NOT EXISTS orders (
+  id INT AUTO_INCREMENT PRIMARY KEY, falco_code VARCHAR(20) UNIQUE NOT NULL,
+  awb VARCHAR(20) NOT NULL, recipient_name VARCHAR(255), recipient_phone VARCHAR(50),
+  service VARCHAR(100), destination VARCHAR(255), received_date DATE,
+  payment_status ENUM('unpaid','paid') NOT NULL DEFAULT 'unpaid',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)\`);
+await conn.query(\`CREATE TABLE IF NOT EXISTS order_parcels (
+  id INT AUTO_INCREMENT PRIMARY KEY, order_id INT NOT NULL, hawb VARCHAR(20),
+  tracking_code VARCHAR(50) NOT NULL,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE)\`);
+console.log('done'); await conn.end();
+"
+```
 
 ### 3. Cấu hình biến môi trường
 
-Từ file JSON tải ở bước trên, điền vào `.env.local`:
-
 ```
-GOOGLE_SERVICE_ACCOUNT_EMAIL=<client_email trong file JSON>
-GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="<private_key trong file JSON, giữ nguyên \n>"
-GOOGLE_SHEET_ID=<lấy từ URL Sheet, đoạn giữa /d/ và /edit>
-GOOGLE_SHEET_RANGE=Orders!A2:K1000
+KANGO_API_KEY=<api key từ kango-post.com>
+KANGO_API_URL=https://kango-post.com/api/get-tracking
+
+DB_HOST=localhost   # dùng "localhost" khi app chạy trên cùng server Hostinger với MySQL
+DB_PORT=3306
+DB_USER=<user MySQL>
+DB_PASSWORD=<mật khẩu MySQL>
+DB_NAME=<tên database>
 ```
 
-Khi deploy lên Hostinger, nhập 4 biến này vào **Environment variables**
-của Node.js App, giống cách làm với `SMTP_*`.
+> Nếu kết nối MySQL từ máy ngoài Hostinger (vd để chạy `npm run import:kango`
+> từ máy cá nhân), cần dùng hostname/IP ở hPanel → Cơ sở dữ liệu → MySQL từ
+> xa và thêm IP máy đó vào danh sách cho phép — xem `DB_HOST` tương ứng.
 
 ### 4. Nhập đơn hàng mới từ file Excel Kango ("ListShipment") xuất định kỳ
 
@@ -138,9 +145,10 @@ TRACKING NUMBER, SERVICE, DATE, CONTACT, CITY, COUNTRY, TELEPHONE — xem vị
 trí cột trong `COL` ở đầu file
 [`scripts/import-kango-orders.ts`](scripts/import-kango-orders.ts)), gộp
 các dòng kiện cùng một bill (dòng kiện sau để trống ô AWB), bỏ qua AWB đã
-có sẵn trong Sheet (khử trùng lặp do file Kango xuất theo tháng), sinh Mã
-Falco mới cho bill chưa có, rồi thêm dòng mới vào Google Sheet. Nếu Kango
-đổi cấu trúc cột, chỉ cần sửa lại các số trong object `COL`.
+có sẵn trong MySQL (khử trùng lặp do file Kango xuất theo tháng), sinh Mã
+Falco mới cho bill chưa có, ghi vào **MySQL** rồi mirror sang **Google
+Sheet**. Nếu Kango đổi cấu trúc cột, chỉ cần sửa lại các số trong object
+`COL`.
 
 ## Build production
 
@@ -175,7 +183,9 @@ Hostinger mà không cần cài lại `node_modules` đầy đủ trên server.
    variables: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`,
    `CONTACT_TO_EMAIL`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`,
    `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`, `GOOGLE_SHEET_ID`,
-   `GOOGLE_SHEET_RANGE` (xem mục "Tra cứu vận đơn qua Google Sheet").
+   `GOOGLE_SHEET_RANGE`, `KANGO_API_KEY`, `KANGO_API_URL`, `DB_HOST`,
+   `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` (xem mục "Tra cứu vận đơn:
+   MySQL + API Kango").
 6. **Khởi động ứng dụng**: dùng nút Restart trong hPanel Node.js, hoặc trỏ
    startup file tới `server.js` dưới đây nếu Hostinger yêu cầu một entry
    point cố định:

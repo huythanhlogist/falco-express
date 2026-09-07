@@ -1,6 +1,5 @@
 /**
- * Nhập đơn hàng mới từ file "ListShipment" Kango xuất định kỳ vào Google
- * Sheet dùng cho tra cứu vận đơn trên web Falco.
+ * Nhập đơn hàng mới từ file "ListShipment" Kango xuất định kỳ.
  *
  * Cách chạy:
  *   npm run import:kango -- /duong/dan/ListShipment.xlsx
@@ -15,13 +14,23 @@
  * bill của dòng AWB gần nhất phía trên.
  *
  * File Kango xuất theo tháng nên các lần xuất sau sẽ trùng lặp AWB của lần
- * trước — script bỏ qua AWB đã có sẵn trong Sheet.
+ * trước — script bỏ qua AWB đã có sẵn.
+ *
+ * Từ khi có API tracking chính thức của Kango, MySQL là nguồn dữ liệu
+ * CHÍNH (web đọc từ đây để gọi API Kango). Google Sheet chỉ còn là bản
+ * mirror để tải file Excel tổng hợp khi cần — không còn được web đọc.
  */
 import { config } from "dotenv";
 config({ path: ".env.local" });
 import { readFileSync } from "node:fs";
 import * as XLSX from "xlsx";
-import { appendOrders, getAllOrders, type OrderRow } from "../src/lib/sheets";
+import { appendOrders, type OrderRow } from "../src/lib/sheets";
+import {
+  insertOrder,
+  insertParcels,
+  listAwbSet,
+  listFalcoCodeSet,
+} from "../src/lib/db";
 
 // Vị trí cột trong file Kango xuất ra (0-indexed). Nếu Kango đổi cấu trúc
 // cột, chỉ cần sửa các số bên dưới cho khớp.
@@ -67,6 +76,12 @@ function excelDateToVN(raw: string): string {
   // File Kango xuất ngày dạng dd-mm-yyyy, chuyển sang dd/mm/yyyy cho quen thuộc.
   const m = raw.trim().match(/^(\d{2})-(\d{2})-(\d{4})$/);
   return m ? `${m[1]}/${m[2]}/${m[3]}` : raw.trim();
+}
+
+function excelDateToISO(raw: string): string | null {
+  // MySQL DATE cần dạng YYYY-MM-DD.
+  const m = raw.trim().match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
 }
 
 function groupRowsByAwb(rows: unknown[][]): ShipmentGroup[] {
@@ -141,35 +156,48 @@ async function main() {
     `Đọc được ${groups.length} bill (${rows.length - 1} dòng) từ file.`
   );
 
-  console.log("Đang tải danh sách đơn hàng hiện có từ Google Sheet...");
-  const existingOrders = await getAllOrders();
-  const existingBillNumbers = new Set(
-    existingOrders.map((o) => o.billNumber.trim().toUpperCase())
-  );
-  const existingFalcoCodes = new Set(
-    existingOrders.map((o) => o.falcoCode.trim().toUpperCase())
-  );
+  console.log("Đang tải danh sách đơn hàng hiện có từ MySQL...");
+  const existingAwb = await listAwbSet();
+  const existingFalcoCodes = await listFalcoCodeSet();
 
-  const newRows: OrderRow[] = [];
+  const sheetMirrorRows: OrderRow[] = [];
+  let inserted = 0;
   let skipped = 0;
 
   for (const g of groups) {
-    if (existingBillNumbers.has(g.awb.toUpperCase())) {
+    if (existingAwb.has(g.awb.toUpperCase())) {
       skipped += 1;
       continue;
     }
 
     const falcoCode = nextFalcoCode(existingFalcoCodes);
     existingFalcoCodes.add(falcoCode);
-    existingBillNumbers.add(g.awb.toUpperCase());
+    existingAwb.add(g.awb.toUpperCase());
 
-    newRows.push({
+    const destination = [g.city, g.country].filter(Boolean).join(", ");
+
+    const orderId = await insertOrder({
+      falcoCode,
+      awb: g.awb,
+      recipientName: g.contact,
+      recipientPhone: g.telephone,
+      service: g.service,
+      destination,
+      receivedDate: excelDateToISO(g.date),
+    });
+    await insertParcels(
+      orderId,
+      g.trackingNumbers.map((code) => ({ hawb: "", trackingCode: code }))
+    );
+    inserted += 1;
+
+    sheetMirrorRows.push({
       falcoCode,
       billNumber: g.awb,
       recipientName: g.contact,
       recipientPhone: g.telephone,
       service: g.service,
-      destination: [g.city, g.country].filter(Boolean).join(", "),
+      destination,
       lastMileCodes: g.trackingNumbers.join(", "),
       receivedDate: g.date,
       warehouseDate: "",
@@ -178,16 +206,24 @@ async function main() {
     });
   }
 
-  if (newRows.length === 0) {
+  if (inserted === 0) {
     console.log(`Không có bill mới. Đã bỏ qua ${skipped} bill trùng lặp.`);
     return;
   }
 
-  await appendOrders(newRows);
-  console.log(
-    `Đã thêm ${newRows.length} bill mới vào Google Sheet. Bỏ qua ${skipped} bill trùng lặp.`
-  );
-  console.log("Mã Falco mới:", newRows.map((r) => r.falcoCode).join(", "));
+  console.log(`Đã thêm ${inserted} bill mới vào MySQL. Bỏ qua ${skipped} bill trùng lặp.`);
+
+  try {
+    await appendOrders(sheetMirrorRows);
+    console.log("Đã mirror sang Google Sheet để tải Excel khi cần.");
+  } catch (err) {
+    console.error(
+      "Cảnh báo: ghi MySQL thành công nhưng mirror sang Sheet thất bại:",
+      err instanceof Error ? err.message : err
+    );
+  }
+
+  console.log("Mã Falco mới:", sheetMirrorRows.map((r) => r.falcoCode).join(", "));
 }
 
 main().catch((err) => {

@@ -2,21 +2,48 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import type { PublicOrder } from "@/lib/sheets";
 import {
   ArrowRightIcon,
   CheckCircleIcon,
-  ClockIcon,
+  MapPinIcon,
+  PhoneIcon,
   SearchIcon,
 } from "@/components/icons";
 
 type Status = "idle" | "loading" | "done";
 
+type TrackingStep = {
+  title: string;
+  time: string;
+  location: string | null;
+};
+
+type TrackingParcel = {
+  hawb: string;
+  trackingCode: string;
+  status: string;
+  trackingUrl: string | null;
+};
+
+type TrackingResult = {
+  falcoCode: string;
+  awb: string;
+  service: string;
+  destination: string;
+  currentStatus: string;
+  steps: TrackingStep[];
+  parcels: TrackingParcel[];
+  lastMileCarrier: string;
+  lastMileWebsite: string;
+  contactInformation: string;
+  ksnPostUrl: string;
+};
+
 export default function TrackingLookup() {
   const searchParams = useSearchParams();
   const [value, setValue] = useState("");
   const [status, setStatus] = useState<Status>("idle");
-  const [result, setResult] = useState<PublicOrder | null>(null);
+  const [result, setResult] = useState<TrackingResult | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
   async function lookup(raw: string) {
@@ -113,55 +140,74 @@ export default function TrackingLookup() {
                 <div>
                   <p className="text-xs text-ink/45">Số bill</p>
                   <p className="mt-1 font-medium text-navy-900">
-                    {result.billNumber || "—"}
+                    {result.awb || "—"}
                   </p>
                 </div>
               </div>
 
-              <ol className="mt-7 space-y-0">
-                {result.steps.map((step, i) => {
-                  const isLast = i === result.steps.length - 1;
-                  return (
-                    <li key={i} className="relative flex gap-4 pb-7 last:pb-0">
-                      {!isLast && (
-                        <span
-                          className={`absolute left-[11px] top-6 h-full w-px ${
-                            step.done ? "bg-flame-400" : "bg-line"
-                          }`}
-                          aria-hidden
-                        />
-                      )}
-                      <span
-                        className={`z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-                          step.done
-                            ? "bg-flame-500 text-white"
-                            : "border-2 border-line bg-white text-ink/30"
-                        }`}
-                      >
-                        {step.done ? (
-                          <CheckCircleIcon className="h-3.5 w-3.5" />
-                        ) : (
-                          <ClockIcon className="h-3.5 w-3.5" />
+              {result.steps.length > 0 && (
+                <ol className="mt-7 space-y-0">
+                  {result.steps.map((step, i) => {
+                    const isLast = i === result.steps.length - 1;
+                    const isCurrent = i === 0;
+                    return (
+                      <li key={i} className="relative flex gap-4 pb-7 last:pb-0">
+                        {!isLast && (
+                          <span
+                            className="absolute left-[11px] top-6 h-full w-px bg-flame-400"
+                            aria-hidden
+                          />
                         )}
-                      </span>
-                      <div>
-                        <p
-                          className={`text-sm font-semibold ${
-                            step.done ? "text-navy-900" : "text-ink/40"
+                        <span
+                          className={`z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                            isCurrent
+                              ? "bg-flame-500 text-white"
+                              : "border-2 border-flame-300 bg-white text-flame-500"
                           }`}
                         >
-                          {step.title}
-                        </p>
-                        {step.date && (
-                          <p className="mt-0.5 text-xs text-ink/50">{step.date}</p>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
+                          <CheckCircleIcon className="h-3.5 w-3.5" />
+                        </span>
+                        <div>
+                          <p
+                            className={`text-sm font-semibold ${
+                              isCurrent ? "text-navy-900" : "text-ink/70"
+                            }`}
+                          >
+                            {step.title}
+                          </p>
+                          <p className="mt-0.5 text-xs text-ink/50">
+                            {step.time}
+                            {step.location ? ` · ${step.location}` : ""}
+                          </p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
 
-              {(result.ksnPostUrl || result.lastMile.length > 0) && (
+              {result.parcels.length > 1 && (
+                <div className="mt-7 border-t border-line pt-6">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-ink/45">
+                    Chi tiết {result.parcels.length} kiện hàng
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    {result.parcels.map((p, i) => (
+                      <div
+                        key={p.trackingCode}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-mist px-4 py-2.5 text-sm"
+                      >
+                        <span className="font-medium text-navy-900">
+                          Kiện {i + 1} · {p.trackingCode}
+                        </span>
+                        <span className="text-ink/60">{p.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(result.ksnPostUrl || result.lastMileWebsite || result.parcels.length > 0) && (
                 <div className="mt-7 flex flex-wrap gap-3 border-t border-line pt-6">
                   {result.ksnPostUrl && (
                     <a
@@ -174,23 +220,38 @@ export default function TrackingLookup() {
                       <ArrowRightIcon className="h-4 w-4" />
                     </a>
                   )}
-                  {result.lastMile.map((item, i) => {
-                    const label =
-                      result.lastMile.length > 1
-                        ? `Kiện ${i + 1} · ${item.carrier} ${item.code}`
-                        : `${item.carrier} ${item.code}`;
-                    return (
+                  {result.parcels
+                    .filter((p) => p.trackingUrl)
+                    .map((p, i) => (
                       <a
-                        key={item.code}
-                        href={item.url}
+                        key={p.trackingCode}
+                        href={p.trackingUrl!}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="btn-outline"
                       >
-                        {label}
+                        {result.parcels.length > 1
+                          ? `${result.lastMileCarrier || "Đối tác"} · Kiện ${i + 1}`
+                          : `Tra cứu tại ${result.lastMileCarrier || "đối tác vận chuyển"}`}
                       </a>
-                    );
-                  })}
+                    ))}
+                </div>
+              )}
+
+              {(result.lastMileCarrier || result.contactInformation) && (
+                <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-xs text-ink/50">
+                  {result.lastMileCarrier && (
+                    <span className="flex items-center gap-1.5">
+                      <MapPinIcon className="h-3.5 w-3.5" />
+                      Đối tác giao hàng chặng cuối: {result.lastMileCarrier}
+                    </span>
+                  )}
+                  {result.contactInformation && (
+                    <span className="flex items-center gap-1.5">
+                      <PhoneIcon className="h-3.5 w-3.5" />
+                      {result.contactInformation}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
