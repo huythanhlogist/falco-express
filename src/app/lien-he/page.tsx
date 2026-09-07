@@ -4,12 +4,17 @@ import Reveal from "@/components/Reveal";
 import ContactForm from "@/components/ContactForm";
 import { BRANCHES, SITE } from "@/lib/constants";
 import { ClockIcon, MailIcon, MapPinIcon, PhoneIcon } from "@/components/icons";
+import { resolveMetadataOverride } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Liên hệ",
-  description:
-    "Liên hệ Falco Express Logistics qua hotline, email hoặc ghé thăm chi nhánh tại Hà Nội, TP. Hồ Chí Minh và Nghệ An.",
-};
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return resolveMetadataOverride("/lien-he", {
+    title: "Liên hệ",
+    description:
+      "Liên hệ Falco Express Logistics qua hotline, email hoặc ghé thăm chi nhánh tại Hà Nội, TP. Hồ Chí Minh và Nghệ An.",
+  });
+}
 
 export default function ContactPage() {
   return (

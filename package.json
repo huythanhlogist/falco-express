@@ -16,7 +16,9 @@
     "framer-motion": "^13.2.0",
     "nodemailer": "^10.0.0",
     "googleapis": "^178.0.0",
-    "mysql2": "^3.24.3"
+    "mysql2": "^3.24.3",
+    "bcryptjs": "^3.0.2",
+    "jose": "^6.1.1"
   },
   "devDependencies": {
     "typescript": "^5.6.3",
@@ -24,6 +26,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@types/nodemailer": "^6.4.16",
+    "@types/bcryptjs": "^2.4.6",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "tsx": "^4.19.2",
     "dotenv": "^17.4.2",

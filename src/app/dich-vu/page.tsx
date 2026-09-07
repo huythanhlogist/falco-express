@@ -18,12 +18,17 @@ import {
   InternationalIllustration,
   WarehouseIllustration,
 } from "@/components/ServiceIllustrations";
+import { resolveMetadataOverride } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Dịch vụ",
-  description:
-    "Chuyển phát nhanh nội địa, quốc tế, vận chuyển hàng hóa và kho vận & phân phối cùng Falco Express Logistics.",
-};
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return resolveMetadataOverride("/dich-vu", {
+    title: "Dịch vụ",
+    description:
+      "Chuyển phát nhanh nội địa, quốc tế, vận chuyển hàng hóa và kho vận & phân phối cùng Falco Express Logistics.",
+  });
+}
 
 const ICONS = {
   domestic: TruckIcon,

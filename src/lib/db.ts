@@ -19,6 +19,11 @@ export function getPool(): mysql.Pool {
       waitForConnections: true,
       connectionLimit: 5,
       queueLimit: 0,
+      // Giữ kết nối sống qua TCP keepalive — tránh lỗi "write EPIPE" khi kết
+      // nối bị firewall/NAT âm thầm đóng sau một thời gian không hoạt động
+      // (hay gặp khi app kết nối MySQL qua WAN, vd chạy dev từ máy cá nhân).
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 10_000,
     });
   }
   return pool;
@@ -108,5 +113,111 @@ export async function listFalcoCodeSet(): Promise<Set<string>> {
   const [rows] = await getPool().query("SELECT falco_code FROM orders");
   return new Set(
     (rows as { falco_code: string }[]).map((r) => r.falco_code.toUpperCase())
+  );
+}
+
+// ---------- Admin: người dùng quản trị ----------
+
+export type AdminUser = {
+  id: number;
+  email: string;
+  password_hash: string;
+};
+
+export async function findAdminByEmail(
+  email: string
+): Promise<AdminUser | null> {
+  const [rows] = await getPool().query(
+    "SELECT * FROM admin_users WHERE email = ? LIMIT 1",
+    [email.trim().toLowerCase()]
+  );
+  const list = rows as AdminUser[];
+  return list[0] ?? null;
+}
+
+// ---------- Admin: quản lý đơn hàng ----------
+
+export type OrderListItem = OrderRecord & { parcel_count: number };
+
+export async function listOrders(params: {
+  search: string;
+  limit: number;
+  offset: number;
+}): Promise<{ orders: OrderListItem[]; total: number }> {
+  const { search, limit, offset } = params;
+  const like = `%${search.trim()}%`;
+  const where = search.trim()
+    ? "WHERE o.falco_code LIKE ? OR o.awb LIKE ? OR o.recipient_name LIKE ? OR o.recipient_phone LIKE ?"
+    : "";
+  const whereArgs = search.trim() ? [like, like, like, like] : [];
+
+  const [rows] = await getPool().query(
+    `SELECT o.*, COUNT(p.id) AS parcel_count
+     FROM orders o
+     LEFT JOIN order_parcels p ON p.order_id = o.id
+     ${where}
+     GROUP BY o.id
+     ORDER BY o.created_at DESC
+     LIMIT ? OFFSET ?`,
+    [...whereArgs, limit, offset]
+  );
+
+  const [countRows] = await getPool().query(
+    `SELECT COUNT(*) AS total FROM orders o ${where}`,
+    whereArgs
+  );
+  const total = (countRows as { total: number }[])[0]?.total ?? 0;
+
+  return { orders: rows as OrderListItem[], total };
+}
+
+export async function updatePaymentStatus(
+  id: number,
+  status: "paid" | "unpaid"
+): Promise<boolean> {
+  const [result] = await getPool().query(
+    "UPDATE orders SET payment_status = ? WHERE id = ?",
+    [status, id]
+  );
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
+// ---------- Admin: cài đặt SEO theo trang ----------
+
+export type SeoSetting = {
+  page_path: string;
+  meta_title: string | null;
+  meta_description: string | null;
+  updated_at: string;
+};
+
+export async function listSeoSettings(): Promise<SeoSetting[]> {
+  const [rows] = await getPool().query(
+    "SELECT * FROM seo_settings ORDER BY page_path"
+  );
+  return rows as SeoSetting[];
+}
+
+export async function getSeoSetting(
+  pagePath: string
+): Promise<SeoSetting | null> {
+  const [rows] = await getPool().query(
+    "SELECT * FROM seo_settings WHERE page_path = ? LIMIT 1",
+    [pagePath]
+  );
+  const list = rows as SeoSetting[];
+  return list[0] ?? null;
+}
+
+export async function upsertSeoSetting(
+  pagePath: string,
+  metaTitle: string,
+  metaDescription: string
+): Promise<void> {
+  await getPool().query(
+    `INSERT INTO seo_settings (page_path, meta_title, meta_description)
+     VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE meta_title = VALUES(meta_title), meta_description = VALUES(meta_description)`,
+    [pagePath, metaTitle, metaDescription]
   );
 }

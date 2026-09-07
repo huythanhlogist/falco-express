@@ -23,12 +23,18 @@ Mở http://localhost:3000
 src/
   app/                 Các trang (App Router): /, /gioi-thieu, /dich-vu,
                        /tra-cuu-van-don, /lien-he, /api/contact
+                       /admin/*             Trang quản trị (đăng nhập bắt buộc)
+                       /api/admin/*         API cho trang quản trị
   components/          Header, Footer, Hero, các section UI dùng chung
+    admin/             UI riêng cho trang quản trị (nav, bảng đơn, sửa SEO)
   lib/
     constants.ts       Thông tin công ty, chi nhánh, dịch vụ (chỉnh nội dung ở đây)
-    db.ts              Kết nối MySQL — nguồn dữ liệu chính cho đơn hàng
+    db.ts              Kết nối MySQL — nguồn dữ liệu chính cho đơn hàng + admin
     kango.ts           Gọi API tracking chính thức của Kango
     sheets.ts          Ghi mirror sang Google Sheet (chỉ để tải Excel, không đọc lại)
+    auth.ts            Đăng nhập admin: hash mật khẩu, ký/xác thực session
+    seo.ts             Đọc override title/description từ bảng seo_settings
+  proxy.ts             Middleware: chặn /admin/* và /api/admin/* khi chưa đăng nhập
 public/
   falco-logo.png       Logo chính thức
 scripts/
@@ -42,6 +48,8 @@ scripts/
 - Dữ liệu tra cứu vận đơn: mã Falco + AWB lấy từ **MySQL**, trạng thái/hành
   trình thật lấy **trực tiếp từ API Kango** mỗi lần khách tra cứu — xem mục
   "Tra cứu vận đơn: MySQL + API Kango" bên dưới.
+- Quản lý đơn hàng, trạng thái thanh toán, SEO từng trang: đăng nhập
+  `/admin` — xem mục "Trang quản trị (admin)" bên dưới.
 
 ## Form liên hệ (gửi email)
 
@@ -150,6 +158,86 @@ Falco mới cho bill chưa có, ghi vào **MySQL** rồi mirror sang **Google
 Sheet**. Nếu Kango đổi cấu trúc cột, chỉ cần sửa lại các số trong object
 `COL`.
 
+## Trang quản trị (admin)
+
+Truy cập `https://falcoexpress.com/admin` (chuyển hướng tới `/admin/login`
+nếu chưa đăng nhập). Gồm:
+
+- **Đơn hàng** (`/admin/orders`): danh sách toàn bộ đơn từ MySQL, tìm theo
+  mã Falco/AWB/tên/SĐT, bấm để đổi **Đã thanh toán ↔ Chưa thanh toán** (chỉ
+  đánh dấu thủ công, không có cổng thanh toán).
+- **SEO** (`/admin/seo`): sửa tiêu đề (title) và mô tả (description) cho
+  từng trang công khai. Để trống ô nào thì trang đó dùng nội dung mặc định
+  có sẵn trong code. Lưu vào bảng `seo_settings`, các trang công khai đọc
+  lại sau tối đa 5 phút (`revalidate = 300`).
+- **Search Console** (`/admin/search-console`): khung hiển thị báo cáo —
+  hiện là placeholder, sẽ có số liệu thật khi làm Giai đoạn 3 (kết nối
+  Google Search Console).
+
+### Thiết lập lần đầu
+
+1. **Tạo bảng** (1 lần, chạy trên MySQL đã cấu hình ở `DB_*`):
+
+   ```bash
+   npx tsx -e "
+   import { config } from 'dotenv'; config({ path: '.env.local' });
+   import mysql from 'mysql2/promise';
+   const conn = await mysql.createConnection({
+     host: process.env.DB_HOST, port: Number(process.env.DB_PORT),
+     user: process.env.DB_USER, password: process.env.DB_PASSWORD,
+     database: process.env.DB_NAME,
+   });
+   await conn.query(\`CREATE TABLE IF NOT EXISTS admin_users (
+     id INT AUTO_INCREMENT PRIMARY KEY, email VARCHAR(255) UNIQUE NOT NULL,
+     password_hash VARCHAR(255) NOT NULL,
+     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)\`);
+   await conn.query(\`CREATE TABLE IF NOT EXISTS seo_settings (
+     page_path VARCHAR(255) PRIMARY KEY, meta_title VARCHAR(255),
+     meta_description VARCHAR(500),
+     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)\`);
+   console.log('done'); await conn.end();
+   "
+   ```
+
+   (Script này dùng cú pháp `-e` với top-level `await` — nếu gặp lỗi
+   "Top-level await is currently not supported", lưu thành file `.ts` tạm
+   trong thư mục dự án rồi chạy `npx tsx <file>.ts`, xem cách làm tương tự
+   trong lịch sử phát triển dự án.)
+
+2. **Đặt `ADMIN_SESSION_SECRET`** trong `.env.local` (và trong Environment
+   variables trên hPanel) — chuỗi ngẫu nhiên dùng để ký cookie đăng nhập:
+
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+
+3. **Tạo tài khoản admin đầu tiên** (đổi email/mật khẩu theo ý bạn):
+
+   ```bash
+   npx tsx -e "
+   import { config } from 'dotenv'; config({ path: '.env.local' });
+   import mysql from 'mysql2/promise';
+   import bcrypt from 'bcryptjs';
+   const conn = await mysql.createConnection({
+     host: process.env.DB_HOST, port: Number(process.env.DB_PORT),
+     user: process.env.DB_USER, password: process.env.DB_PASSWORD,
+     database: process.env.DB_NAME,
+   });
+   const hash = await bcrypt.hash('MAT_KHAU_MOI', 12);
+   await conn.query(
+     'INSERT INTO admin_users (email, password_hash) VALUES (?, ?) ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash)',
+     ['ban@falcoexpress.com', hash]
+   );
+   console.log('done'); await conn.end();
+   "
+   ```
+
+Middleware xác thực nằm ở [`src/proxy.ts`](src/proxy.ts) (Next.js 16 đổi
+tên quy ước từ `middleware.ts` sang `proxy.ts`), chặn toàn bộ `/admin/*` và
+`/api/admin/*` trừ trang đăng nhập, dựa trên cookie session đã ký (JWT,
+thư viện `jose`) — đổi `ADMIN_SESSION_SECRET` sẽ đăng xuất mọi phiên đang
+mở.
+
 ## Build production
 
 ```bash
@@ -185,7 +273,8 @@ Hostinger mà không cần cài lại `node_modules` đầy đủ trên server.
    `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`, `GOOGLE_SHEET_ID`,
    `GOOGLE_SHEET_RANGE`, `KANGO_API_KEY`, `KANGO_API_URL`, `DB_HOST`,
    `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` (xem mục "Tra cứu vận đơn:
-   MySQL + API Kango").
+   MySQL + API Kango"), `ADMIN_SESSION_SECRET` (xem mục "Trang quản trị
+   (admin)").
 6. **Khởi động ứng dụng**: dùng nút Restart trong hPanel Node.js, hoặc trỏ
    startup file tới `server.js` dưới đây nếu Hostinger yêu cầu một entry
    point cố định:

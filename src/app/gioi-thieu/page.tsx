@@ -4,6 +4,7 @@ import Reveal from "@/components/Reveal";
 import BranchesSection from "@/components/BranchesSection";
 import CTABanner from "@/components/CTABanner";
 import { STATS } from "@/lib/constants";
+import { resolveMetadataOverride } from "@/lib/seo";
 import {
   BoltIcon,
   CheckCircleIcon,
@@ -11,11 +12,15 @@ import {
   ShieldIcon,
 } from "@/components/icons";
 
-export const metadata: Metadata = {
-  title: "Giới thiệu",
-  description:
-    "Falco Express Logistics – đơn vị chuyển phát nhanh nội địa và quốc tế, đồng hành cùng khách hàng với sự uy tín, nhanh chóng và tận tâm.",
-};
+export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return resolveMetadataOverride("/gioi-thieu", {
+    title: "Giới thiệu",
+    description:
+      "Falco Express Logistics – đơn vị chuyển phát nhanh nội địa và quốc tế, đồng hành cùng khách hàng với sự uy tín, nhanh chóng và tận tâm.",
+  });
+}
 
 const VALUES = [
   {
