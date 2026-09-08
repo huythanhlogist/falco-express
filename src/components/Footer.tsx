@@ -10,11 +10,11 @@ export default function Footer() {
         <div>
           <div className="flex items-center gap-2.5">
             <Image
-              src="/falco-logo.png"
+              src="/falco-icon.png"
               alt={`${SITE.fullName} logo`}
               width={40}
               height={40}
-              className="h-10 w-10 rounded-lg bg-white object-contain p-1"
+              className="h-10 w-10 rounded-full bg-white object-cover p-0.5"
             />
             <span className="flex flex-col leading-none">
               <span className="font-display text-base font-extrabold tracking-tight text-white">

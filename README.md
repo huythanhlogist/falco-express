@@ -206,6 +206,20 @@ nếu chưa đăng nhập). Gồm:
   `owner` (cả UI lẫn API `/api/admin/staff` đều kiểm tra `role` từ JWT
   session, không chỉ ẩn nút trên giao diện).
 
+### Cài app quản trị lên iPhone (PWA — không qua App Store)
+
+`/admin/*` là 1 PWA riêng (manifest `public/admin-manifest.json`, khai báo
+qua `src/app/admin/layout.tsx`) — không phải app native, nhưng cài được lên
+màn hình chính iPhone và chạy toàn màn hình như app thật:
+
+1. Mở Safari (bắt buộc Safari, Chrome trên iOS không hỗ trợ) →
+   `https://falcoexpress.com/admin/login`.
+2. Bấm nút Chia sẻ → **"Thêm vào MH chính"**.
+
+Vì đây chính là trang quản trị đang chạy (gọi thẳng API/DB sống), mọi thay
+đổi dữ liệu hiện ngay lập tức, không có bản sao/cache riêng nào có thể lệch.
+Cập nhật code = redeploy như bình thường, không cần bản cập nhật app riêng.
+
 ### Thiết lập lần đầu
 
 1. **Tạo bảng** (1 lần, chạy trên MySQL đã cấu hình ở `DB_*`):

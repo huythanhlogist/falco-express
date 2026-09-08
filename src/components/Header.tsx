@@ -41,12 +41,12 @@ export default function Header() {
       <div className="container-page flex h-[76px] items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5" aria-label={`${SITE.name} - Trang chủ`}>
           <Image
-            src="/falco-logo.png"
+            src="/falco-icon.png"
             alt={`${SITE.fullName} logo`}
             width={44}
             height={44}
             priority
-            className="h-11 w-11 object-contain"
+            className="h-11 w-11 rounded-full object-cover ring-1 ring-line"
           />
           <span className="flex flex-col leading-none">
             <span className="font-display text-lg font-extrabold tracking-tight text-navy-800">

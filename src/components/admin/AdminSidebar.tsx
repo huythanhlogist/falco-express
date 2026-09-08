@@ -72,11 +72,11 @@ export default function AdminSidebar({
       <header className="flex h-14 items-center justify-between border-b border-line bg-white px-4 md:hidden">
         <div className="flex items-center gap-2">
           <Image
-            src="/falco-logo.png"
+            src="/falco-icon.png"
             alt="Falco Express logo"
             width={26}
             height={26}
-            className="h-6 w-6 object-contain"
+            className="h-6 w-6 rounded-full object-cover ring-1 ring-line"
           />
           <span className="font-display text-sm font-extrabold text-navy-900">
             FALCO Admin
@@ -109,11 +109,11 @@ export default function AdminSidebar({
       >
         <div className="flex items-center gap-2 px-4 pb-5">
           <Image
-            src="/falco-logo.png"
+            src="/falco-icon.png"
             alt="Falco Express logo"
             width={30}
             height={30}
-            className="h-7 w-7 object-contain"
+            className="h-7 w-7 rounded-full object-cover ring-1 ring-white/15"
           />
           <div>
             <p className="font-display text-sm font-extrabold text-white">FALCO Admin</p>
