@@ -67,7 +67,7 @@ export default async function AdminOrdersPage({
               type="text"
               name="q"
               defaultValue={search}
-              placeholder="Tìm mã Falco, AWB, tên, SĐT..."
+              placeholder="Tìm mã Falco, AWB, mã tracking, tên, SĐT..."
               className="w-52 rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink focus:border-flame-400 focus:outline-none focus:ring-2 focus:ring-flame-100 sm:w-60"
             />
             <button type="submit" className="btn-outline !px-3.5 !py-2 text-sm">

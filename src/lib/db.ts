@@ -280,9 +280,10 @@ export async function listOrders(params: {
   const whereArgs: unknown[] = [];
   if (search.trim()) {
     conditions.push(
-      "(o.falco_code LIKE ? OR o.awb LIKE ? OR o.recipient_name LIKE ? OR o.recipient_phone LIKE ?)"
+      `(o.falco_code LIKE ? OR o.awb LIKE ? OR o.recipient_name LIKE ? OR o.recipient_phone LIKE ?
+        OR EXISTS (SELECT 1 FROM order_parcels op WHERE op.order_id = o.id AND op.tracking_code LIKE ?))`
     );
-    whereArgs.push(like, like, like, like);
+    whereArgs.push(like, like, like, like, like);
   }
   if (month) {
     conditions.push("DATE_FORMAT(o.received_date, '%Y-%m') = ?");
@@ -318,9 +319,10 @@ export async function listOrders(params: {
   const searchMonthArgs: unknown[] = [];
   if (search.trim()) {
     searchMonthConditions.push(
-      "(o.falco_code LIKE ? OR o.awb LIKE ? OR o.recipient_name LIKE ? OR o.recipient_phone LIKE ?)"
+      `(o.falco_code LIKE ? OR o.awb LIKE ? OR o.recipient_name LIKE ? OR o.recipient_phone LIKE ?
+        OR EXISTS (SELECT 1 FROM order_parcels op WHERE op.order_id = o.id AND op.tracking_code LIKE ?))`
     );
-    searchMonthArgs.push(like, like, like, like);
+    searchMonthArgs.push(like, like, like, like, like);
   }
   if (month) {
     searchMonthConditions.push("DATE_FORMAT(o.received_date, '%Y-%m') = ?");
