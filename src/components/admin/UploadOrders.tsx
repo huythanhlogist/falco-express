@@ -23,6 +23,8 @@ type HistoryEntry = {
   updated: number;
   unchanged: number;
   errors: string | null;
+  snapshot: string | null;
+  undone_at: string | null;
   created_at: string;
 };
 
@@ -33,6 +35,7 @@ function formatDateTime(iso: string): string {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Ho_Chi_Minh",
   });
 }
 
@@ -42,6 +45,7 @@ export default function UploadOrders() {
   const [result, setResult] = useState<UploadResult | null>(null);
   const [error, setError] = useState("");
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
+  const [undoingId, setUndoingId] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function loadHistory() {
@@ -84,6 +88,29 @@ export default function UploadOrders() {
       setState("error");
     } finally {
       if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  async function handleUndo(h: HistoryEntry) {
+    if (!confirm(`Hoàn tác lượt upload "${h.file_name}"? Bill mới sẽ bị xoá, bill đã cập nhật sẽ được trả về đúng dữ liệu trước đó.`)) {
+      return;
+    }
+    setUndoingId(h.id);
+    try {
+      const res = await fetch(`/api/admin/upload-history/${h.id}/undo`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) {
+        alert(json.error || "Hoàn tác thất bại");
+        return;
+      }
+      if (json.errors?.length > 0) {
+        alert(`Đã hoàn tác nhưng có vài lỗi nhỏ:\n${json.errors.join("\n")}`);
+      }
+      loadHistory();
+    } catch {
+      alert("Không kết nối được tới máy chủ — thử lại sau");
+    } finally {
+      setUndoingId(null);
     }
   }
 
@@ -205,11 +232,16 @@ export default function UploadOrders() {
                 <th className="px-3 py-2">Cập nhật</th>
                 <th className="px-3 py-2">Không đổi</th>
                 <th className="px-3 py-2">Lỗi</th>
+                <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>
               {(history ?? []).map((h) => {
                 const errs: string[] = h.errors ? JSON.parse(h.errors) : [];
+                const canUndo =
+                  !h.undone_at &&
+                  h.snapshot &&
+                  (h.inserted > 0 || h.updated > 0);
                 return (
                   <tr key={h.id} className="border-b border-line last:border-0 hover:bg-mist/40">
                     <td className="px-3 py-2 text-ink/70">{formatDateTime(h.created_at)}</td>
@@ -231,12 +263,26 @@ export default function UploadOrders() {
                         <span className="text-ink/30">—</span>
                       )}
                     </td>
+                    <td className="px-3 py-2">
+                      {h.undone_at ? (
+                        <span className="text-xs text-ink/40">Đã hoàn tác</span>
+                      ) : canUndo ? (
+                        <button
+                          type="button"
+                          onClick={() => handleUndo(h)}
+                          disabled={undoingId === h.id}
+                          className="text-xs font-semibold text-flame-700 hover:underline disabled:opacity-50"
+                        >
+                          {undoingId === h.id ? "Đang hoàn tác..." : "Hoàn tác"}
+                        </button>
+                      ) : null}
+                    </td>
                   </tr>
                 );
               })}
               {history !== null && history.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-5 py-8 text-center text-ink/45">
+                  <td colSpan={9} className="px-5 py-8 text-center text-ink/45">
                     Chưa có lần upload nào.
                   </td>
                 </tr>

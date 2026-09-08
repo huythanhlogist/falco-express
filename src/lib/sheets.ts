@@ -248,6 +248,54 @@ export async function appendOrders(rows: OrderRow[]): Promise<void> {
   });
 }
 
+/**
+ * Xoá các dòng trong tab "Orders" có mã Falco khớp `falcoCodes` — dùng khi
+ * hoàn tác 1 lượt upload (bill mới đã được `appendOrders` ghi vào Sheet lúc
+ * import cần được gỡ lại cho khớp DB đã hoàn tác). Xoá theo thứ tự hàng
+ * lớn → nhỏ trong 1 batchUpdate để index không bị lệch giữa các lần xoá.
+ */
+export async function removeOrderRowsByFalcoCodes(
+  falcoCodes: string[]
+): Promise<void> {
+  if (falcoCodes.length === 0) return;
+  const sheetId = process.env.GOOGLE_SHEET_ID;
+  if (!sheetId) throw new Error("Thiếu GOOGLE_SHEET_ID");
+
+  const wanted = new Set(falcoCodes.map((c) => c.trim().toUpperCase()));
+  const sheets = await getSheetsClient();
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: SHEET_RANGE,
+  });
+  const rows = res.data.values || [];
+
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+  const ordersTab = meta.data.sheets?.find((s) => s.properties?.title === "Orders");
+  const tabId = ordersTab?.properties?.sheetId ?? 0;
+
+  // SHEET_RANGE bắt đầu từ dòng 2 (A2) — dòng thứ i trong `rows` (0-index)
+  // ứng với dòng thật trong Sheet là i + 2 (1-index).
+  const rowIndexesToDelete: number[] = [];
+  rows.forEach((row, i) => {
+    const falcoCode = (row[0] || "").trim().toUpperCase();
+    if (wanted.has(falcoCode)) rowIndexesToDelete.push(i + 2);
+  });
+  if (rowIndexesToDelete.length === 0) return;
+
+  rowIndexesToDelete.sort((a, b) => b - a); // lớn -> nhỏ
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: sheetId,
+    requestBody: {
+      requests: rowIndexesToDelete.map((row) => ({
+        deleteDimension: {
+          range: { sheetId: tabId, dimension: "ROWS", startIndex: row - 1, endIndex: row },
+        },
+      })),
+    },
+  });
+}
+
 // ---------- Tab "Kế toán" — mirror Thu/Chi từ admin, đồng bộ ngay lập tức ----------
 
 const ACCOUNTING_SHEET_TITLE = "Kế toán";
@@ -338,7 +386,7 @@ export async function upsertAccountingRow(row: AccountingRow): Promise<void> {
       row.amount,
       row.cost,
       row.amount - row.cost,
-      new Date().toLocaleString("vi-VN"),
+      new Date().toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }),
     ],
   ];
 

@@ -527,6 +527,8 @@ export type UploadHistoryEntry = {
   updated: number;
   unchanged: number;
   errors: string | null; // JSON.stringify(string[]) hoặc null nếu không có lỗi
+  snapshot: string | null; // JSON.stringify(UploadSnapshot) — dữ liệu để hoàn tác
+  undone_at: string | null;
   created_at: string;
 };
 
@@ -538,11 +540,12 @@ export async function insertUploadHistory(entry: {
   updated: number;
   unchanged: number;
   errors: string[];
+  snapshot: unknown;
 }): Promise<number> {
   const [result] = await getPool().query(
     `INSERT INTO upload_history
-       (file_name, uploaded_by, total_bills, inserted, updated, unchanged, errors)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (file_name, uploaded_by, total_bills, inserted, updated, unchanged, errors, snapshot)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       entry.fileName,
       entry.uploadedBy,
@@ -551,6 +554,7 @@ export async function insertUploadHistory(entry: {
       entry.updated,
       entry.unchanged,
       entry.errors.length > 0 ? JSON.stringify(entry.errors) : null,
+      JSON.stringify(entry.snapshot),
     ]
   );
   return (result as mysql.ResultSetHeader).insertId;
@@ -562,4 +566,71 @@ export async function listUploadHistory(limit = 20): Promise<UploadHistoryEntry[
     [limit]
   );
   return rows as UploadHistoryEntry[];
+}
+
+export async function findUploadHistoryById(id: number): Promise<UploadHistoryEntry | null> {
+  const [rows] = await getPool().query(
+    "SELECT * FROM upload_history WHERE id = ? LIMIT 1",
+    [id]
+  );
+  const list = rows as UploadHistoryEntry[];
+  return list[0] ?? null;
+}
+
+export async function markUploadHistoryUndone(id: number): Promise<void> {
+  await getPool().query("UPDATE upload_history SET undone_at = NOW() WHERE id = ?", [id]);
+}
+
+// ---------- Admin: lịch sử chỉnh sửa đơn (để hoàn tác) ----------
+
+/**
+ * Mỗi lần 1 đơn bị SỬA hoặc XOÁ qua admin (Đơn hàng, Kế toán), lưu lại
+ * NGUYÊN TRẠNG trước đó vào đây trước khi áp thay đổi — cho phép hoàn tác
+ * nếu sửa/xoá nhầm.
+ */
+export type OrderEditHistoryEntry = {
+  id: number;
+  order_id: number;
+  action: "update" | "delete";
+  before_data: string; // JSON: { order: OrderRecord, parcels: string[] }
+  changed_by: string;
+  undone_at: string | null;
+  created_at: string;
+};
+
+export async function insertOrderEditHistory(entry: {
+  orderId: number;
+  action: "update" | "delete";
+  beforeData: unknown;
+  changedBy: string;
+}): Promise<number> {
+  const [result] = await getPool().query(
+    `INSERT INTO order_edit_history (order_id, action, before_data, changed_by)
+     VALUES (?, ?, ?, ?)`,
+    [entry.orderId, entry.action, JSON.stringify(entry.beforeData), entry.changedBy]
+  );
+  return (result as mysql.ResultSetHeader).insertId;
+}
+
+export async function listOrderEditHistory(limit = 30): Promise<OrderEditHistoryEntry[]> {
+  const [rows] = await getPool().query(
+    "SELECT * FROM order_edit_history ORDER BY id DESC LIMIT ?",
+    [limit]
+  );
+  return rows as OrderEditHistoryEntry[];
+}
+
+export async function findOrderEditHistoryById(
+  id: number
+): Promise<OrderEditHistoryEntry | null> {
+  const [rows] = await getPool().query(
+    "SELECT * FROM order_edit_history WHERE id = ? LIMIT 1",
+    [id]
+  );
+  const list = rows as OrderEditHistoryEntry[];
+  return list[0] ?? null;
+}
+
+export async function markOrderEditHistoryUndone(id: number): Promise<void> {
+  await getPool().query("UPDATE order_edit_history SET undone_at = NOW() WHERE id = ?", [id]);
 }

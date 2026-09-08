@@ -109,7 +109,7 @@ export default async function KeToanPage({
 
       <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
         <SummaryCard
-          title={`Tuần này (${new Date(weekRange.start).toLocaleDateString("vi-VN")} – ${new Date(weekRange.end).toLocaleDateString("vi-VN")})`}
+          title={`Tuần này (${new Date(weekRange.start).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} – ${new Date(weekRange.end).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })})`}
           thu={weekFinance.thu}
           chi={weekChi}
           laiLo={weekLaiLo}

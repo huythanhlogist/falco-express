@@ -4,6 +4,7 @@ import ThuStatusSelect from "@/components/admin/ThuStatusSelect";
 import OrderRowActions from "@/components/admin/OrderRowActions";
 import MonthFilterSelect from "@/components/admin/MonthFilterSelect";
 import CopyOrderInfoButton from "@/components/admin/CopyOrderInfoButton";
+import OrderEditHistory from "@/components/admin/OrderEditHistory";
 import { PackageCheckIcon, ClockIcon, CargoIcon } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
@@ -166,7 +167,7 @@ export default async function AdminOrdersPage({
                   <td className="px-3 py-2 text-ink/70">{o.parcel_count}</td>
                   <td className="px-3 py-2 text-ink/70">
                     {o.received_date
-                      ? new Date(o.received_date).toLocaleDateString("vi-VN")
+                      ? new Date(o.received_date).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
                       : "—"}
                   </td>
                   <td className="px-3 py-2">
@@ -214,6 +215,8 @@ export default async function AdminOrdersPage({
           ))}
         </div>
       )}
+
+      <OrderEditHistory />
     </div>
   );
 }

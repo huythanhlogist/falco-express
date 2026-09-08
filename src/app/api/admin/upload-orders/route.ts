@@ -43,6 +43,7 @@ export async function POST(request: Request) {
       updated: result.updated,
       unchanged: result.unchanged,
       errors: result.errors,
+      snapshot: result.snapshot,
     });
     return NextResponse.json(result);
   } catch (err) {

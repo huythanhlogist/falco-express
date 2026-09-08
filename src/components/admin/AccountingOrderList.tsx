@@ -88,7 +88,7 @@ export default function AccountingOrderList({ initialRows }: { initialRows: Row[
                 <td className="px-3 py-2 text-ink/70">{r.destination || "—"}</td>
                 <td className="px-3 py-2 text-ink/70">{r.parcel_count}</td>
                 <td className="px-3 py-2 text-ink/70">
-                  {r.received_date ? new Date(r.received_date).toLocaleDateString("vi-VN") : "—"}
+                  {r.received_date ? new Date(r.received_date).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—"}
                 </td>
                 <td className="px-3 py-2">
                   <span

@@ -5,10 +5,12 @@ import {
   listOrderParcels,
   replaceOrderParcels,
   updateOrder,
+  insertOrderEditHistory,
   type PaymentStatus,
 } from "@/lib/db";
 import { upsertAccountingRow } from "@/lib/sheets";
 import { statusLabel } from "@/lib/payment-status";
+import { getCurrentAdminSession } from "@/lib/auth";
 
 function formatDateVN(value: string | Date | null): string {
   if (!value) return "";
@@ -85,11 +87,31 @@ export async function PATCH(
   if (destination !== undefined) fields.destination = String(destination).trim();
   if (receivedDate !== undefined) fields.receivedDate = receivedDate || null;
 
-  if (Object.keys(fields).length > 0) {
+  const willChangeFields = Object.keys(fields).length > 0;
+  const willChangeParcels = Array.isArray(trackingCodes);
+
+  // Lưu lại nguyên trạng TRƯỚC khi sửa — để có thể hoàn tác nếu sửa nhầm.
+  // Chỉ ghi log khi thực sự có gì đó sẽ đổi, tránh làm rác lịch sử với các
+  // lần lưu không đổi gì.
+  if (willChangeFields || willChangeParcels) {
+    const session = await getCurrentAdminSession();
+    const currentParcels = await listOrderParcels(orderId);
+    await insertOrderEditHistory({
+      orderId,
+      action: "update",
+      changedBy: session?.email ?? "unknown",
+      beforeData: {
+        order,
+        trackingCodes: currentParcels.map((p) => p.tracking_code),
+      },
+    });
+  }
+
+  if (willChangeFields) {
     await updateOrder(orderId, fields);
   }
 
-  if (Array.isArray(trackingCodes)) {
+  if (willChangeParcels) {
     await replaceOrderParcels(orderId, trackingCodes.map(String));
   }
 
@@ -132,6 +154,20 @@ export async function DELETE(
   if (!Number.isInteger(orderId)) {
     return NextResponse.json({ error: "ID không hợp lệ" }, { status: 400 });
   }
+
+  const order = await findOrderById(orderId);
+  if (!order) {
+    return NextResponse.json({ error: "Không tìm thấy đơn hàng" }, { status: 404 });
+  }
+
+  const session = await getCurrentAdminSession();
+  const parcels = await listOrderParcels(orderId);
+  await insertOrderEditHistory({
+    orderId,
+    action: "delete",
+    changedBy: session?.email ?? "unknown",
+    beforeData: { order, trackingCodes: parcels.map((p) => p.tracking_code) },
+  });
 
   const ok = await deleteOrder(orderId);
   if (!ok) {

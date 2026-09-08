@@ -50,6 +50,22 @@ const COL = {
   TELEPHONE: 23,
 } as const;
 
+// Từ khoá kỳ vọng có trong DÒNG TIÊU ĐỀ (row 0) ở đúng vị trí cột tương
+// ứng — dùng để CHẶN việc xử lý nếu file upload lên sai định dạng (đã có
+// sự cố thật: 1 file Excel khác cấu trúc bị đọc nhầm cột, ghi đè dữ liệu
+// sai vào các đơn có sẵn mà không ai biết). Không khớp đủ từ khoá bắt buộc
+// → HUỶ xử lý toàn bộ file, không ghi bất kỳ thay đổi nào vào DB.
+const REQUIRED_HEADER_KEYWORDS: { col: keyof typeof COL; keyword: string }[] = [
+  { col: "AWB", keyword: "AWB" },
+  { col: "TRACKING_NUMBER", keyword: "TRACKING" },
+  { col: "SERVICE", keyword: "SERVICE" },
+  { col: "DATE", keyword: "DATE" },
+  { col: "CONTACT", keyword: "CONTACT" },
+  { col: "CITY", keyword: "CITY" },
+  { col: "COUNTRY", keyword: "COUNTRY" },
+  { col: "TELEPHONE", keyword: "PHONE" },
+];
+
 type ShipmentGroup = {
   awb: string;
   service: string;
@@ -76,6 +92,26 @@ function cellToString(value: unknown): string {
   if (value === undefined || value === null) return "";
   if (typeof value === "number") return String(value);
   return String(value).trim();
+}
+
+/**
+ * Kiểm tra dòng tiêu đề có đúng cấu trúc cột Kango kỳ vọng không — trả về
+ * danh sách lỗi cụ thể (rỗng nếu hợp lệ). Chỉ cần MỘT cột sai vị trí là đủ
+ * để toàn bộ dữ liệu bên dưới bị đọc nhầm, nên bất kỳ từ khoá nào không
+ * khớp cũng coi là file sai định dạng.
+ */
+function validateHeaderRow(header: unknown[]): string[] {
+  const problems: string[] = [];
+  for (const { col, keyword } of REQUIRED_HEADER_KEYWORDS) {
+    const idx = COL[col];
+    const cell = cellToString(header[idx]).toUpperCase();
+    if (!cell.includes(keyword)) {
+      problems.push(
+        `Cột vị trí ${idx + 1} kỳ vọng là "${col}" (chứa "${keyword}") nhưng tiêu đề thực tế là "${cellToString(header[idx]) || "(trống)"}"`
+      );
+    }
+  }
+  return problems;
 }
 
 function excelDateToVN(raw: string): string {
@@ -154,6 +190,23 @@ function nextFalcoCode(existingCodes: Set<string>): string {
   return code;
 }
 
+// Trạng thái đơn TRƯỚC khi bị lượt upload này sửa — đủ dữ liệu để hoàn tác
+// đúng nguyên trạng (không chỉ các trường bị đổi, để đơn giản và chắc chắn).
+export type UpdatedOrderSnapshot = {
+  orderId: number;
+  recipientName: string | null;
+  recipientPhone: string | null;
+  service: string | null;
+  destination: string | null;
+  receivedDate: string | null; // ISO yyyy-mm-dd
+  trackingCodes: string[];
+};
+
+export type UploadSnapshot = {
+  insertedOrders: { orderId: number; falcoCode: string }[];
+  updatedOrders: UpdatedOrderSnapshot[];
+};
+
 export type KangoImportResult = {
   totalBills: number;
   inserted: number;
@@ -161,11 +214,13 @@ export type KangoImportResult = {
   unchanged: number;
   insertedCodes: string[];
   errors: string[];
+  snapshot: UploadSnapshot;
 };
 
 export async function processKangoWorkbook(
   buffer: Buffer
 ): Promise<KangoImportResult> {
+  const emptySnapshot: UploadSnapshot = { insertedOrders: [], updatedOrders: [] };
   const empty: KangoImportResult = {
     totalBills: 0,
     inserted: 0,
@@ -173,6 +228,7 @@ export async function processKangoWorkbook(
     unchanged: 0,
     insertedCodes: [],
     errors: [],
+    snapshot: emptySnapshot,
   };
 
   let rows: unknown[][];
@@ -198,6 +254,17 @@ export async function processKangoWorkbook(
     return { ...empty, errors: ["File không có dữ liệu."] };
   }
 
+  const headerProblems = validateHeaderRow(rows[0]);
+  if (headerProblems.length > 0) {
+    return {
+      ...empty,
+      errors: [
+        "File SAI định dạng Kango — đã HUỶ xử lý, KHÔNG có dữ liệu nào bị thay đổi:",
+        ...headerProblems,
+      ],
+    };
+  }
+
   const groups = groupRowsByAwb(rows.slice(1));
   if (groups.length === 0) {
     return {
@@ -213,6 +280,7 @@ export async function processKangoWorkbook(
 
   const sheetMirrorRows: OrderRow[] = [];
   const insertedCodes: string[] = [];
+  const snapshot: UploadSnapshot = { insertedOrders: [], updatedOrders: [] };
   let inserted = 0;
   let updated = 0;
   let unchanged = 0;
@@ -251,9 +319,12 @@ export async function processKangoWorkbook(
           fields.receivedDate = g.dateIso;
         }
 
+        // Luôn lấy danh sách kiện HIỆN TẠI trước khi đổi gì — cần để hoàn
+        // tác đúng nguyên trạng nếu lượt upload này hoá ra bị sai.
+        const existingParcels = await listOrderParcels(existing.id);
+
         let parcelsChanged = false;
         if (g.trackingNumbers.length > 0) {
-          const existingParcels = await listOrderParcels(existing.id);
           const existingCodes = new Set(existingParcels.map((p) => p.tracking_code));
           const newCodes = g.trackingNumbers.filter((c) => !existingCodes.has(c));
           if (newCodes.length > 0) {
@@ -269,6 +340,15 @@ export async function processKangoWorkbook(
 
         if (Object.keys(fields).length > 0 || parcelsChanged) {
           updated += 1;
+          snapshot.updatedOrders.push({
+            orderId: existing.id,
+            recipientName: existing.recipient_name,
+            recipientPhone: existing.recipient_phone,
+            service: existing.service,
+            destination: existing.destination,
+            receivedDate: toIsoDate(existing.received_date),
+            trackingCodes: existingParcels.map((p) => p.tracking_code),
+          });
         } else {
           unchanged += 1;
         }
@@ -301,6 +381,7 @@ export async function processKangoWorkbook(
       );
       inserted += 1;
       insertedCodes.push(falcoCode);
+      snapshot.insertedOrders.push({ orderId, falcoCode });
 
       sheetMirrorRows.push({
         falcoCode,
@@ -339,5 +420,6 @@ export async function processKangoWorkbook(
     unchanged,
     insertedCodes,
     errors,
+    snapshot,
   };
 }
