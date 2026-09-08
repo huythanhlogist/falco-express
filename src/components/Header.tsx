@@ -41,7 +41,7 @@ export default function Header() {
       <div className="container-page flex h-[76px] items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5" aria-label={`${SITE.name} - Trang chủ`}>
           <Image
-            src="/falco-icon.png"
+            src="/falco-logo.png"
             alt={`${SITE.fullName} logo`}
             width={44}
             height={44}

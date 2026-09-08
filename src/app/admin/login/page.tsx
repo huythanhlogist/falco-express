@@ -36,7 +36,7 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-sm rounded-2xl border border-line bg-white p-8 shadow-sm">
         <div className="flex flex-col items-center text-center">
           <Image
-            src="/falco-icon.png"
+            src="/falco-logo.png"
             alt="Falco Express logo"
             width={48}
             height={48}

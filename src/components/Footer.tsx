@@ -10,7 +10,7 @@ export default function Footer() {
         <div>
           <div className="flex items-center gap-2.5">
             <Image
-              src="/falco-icon.png"
+              src="/falco-logo.png"
               alt={`${SITE.fullName} logo`}
               width={40}
               height={40}

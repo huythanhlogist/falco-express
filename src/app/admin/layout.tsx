@@ -4,8 +4,8 @@ export const metadata: Metadata = {
   title: "FALCO Admin",
   manifest: "/admin-manifest.json",
   icons: {
-    icon: "/falco-icon.png",
-    apple: "/falco-icon.png",
+    icon: "/falco-logo.png",
+    apple: "/falco-logo.png",
   },
   appleWebApp: {
     capable: true,
