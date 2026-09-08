@@ -40,37 +40,58 @@ type TrackingResult = {
   ksnPostUrl: string;
 };
 
-type StepStage = "before" | "after" | "delivered";
+type StepStage = "early" | "final" | "delivered";
 
 /**
- * Mốc "Export Scan & Leave our warehouse" là ranh giới giữa 2 giai đoạn:
- * trước đó hàng còn xử lý trong nước (đỏ), sau đó đã xuất kho ra quốc tế
- * (xanh dương). "steps" xếp mới nhất trước (trackings[0] = mới nhất) nên
- * mốc xuất kho càng gần đầu mảng (index nhỏ) nghĩa là càng GẦN hiện tại —
- * mọi mốc từ vị trí đó trở LÊN đầu (index nhỏ hơn hoặc bằng) đã ở giai
- * đoạn "sau xuất kho".
+ * Mốc "DESTINATION CUSTOMS RELEASED" là ranh giới giữa 2 giai đoạn: từ lúc
+ * nhận hàng tới khi thông quan ở nước đến (xanh dương), sau đó là chặng
+ * giao cuối (vàng). "steps" xếp mới nhất trước (trackings[0] = mới nhất)
+ * nên mốc này càng gần đầu mảng (index nhỏ) nghĩa là càng GẦN hiện tại —
+ * mọi mốc từ vị trí đó trở LÊN đầu (index nhỏ hơn) đã ở giai đoạn "sau
+ * thông quan".
  */
-function findWarehouseExportIndex(steps: TrackingStep[]): number {
-  return steps.findIndex((s) => {
-    const t = s.title.toLowerCase();
-    return t.includes("export scan") || (t.includes("leave") && t.includes("warehouse"));
-  });
+function findDestinationCustomsReleasedIndex(steps: TrackingStep[]): number {
+  return steps.findIndex((s) => s.title.toLowerCase().includes("destination customs released"));
 }
 
 function isDeliveredStep(step: TrackingStep): boolean {
   return step.title.toLowerCase().includes("delivered");
 }
 
-function stageOf(step: TrackingStep, index: number, warehouseIndex: number): StepStage {
+function stageOf(step: TrackingStep, index: number, customsIndex: number): StepStage {
   if (isDeliveredStep(step)) return "delivered";
-  if (warehouseIndex === -1) return "before"; // chưa có mốc xuất kho -> vẫn đang xử lý trong nước
-  return index <= warehouseIndex ? "after" : "before";
+  if (customsIndex === -1) return "early"; // chưa thông quan nước đến -> vẫn ở giai đoạn đầu
+  return index >= customsIndex ? "early" : "final";
 }
 
-const STAGE_STYLES: Record<StepStage, { dot: string; text: string }> = {
-  before: { dot: "border-2 border-red-300 bg-white text-red-500", text: "text-red-700" },
-  after: { dot: "border-2 border-navy-300 bg-white text-navy-600", text: "text-navy-800" },
-  delivered: { dot: "bg-emerald-500 text-white", text: "text-emerald-700" },
+/** Giai đoạn của trạng thái mới nhất — dùng để tô màu tag cạnh mã vận đơn. */
+function currentStage(result: { currentStatus: string; steps: TrackingStep[] }): StepStage {
+  if (result.steps.length === 0) {
+    return result.currentStatus.toLowerCase().includes("delivered") ? "delivered" : "early";
+  }
+  const customsIndex = findDestinationCustomsReleasedIndex(result.steps);
+  return stageOf(result.steps[0], 0, customsIndex);
+}
+
+const STAGE_STYLES: Record<StepStage, { dot: string; dotCurrent: string; text: string; badge: string }> = {
+  early: {
+    dot: "border-2 border-navy-300 bg-white text-navy-600",
+    dotCurrent: "bg-navy-700 text-white",
+    text: "text-navy-800",
+    badge: "bg-navy-50 text-navy-700",
+  },
+  final: {
+    dot: "border-2 border-amber-300 bg-white text-amber-600",
+    dotCurrent: "bg-amber-500 text-white",
+    text: "text-amber-700",
+    badge: "bg-amber-50 text-amber-700",
+  },
+  delivered: {
+    dot: "bg-emerald-500 text-white",
+    dotCurrent: "bg-emerald-500 text-white",
+    text: "text-emerald-700",
+    badge: "bg-emerald-50 text-emerald-700",
+  },
 };
 
 export default function TrackingLookup() {
@@ -159,7 +180,9 @@ export default function TrackingLookup() {
                     {result.falcoCode}
                   </p>
                 </div>
-                <span className="inline-flex w-fit items-center gap-2 rounded-full bg-flame-50 px-4 py-1.5 text-sm font-bold text-flame-700">
+                <span
+                  className={`inline-flex w-fit items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold ${STAGE_STYLES[currentStage(result)].badge}`}
+                >
                   {result.currentStatus}
                 </span>
               </div>
@@ -194,11 +217,11 @@ export default function TrackingLookup() {
               {result.steps.length > 0 && (
                 <ol className="mt-7 space-y-0">
                   {(() => {
-                    const warehouseIndex = findWarehouseExportIndex(result.steps);
+                    const customsIndex = findDestinationCustomsReleasedIndex(result.steps);
                     return result.steps.map((step, i) => {
                       const isLast = i === result.steps.length - 1;
                       const isCurrent = i === 0;
-                      const stage = stageOf(step, i, warehouseIndex);
+                      const stage = stageOf(step, i, customsIndex);
                       const style = STAGE_STYLES[stage];
                       return (
                         <li key={i} className="relative flex gap-4 pb-7 last:pb-0">
@@ -210,11 +233,7 @@ export default function TrackingLookup() {
                           )}
                           <span
                             className={`z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-                              isCurrent && stage !== "delivered"
-                                ? stage === "after"
-                                  ? "bg-navy-700 text-white"
-                                  : "bg-red-500 text-white"
-                                : style.dot
+                              isCurrent ? style.dotCurrent : style.dot
                             }`}
                           >
                             <CheckCircleIcon className="h-3.5 w-3.5" />
