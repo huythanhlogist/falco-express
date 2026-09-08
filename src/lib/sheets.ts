@@ -247,3 +247,116 @@ export async function appendOrders(rows: OrderRow[]): Promise<void> {
     requestBody: { values },
   });
 }
+
+// ---------- Tab "Kế toán" — mirror Thu/Chi từ admin, đồng bộ ngay lập tức ----------
+
+const ACCOUNTING_SHEET_TITLE = "Kế toán";
+const ACCOUNTING_HEADER = [
+  "Mã Falco",
+  "AWB",
+  "Người nhận",
+  "Điểm đến",
+  "Ngày nhận",
+  "Trạng thái thu",
+  "Thu",
+  "Chi",
+  "Lãi/lỗ",
+  "Cập nhật lúc",
+];
+
+export type AccountingRow = {
+  falcoCode: string;
+  awb: string;
+  recipientName: string;
+  destination: string;
+  receivedDate: string; // dd/mm/yyyy
+  paymentStatusLabel: string;
+  amount: number;
+  cost: number;
+};
+
+/**
+ * Đảm bảo tab "Kế toán" tồn tại trong CÙNG spreadsheet đang dùng cho tab
+ * "Orders" (cùng 1 link Sheet) — tạo tab + dòng tiêu đề nếu chưa có. An
+ * toàn để gọi lại nhiều lần (kiểm tra tồn tại trước khi tạo).
+ */
+async function ensureAccountingSheet(
+  sheets: Awaited<ReturnType<typeof getSheetsClient>>,
+  sheetId: string
+): Promise<void> {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+  const exists = meta.data.sheets?.some(
+    (s) => s.properties?.title === ACCOUNTING_SHEET_TITLE
+  );
+  if (exists) return;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: sheetId,
+    requestBody: {
+      requests: [{ addSheet: { properties: { title: ACCOUNTING_SHEET_TITLE } } }],
+    },
+  });
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId,
+    range: `'${ACCOUNTING_SHEET_TITLE}'!A1:J1`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [ACCOUNTING_HEADER] },
+  });
+}
+
+/**
+ * Ghi/cập nhật NGAY 1 dòng của tab "Kế toán" theo `falcoCode` — KHÔNG chỉ
+ * append, vì Thu/Chi có thể sửa đi sửa lại nhiều lần trên admin (khác với
+ * `appendOrders` chỉ dùng cho bill mới, ghi 1 lần duy nhất lúc import).
+ * Gọi đồng bộ (await) ngay trong request PATCH của admin để dữ liệu trên
+ * Sheet luôn khớp tức thời với DB, không có độ trễ.
+ */
+export async function upsertAccountingRow(row: AccountingRow): Promise<void> {
+  const sheetId = process.env.GOOGLE_SHEET_ID;
+  if (!sheetId) throw new Error("Thiếu GOOGLE_SHEET_ID");
+
+  const sheets = await getSheetsClient();
+  await ensureAccountingSheet(sheets, sheetId);
+
+  const existing = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `'${ACCOUNTING_SHEET_TITLE}'!A2:A5000`,
+  });
+  const colA = existing.data.values || [];
+  const rowIndex = colA.findIndex(
+    (r) => (r[0] || "").trim().toUpperCase() === row.falcoCode.trim().toUpperCase()
+  );
+
+  const values = [
+    [
+      row.falcoCode,
+      row.awb,
+      row.recipientName,
+      row.destination,
+      row.receivedDate,
+      row.paymentStatusLabel,
+      row.amount,
+      row.cost,
+      row.amount - row.cost,
+      new Date().toLocaleString("vi-VN"),
+    ],
+  ];
+
+  if (rowIndex >= 0) {
+    const sheetRow = rowIndex + 2; // range bắt đầu từ A2
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: `'${ACCOUNTING_SHEET_TITLE}'!A${sheetRow}:J${sheetRow}`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values },
+    });
+  } else {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: sheetId,
+      range: `'${ACCOUNTING_SHEET_TITLE}'!A2:J5000`,
+      valueInputOption: "USER_ENTERED",
+      insertDataOption: "INSERT_ROWS",
+      requestBody: { values },
+    });
+  }
+}

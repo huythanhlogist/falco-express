@@ -175,6 +175,13 @@ nếu chưa đăng nhập). Gồm:
   cho nhập tay **Thu** (`orders.amount`) và **Chi** (`orders.cost`) từng đơn,
   tự tính Lãi/lỗ mỗi dòng, lọc theo trạng thái thu. Bảng **Chi phí phát
   sinh** (bảng `expenses`) nhập tay chi phí chung, sửa/xoá được từng dòng.
+  Mỗi lần sửa Thu/Chi/trạng thái thu, admin **ghi ngay** (đồng bộ, trong
+  cùng request PATCH — không phải job nền) sang tab **"Kế toán"** trong
+  CÙNG file Google Sheet đang dùng cho tab "Orders" (`src/lib/sheets.ts` →
+  `upsertAccountingRow`, tự tạo tab + tiêu đề nếu chưa có). Ghi theo kiểu
+  **upsert theo mã Falco** (tìm đúng dòng để cập nhật, không append trùng)
+  vì Thu/Chi có thể sửa nhiều lần — khác `appendOrders` chỉ ghi 1 lần lúc
+  nhập đơn mới.
 - **Upload tài liệu** (`/admin/upload`): nhân viên tự upload file Excel
   "ListShipment" Kango xuất ra ngay trên web (không cần chạy CLI nữa). Bill
   mới được thêm vào (khử trùng theo AWB); bill AWB đã có sẵn được **cập nhật

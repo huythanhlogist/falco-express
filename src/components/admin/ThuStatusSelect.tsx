@@ -1,22 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import {
+  PAYMENT_STATUS_OPTIONS,
+  statusLabel,
+  statusClassName,
+  type PaymentStatus,
+} from "@/lib/payment-status";
 
-export type PaymentStatus = "unpaid" | "collected_by_staff" | "paid";
-
-const OPTIONS: { value: PaymentStatus; label: string; className: string }[] = [
-  { value: "unpaid", label: "Chưa thu", className: "bg-flame-50 text-flame-700" },
-  { value: "collected_by_staff", label: "Thu hộ", className: "bg-amber-50 text-amber-700" },
-  { value: "paid", label: "Đã thu", className: "bg-emerald-50 text-emerald-700" },
-];
-
-export function statusLabel(status: PaymentStatus): string {
-  return OPTIONS.find((o) => o.value === status)?.label ?? status;
-}
-
-export function statusClassName(status: PaymentStatus): string {
-  return OPTIONS.find((o) => o.value === status)?.className ?? "";
-}
+export type { PaymentStatus };
+export { statusLabel, statusClassName };
 
 export default function ThuStatusSelect({
   orderId,
@@ -44,7 +37,7 @@ export default function ThuStatusSelect({
     });
   }
 
-  const opt = OPTIONS.find((o) => o.value === status) ?? OPTIONS[0];
+  const opt = PAYMENT_STATUS_OPTIONS.find((o) => o.value === status) ?? PAYMENT_STATUS_OPTIONS[0];
 
   return (
     <select
@@ -53,7 +46,7 @@ export default function ThuStatusSelect({
       onChange={(e) => change(e.target.value as PaymentStatus)}
       className={`rounded-full border-0 px-3 py-1 text-xs font-bold outline-none disabled:opacity-50 ${opt.className}`}
     >
-      {OPTIONS.map((o) => (
+      {PAYMENT_STATUS_OPTIONS.map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}
         </option>
