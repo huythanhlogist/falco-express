@@ -58,9 +58,13 @@ export async function fetchKangoTracking(
         "Content-Type": "application/json",
         "api-key": apiKey,
       },
-      cache: "no-store",
-      // Trang admin gọi hàm này song song cho nhiều đơn cùng lúc — giới
-      // hạn thời gian chờ để 1 request chậm không treo cả trang.
+      // Cache kết quả 90 giây (Next.js Data Cache) — hành trình vận đơn
+      // không đổi liên tục theo giây, nhưng khách hay bấm tra cứu lại
+      // hoặc nhiều người cùng tra 1 mã trong thời gian ngắn. Cache giúp
+      // các lượt lặp lại đó trả về gần như tức thì thay vì luôn phải chờ
+      // trọn vòng gọi sang API Kango (nguồn gây delay đã quan sát được).
+      next: { revalidate: 90 },
+      // Giới hạn thời gian chờ để 1 request chậm không treo cả trang.
       signal: AbortSignal.timeout(8000),
     }
   );

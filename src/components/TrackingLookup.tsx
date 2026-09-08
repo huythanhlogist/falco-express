@@ -40,6 +40,39 @@ type TrackingResult = {
   ksnPostUrl: string;
 };
 
+type StepStage = "before" | "after" | "delivered";
+
+/**
+ * Mốc "Export Scan & Leave our warehouse" là ranh giới giữa 2 giai đoạn:
+ * trước đó hàng còn xử lý trong nước (đỏ), sau đó đã xuất kho ra quốc tế
+ * (xanh dương). "steps" xếp mới nhất trước (trackings[0] = mới nhất) nên
+ * mốc xuất kho càng gần đầu mảng (index nhỏ) nghĩa là càng GẦN hiện tại —
+ * mọi mốc từ vị trí đó trở LÊN đầu (index nhỏ hơn hoặc bằng) đã ở giai
+ * đoạn "sau xuất kho".
+ */
+function findWarehouseExportIndex(steps: TrackingStep[]): number {
+  return steps.findIndex((s) => {
+    const t = s.title.toLowerCase();
+    return t.includes("export scan") || (t.includes("leave") && t.includes("warehouse"));
+  });
+}
+
+function isDeliveredStep(step: TrackingStep): boolean {
+  return step.title.toLowerCase().includes("delivered");
+}
+
+function stageOf(step: TrackingStep, index: number, warehouseIndex: number): StepStage {
+  if (isDeliveredStep(step)) return "delivered";
+  if (warehouseIndex === -1) return "before"; // chưa có mốc xuất kho -> vẫn đang xử lý trong nước
+  return index <= warehouseIndex ? "after" : "before";
+}
+
+const STAGE_STYLES: Record<StepStage, { dot: string; text: string }> = {
+  before: { dot: "border-2 border-red-300 bg-white text-red-500", text: "text-red-700" },
+  after: { dot: "border-2 border-navy-300 bg-white text-navy-600", text: "text-navy-800" },
+  delivered: { dot: "bg-emerald-500 text-white", text: "text-emerald-700" },
+};
+
 export default function TrackingLookup() {
   const searchParams = useSearchParams();
   const [value, setValue] = useState("");
@@ -103,6 +136,12 @@ export default function TrackingLookup() {
         </button>
       </form>
 
+      {status === "loading" && (
+        <p className="mx-auto mt-3 max-w-xl text-center text-xs text-ink/45">
+          Đang lấy hành trình mới nhất từ đối tác vận chuyển — có thể mất vài giây với đơn tra lần đầu.
+        </p>
+      )}
+
       {status === "done" && (
         <div className="mx-auto mt-10 max-w-2xl">
           {errorMsg ? (
@@ -154,42 +193,45 @@ export default function TrackingLookup() {
 
               {result.steps.length > 0 && (
                 <ol className="mt-7 space-y-0">
-                  {result.steps.map((step, i) => {
-                    const isLast = i === result.steps.length - 1;
-                    const isCurrent = i === 0;
-                    return (
-                      <li key={i} className="relative flex gap-4 pb-7 last:pb-0">
-                        {!isLast && (
+                  {(() => {
+                    const warehouseIndex = findWarehouseExportIndex(result.steps);
+                    return result.steps.map((step, i) => {
+                      const isLast = i === result.steps.length - 1;
+                      const isCurrent = i === 0;
+                      const stage = stageOf(step, i, warehouseIndex);
+                      const style = STAGE_STYLES[stage];
+                      return (
+                        <li key={i} className="relative flex gap-4 pb-7 last:pb-0">
+                          {!isLast && (
+                            <span
+                              className="absolute left-[11px] top-6 h-full w-px bg-line"
+                              aria-hidden
+                            />
+                          )}
                           <span
-                            className="absolute left-[11px] top-6 h-full w-px bg-flame-400"
-                            aria-hidden
-                          />
-                        )}
-                        <span
-                          className={`z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-                            isCurrent
-                              ? "bg-flame-500 text-white"
-                              : "border-2 border-flame-300 bg-white text-flame-500"
-                          }`}
-                        >
-                          <CheckCircleIcon className="h-3.5 w-3.5" />
-                        </span>
-                        <div>
-                          <p
-                            className={`text-sm font-semibold ${
-                              isCurrent ? "text-navy-900" : "text-ink/70"
+                            className={`z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                              isCurrent && stage !== "delivered"
+                                ? stage === "after"
+                                  ? "bg-navy-700 text-white"
+                                  : "bg-red-500 text-white"
+                                : style.dot
                             }`}
                           >
-                            {step.title}
-                          </p>
-                          <p className="mt-0.5 text-xs text-ink/50">
-                            {step.time}
-                            {step.location ? ` · ${step.location}` : ""}
-                          </p>
-                        </div>
-                      </li>
-                    );
-                  })}
+                            <CheckCircleIcon className="h-3.5 w-3.5" />
+                          </span>
+                          <div>
+                            <p className={`text-sm font-semibold ${style.text}`}>
+                              {step.title}
+                            </p>
+                            <p className="mt-0.5 text-xs text-ink/50">
+                              {step.time}
+                              {step.location ? ` · ${step.location}` : ""}
+                            </p>
+                          </div>
+                        </li>
+                      );
+                    });
+                  })()}
                 </ol>
               )}
 
