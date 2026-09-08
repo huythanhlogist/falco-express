@@ -24,6 +24,13 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#122844",
+  // Khoá pinch-to-zoom để app cảm giác giống app thật hơn — chỉ áp dụng
+  // cho riêng /admin, không đụng tới trang công khai (trang công khai vẫn
+  // cần cho phép phóng to vì lý do khả năng tiếp cận).
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
