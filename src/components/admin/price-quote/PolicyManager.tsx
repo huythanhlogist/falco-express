@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { PencilIcon, TrashIcon, ImageDownloadIcon } from "@/components/icons";
 import { PRICE_QUOTE_CONTACT } from "@/lib/constants";
+import { FALCO_LOGO_DATA_URI } from "@/lib/falco-logo-data-uri";
 import { saveOrDownloadImage } from "@/lib/download-image";
 import type { PolicyItem } from "./types";
 
@@ -168,9 +169,8 @@ export default function PolicyManager({ initialItems }: { initialItems: PolicyIt
             <div className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/falco-logo.png"
+                src={FALCO_LOGO_DATA_URI}
                 alt="Falco Express"
-                crossOrigin="anonymous"
                 className="h-8 w-8 rounded-full bg-white p-0.5"
               />
               <div>
@@ -194,9 +194,17 @@ export default function PolicyManager({ initialItems }: { initialItems: PolicyIt
               href={PRICE_QUOTE_CONTACT.zaloHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[12px] font-bold text-white"
+              className="block text-[12px] font-bold text-white"
             >
               Liên hệ Zalo / SĐT ({PRICE_QUOTE_CONTACT.name}): {PRICE_QUOTE_CONTACT.phone}
+            </a>
+            <a
+              href={PRICE_QUOTE_CONTACT.websiteHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 inline-block text-[10.5px] font-semibold text-navy-200"
+            >
+              🌐 {PRICE_QUOTE_CONTACT.website} — Tra cứu vận đơn
             </a>
           </div>
         </div>

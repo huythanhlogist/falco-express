@@ -3,6 +3,7 @@
 import { Fragment, useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { PRICE_QUOTE_CONTACT } from "@/lib/constants";
+import { FALCO_LOGO_DATA_URI } from "@/lib/falco-logo-data-uri";
 import { saveOrDownloadImage } from "@/lib/download-image";
 import { ImageDownloadIcon, PencilIcon, TrashIcon } from "@/components/icons";
 import type { PriceQuoteLine } from "./types";
@@ -140,14 +141,15 @@ export default function PriceQuoteCard({
           <div className="relative bg-falco-gradient-diag px-7 pb-10 pt-5 text-white">
             <div className="absolute inset-x-0 bottom-0 h-6 rounded-t-3xl bg-white" />
             <div className="flex items-center gap-3">
-              {/* <img> thường, KHÔNG dùng next/image — ảnh qua proxy tối ưu của Next
-                  đôi khi không nhúng được vào canvas lúc chụp (html-to-image), gây
-                  mất logo khi xuất ảnh trên Safari iOS. */}
+              {/* Logo nhúng base64 sẵn (FALCO_LOGO_DATA_URI) thay vì trỏ file
+                  /falco-logo.png — html-to-image phải tự fetch ảnh qua network
+                  lúc chụp, và bước fetch đó hay thất bại âm thầm trên Safari
+                  iOS, làm mất logo trong ảnh tải về dù trên màn hình vẫn hiện
+                  bình thường. Nhúng base64 sẵn thì không cần fetch gì nữa. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/falco-logo.png"
+                src={FALCO_LOGO_DATA_URI}
                 alt="Falco Express"
-                crossOrigin="anonymous"
                 className="h-9 w-9 rounded-full bg-white p-0.5"
               />
               <div>
@@ -219,18 +221,28 @@ export default function PriceQuoteCard({
             )}
           </div>
 
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-2 bg-navy-900 px-7 py-3.5">
+          <div className="mt-5 bg-navy-900 px-7 py-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <a
+                href={PRICE_QUOTE_CONTACT.zaloHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[12.5px] font-bold text-white"
+              >
+                Liên hệ Zalo / SĐT ({PRICE_QUOTE_CONTACT.name}): {PRICE_QUOTE_CONTACT.phone}
+              </a>
+              <span className="text-[10.5px] text-navy-300">
+                Cập nhật {new Date().toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}
+              </span>
+            </div>
             <a
-              href={PRICE_QUOTE_CONTACT.zaloHref}
+              href={PRICE_QUOTE_CONTACT.websiteHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[12.5px] font-bold text-white"
+              className="mt-1 inline-block text-[11px] font-semibold text-navy-200"
             >
-              Liên hệ Zalo / SĐT ({PRICE_QUOTE_CONTACT.name}): {PRICE_QUOTE_CONTACT.phone}
+              🌐 {PRICE_QUOTE_CONTACT.website} — Tra cứu vận đơn
             </a>
-            <span className="text-[10.5px] text-navy-300">
-              Cập nhật {new Date().toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}
-            </span>
           </div>
           <p className="px-7 pb-5 pt-3 text-[10px] leading-relaxed text-ink/45">
             Giá đã bao gồm phụ phí xăng dầu, chưa gồm VAT. Trọng lượng tính cước là trị giá lớn hơn giữa cân thực tế

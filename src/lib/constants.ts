@@ -24,6 +24,10 @@ export const PRICE_QUOTE_CONTACT = {
   // Zalo cá nhân mở qua số điện thoại (định dạng zalo.me chuẩn: 84 + số bỏ
   // số 0 đầu) — không có sẵn link OA riêng như SITE.zaloHref.
   zaloHref: "https://zalo.me/84867615385",
+  // In kèm ở chân mỗi thẻ báo giá để khách nhận diện đúng web thật của
+  // Falco (và tra cứu vận đơn được luôn nếu cần).
+  website: "falcoexpress.com",
+  websiteHref: "https://falcoexpress.com/tra-cuu-van-don",
 };
 
 export const NAV_LINKS = [
