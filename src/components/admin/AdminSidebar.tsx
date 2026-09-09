@@ -15,6 +15,7 @@ import {
   WalletIcon,
   UploadIcon,
   TagIcon,
+  RefreshIcon,
 } from "@/components/icons";
 
 const LINKS = [
@@ -84,14 +85,30 @@ export default function AdminSidebar({
             FALCO Admin
           </span>
         </div>
-        <button
-          type="button"
-          aria-label={open ? "Đóng menu" : "Mở menu"}
-          onClick={() => setOpen((v) => !v)}
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-navy-800 hover:bg-mist"
-        >
-          {open ? <CloseIcon className="h-5 w-5" /> : <MenuIcon className="h-5 w-5" />}
-        </button>
+        <div className="flex items-center gap-1">
+          {/* App đã khoá pinch-to-zoom nên vuốt-để-làm-mới của trình duyệt
+              không hoạt động ổn định trên iOS — thêm nút bấm làm mới thay
+              thế, luôn hoạt động chắc chắn thay vì phụ thuộc cử chỉ hệ điều
+              hành. Tải lại toàn trang (không chỉ router.refresh) để chắc
+              chắn lấy đúng bản mới nhất. */}
+          <button
+            type="button"
+            aria-label="Làm mới trang"
+            title="Làm mới trang"
+            onClick={() => window.location.reload()}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-navy-800 hover:bg-mist"
+          >
+            <RefreshIcon className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            aria-label={open ? "Đóng menu" : "Mở menu"}
+            onClick={() => setOpen((v) => !v)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-navy-800 hover:bg-mist"
+          >
+            {open ? <CloseIcon className="h-5 w-5" /> : <MenuIcon className="h-5 w-5" />}
+          </button>
+        </div>
       </header>
 
       {/* Mobile drawer overlay */}

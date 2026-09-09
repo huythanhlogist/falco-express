@@ -141,16 +141,18 @@ export default function PriceQuoteCard({
           <div className="relative bg-falco-gradient-diag px-7 pb-10 pt-5 text-white">
             <div className="absolute inset-x-0 bottom-0 h-6 rounded-t-3xl bg-white" />
             <div className="flex items-center gap-3">
-              {/* Logo nhúng base64 sẵn (FALCO_LOGO_DATA_URI) thay vì trỏ file
-                  /falco-logo.png — html-to-image phải tự fetch ảnh qua network
-                  lúc chụp, và bước fetch đó hay thất bại âm thầm trên Safari
-                  iOS, làm mất logo trong ảnh tải về dù trên màn hình vẫn hiện
-                  bình thường. Nhúng base64 sẵn thì không cần fetch gì nữa. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={FALCO_LOGO_DATA_URI}
-                alt="Falco Express"
-                className="h-9 w-9 rounded-full bg-white p-0.5"
+              {/* Logo vẽ bằng CSS background-image (base64, không phải thẻ <img>).
+                  html-to-image chụp ảnh bằng cách dựng cả khối DOM thành 1 SVG
+                  <foreignObject> rồi vẽ SVG đó lên canvas — Safari/iOS có lỗi đã
+                  biết là thẻ <img> bên trong foreignObject không vẽ được lên
+                  canvas (dù ảnh đã nhúng base64 sẵn, không cần tải mạng), nên
+                  logo bị mất trắng khi tải ảnh trên iPhone dù hiện bình thường
+                  trên màn hình. background-image không gặp lỗi này. */}
+              <div
+                role="img"
+                aria-label="Falco Express"
+                className="h-9 w-9 shrink-0 rounded-full bg-white bg-center bg-no-repeat"
+                style={{ backgroundImage: `url(${FALCO_LOGO_DATA_URI})`, backgroundSize: "88%" }}
               />
               <div>
                 <p className="text-sm font-extrabold tracking-wide">FALCO EXPRESS</p>
@@ -241,7 +243,7 @@ export default function PriceQuoteCard({
               rel="noopener noreferrer"
               className="mt-1 inline-block text-[11px] font-semibold text-navy-200"
             >
-              🌐 {PRICE_QUOTE_CONTACT.website} — Tra cứu vận đơn
+              Tra cứu vận đơn tại: {PRICE_QUOTE_CONTACT.website}
             </a>
           </div>
           <p className="px-7 pb-5 pt-3 text-[10px] leading-relaxed text-ink/45">

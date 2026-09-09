@@ -281,3 +281,14 @@ export function ImageDownloadIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function RefreshIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M4 12a8 8 0 0 1 13.66-5.66L20 8.5" />
+      <path d="M20 4v4.5h-4.5" />
+      <path d="M20 12a8 8 0 0 1-13.66 5.66L4 15.5" />
+      <path d="M4 20v-4.5h4.5" />
+    </svg>
+  );
+}

@@ -167,11 +167,14 @@ export default function PolicyManager({ initialItems }: { initialItems: PolicyIt
           <div className="relative bg-falco-gradient-diag px-6 pb-8 pt-5 text-white">
             <div className="absolute inset-x-0 bottom-0 h-5 rounded-t-3xl bg-white" />
             <div className="flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={FALCO_LOGO_DATA_URI}
-                alt="Falco Express"
-                className="h-8 w-8 rounded-full bg-white p-0.5"
+              {/* Vẽ bằng CSS background-image, không dùng thẻ <img> — Safari/iOS có
+                  lỗi đã biết không vẽ được <img> trong SVG foreignObject lúc
+                  html-to-image chụp ảnh, làm mất logo trong ảnh tải về. */}
+              <div
+                role="img"
+                aria-label="Falco Express"
+                className="h-8 w-8 shrink-0 rounded-full bg-white bg-center bg-no-repeat"
+                style={{ backgroundImage: `url(${FALCO_LOGO_DATA_URI})`, backgroundSize: "88%" }}
               />
               <div>
                 <p className="text-sm font-extrabold tracking-wide">FALCO EXPRESS</p>
@@ -204,7 +207,7 @@ export default function PolicyManager({ initialItems }: { initialItems: PolicyIt
               rel="noopener noreferrer"
               className="mt-1 inline-block text-[10.5px] font-semibold text-navy-200"
             >
-              🌐 {PRICE_QUOTE_CONTACT.website} — Tra cứu vận đơn
+              Tra cứu vận đơn tại: {PRICE_QUOTE_CONTACT.website}
             </a>
           </div>
         </div>
