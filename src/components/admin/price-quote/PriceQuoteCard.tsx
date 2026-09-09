@@ -2,7 +2,6 @@
 
 import { Fragment, useRef, useState } from "react";
 import { toPng } from "html-to-image";
-import Image from "next/image";
 import { PRICE_QUOTE_CONTACT } from "@/lib/constants";
 import { saveOrDownloadImage } from "@/lib/download-image";
 import { ImageDownloadIcon, PencilIcon, TrashIcon } from "@/components/icons";
@@ -63,6 +62,7 @@ export default function PriceQuoteCard({
         width: CARD_WIDTH,
         pixelRatio: 2,
         backgroundColor: "#ffffff",
+        cacheBust: true,
       });
       const safeName = line.title.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").toLowerCase();
       await saveOrDownloadImage(dataUrl, `falco-bao-gia-${safeName || "bang-gia"}.png`);
@@ -140,11 +140,14 @@ export default function PriceQuoteCard({
           <div className="relative bg-falco-gradient-diag px-7 pb-10 pt-5 text-white">
             <div className="absolute inset-x-0 bottom-0 h-6 rounded-t-3xl bg-white" />
             <div className="flex items-center gap-3">
-              <Image
+              {/* <img> thường, KHÔNG dùng next/image — ảnh qua proxy tối ưu của Next
+                  đôi khi không nhúng được vào canvas lúc chụp (html-to-image), gây
+                  mất logo khi xuất ảnh trên Safari iOS. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src="/falco-logo.png"
                 alt="Falco Express"
-                width={36}
-                height={36}
+                crossOrigin="anonymous"
                 className="h-9 w-9 rounded-full bg-white p-0.5"
               />
               <div>

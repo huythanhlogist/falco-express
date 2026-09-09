@@ -366,9 +366,12 @@ export function parseKangoPriceWorkbook(buffer: Buffer): PriceQuoteParseResult {
     };
   }
 
+  // Thứ tự mảng này quyết định thứ tự hiển thị các nhóm giá trên tab Báo
+  // giá (lưu vào cột `position` lúc ghi DB) — Chuyên tuyến lên đầu, 2 nhóm
+  // đông lạnh (Đức, UK) xếp dưới, theo đúng yêu cầu người dùng.
   const sheetSpecs: { name: string; parser: (rows: unknown[][]) => { category: ParsedCategory | null; errors: string[] } }[] = [
-    { name: "AIR ĐÔNG LẠNH - CHÂU ÂU", parser: parseEuFrozenSheet },
     { name: "CHUYÊN TUYẾN AIR-EU-PRIORITY", parser: parseEuDhlPrioritySheet },
+    { name: "AIR ĐÔNG LẠNH - CHÂU ÂU", parser: parseEuFrozenSheet },
     { name: "AIR-NZ-UK KHÔ-LẠNH", parser: parseUkSheet },
   ];
 

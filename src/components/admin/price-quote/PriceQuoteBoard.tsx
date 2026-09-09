@@ -71,7 +71,7 @@ export default function PriceQuoteBoard({ initialCategories }: { initialCategori
             </div>
           </div>
 
-          <div className={`mt-3 grid grid-cols-1 gap-4 ${category.lines.length > 1 ? "xl:grid-cols-2" : ""}`}>
+          <div className="mt-3 grid grid-cols-1 gap-4 xl:grid-cols-2">
             {category.lines.map((line) => (
               <PriceQuoteCard
                 key={line.id}

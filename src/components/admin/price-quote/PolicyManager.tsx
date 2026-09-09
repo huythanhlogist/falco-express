@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
-import Image from "next/image";
 import { PencilIcon, TrashIcon, ImageDownloadIcon } from "@/components/icons";
 import { PRICE_QUOTE_CONTACT } from "@/lib/constants";
 import { saveOrDownloadImage } from "@/lib/download-image";
@@ -71,7 +70,12 @@ export default function PolicyManager({ initialItems }: { initialItems: PolicyIt
     if (!cardRef.current) return;
     setDownloading(true);
     try {
-      const dataUrl = await toPng(cardRef.current, { width: CARD_WIDTH, pixelRatio: 2, backgroundColor: "#ffffff" });
+      const dataUrl = await toPng(cardRef.current, {
+        width: CARD_WIDTH,
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
+        cacheBust: true,
+      });
       await saveOrDownloadImage(dataUrl, "falco-chinh-sach-van-chuyen.png");
     } finally {
       setDownloading(false);
@@ -162,7 +166,13 @@ export default function PolicyManager({ initialItems }: { initialItems: PolicyIt
           <div className="relative bg-falco-gradient-diag px-6 pb-8 pt-5 text-white">
             <div className="absolute inset-x-0 bottom-0 h-5 rounded-t-3xl bg-white" />
             <div className="flex items-center gap-3">
-              <Image src="/falco-logo.png" alt="Falco Express" width={32} height={32} className="h-8 w-8 rounded-full bg-white p-0.5" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/falco-logo.png"
+                alt="Falco Express"
+                crossOrigin="anonymous"
+                className="h-8 w-8 rounded-full bg-white p-0.5"
+              />
               <div>
                 <p className="text-sm font-extrabold tracking-wide">FALCO EXPRESS</p>
                 <p className="text-[10px] opacity-85">Chính sách vận chuyển</p>
