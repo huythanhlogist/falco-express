@@ -4,6 +4,7 @@ import { Fragment, useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { PRICE_QUOTE_CONTACT } from "@/lib/constants";
 import { FALCO_LOGO_DATA_URI } from "@/lib/falco-logo-data-uri";
+import { compositeFalcoLogo } from "@/lib/composite-logo";
 import { saveOrDownloadImage } from "@/lib/download-image";
 import { ImageDownloadIcon, PencilIcon, TrashIcon } from "@/components/icons";
 import type { PriceQuoteLine } from "./types";
@@ -46,6 +47,7 @@ export default function PriceQuoteCard({
   const [perKgMarkup, setPerKgMarkup] = useState(line.markupPerKgVnd);
   const [downloading, setDownloading] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const logoRef = useRef<HTMLDivElement>(null);
 
   const flatRows = line.rows
     .filter((r) => !r.isPerKg)
@@ -59,12 +61,23 @@ export default function PriceQuoteCard({
     if (!cardRef.current) return;
     setDownloading(true);
     try {
-      const dataUrl = await toPng(cardRef.current, {
+      // KHÔNG dùng cacheBust — nó bắt html-to-image tải lại qua mạng TOÀN BỘ
+      // font web đang dùng trên trang (hàng chục file .woff2) mỗi lần bấm
+      // Tải ảnh, không giúp gì cho logo (logo đã nhúng base64, không cần
+      // cache-bust) mà lại làm chậm/dễ treo trên mạng di động (đã bắt được
+      // hiện tượng này khi test). skipFonts bỏ hẳn bước nhúng font web —
+      // ảnh xuất ra dùng font mặc định của máy thay vì Be Vietnam Pro,
+      // đánh đổi lấy tốc độ và độ ổn định, ưu tiên hơn nhiều so với khớp
+      // đúng font 100%.
+      let dataUrl = await toPng(cardRef.current, {
         width: CARD_WIDTH,
         pixelRatio: 2,
         backgroundColor: "#ffffff",
-        cacheBust: true,
+        skipFonts: true,
       });
+      if (logoRef.current) {
+        dataUrl = await compositeFalcoLogo(dataUrl, cardRef.current, logoRef.current);
+      }
       const safeName = line.title.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").toLowerCase();
       await saveOrDownloadImage(dataUrl, `falco-bao-gia-${safeName || "bang-gia"}.png`);
     } finally {
@@ -141,14 +154,14 @@ export default function PriceQuoteCard({
           <div className="relative bg-falco-gradient-diag px-7 pb-10 pt-5 text-white">
             <div className="absolute inset-x-0 bottom-0 h-6 rounded-t-3xl bg-white" />
             <div className="flex items-center gap-3">
-              {/* Logo vẽ bằng CSS background-image (base64, không phải thẻ <img>).
-                  html-to-image chụp ảnh bằng cách dựng cả khối DOM thành 1 SVG
-                  <foreignObject> rồi vẽ SVG đó lên canvas — Safari/iOS có lỗi đã
-                  biết là thẻ <img> bên trong foreignObject không vẽ được lên
-                  canvas (dù ảnh đã nhúng base64 sẵn, không cần tải mạng), nên
-                  logo bị mất trắng khi tải ảnh trên iPhone dù hiện bình thường
-                  trên màn hình. background-image không gặp lỗi này. */}
+              {/* Logo hiện trên MÀN HÌNH bằng background-image bình thường. Còn
+                  trong ẢNH TẢI VỀ, logo không lấy từ đây nữa — được vẽ đè lên
+                  sau bằng Canvas API (xem compositeFalcoLogo/handleDownload)
+                  vì html-to-image không vẽ được logo vào canvas trên Safari
+                  iOS dù đã thử nhiều cách nhúng khác nhau. logoRef chỉ để đo
+                  đúng vị trí/kích thước hiện tại của khối này. */}
               <div
+                ref={logoRef}
                 role="img"
                 aria-label="Falco Express"
                 className="h-9 w-9 shrink-0 rounded-full bg-white bg-center bg-no-repeat"

@@ -5,6 +5,7 @@ import { toPng } from "html-to-image";
 import { PencilIcon, TrashIcon, ImageDownloadIcon } from "@/components/icons";
 import { PRICE_QUOTE_CONTACT } from "@/lib/constants";
 import { FALCO_LOGO_DATA_URI } from "@/lib/falco-logo-data-uri";
+import { compositeFalcoLogo } from "@/lib/composite-logo";
 import { saveOrDownloadImage } from "@/lib/download-image";
 import type { PolicyItem } from "./types";
 
@@ -18,6 +19,7 @@ export default function PolicyManager({ initialItems }: { initialItems: PolicyIt
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const logoRef = useRef<HTMLDivElement>(null);
 
   async function addItem(e: React.FormEvent) {
     e.preventDefault();
@@ -71,12 +73,18 @@ export default function PolicyManager({ initialItems }: { initialItems: PolicyIt
     if (!cardRef.current) return;
     setDownloading(true);
     try {
-      const dataUrl = await toPng(cardRef.current, {
+      // Xem giải thích chi tiết trong PriceQuoteCard.tsx — bỏ cacheBust
+      // (gây tải lại toàn bộ font web qua mạng, không cần thiết và dễ
+      // treo/chậm), dùng skipFonts để bỏ hẳn bước đó.
+      let dataUrl = await toPng(cardRef.current, {
         width: CARD_WIDTH,
         pixelRatio: 2,
         backgroundColor: "#ffffff",
-        cacheBust: true,
+        skipFonts: true,
       });
+      if (logoRef.current) {
+        dataUrl = await compositeFalcoLogo(dataUrl, cardRef.current, logoRef.current);
+      }
       await saveOrDownloadImage(dataUrl, "falco-chinh-sach-van-chuyen.png");
     } finally {
       setDownloading(false);
@@ -167,10 +175,11 @@ export default function PolicyManager({ initialItems }: { initialItems: PolicyIt
           <div className="relative bg-falco-gradient-diag px-6 pb-8 pt-5 text-white">
             <div className="absolute inset-x-0 bottom-0 h-5 rounded-t-3xl bg-white" />
             <div className="flex items-center gap-3">
-              {/* Vẽ bằng CSS background-image, không dùng thẻ <img> — Safari/iOS có
-                  lỗi đã biết không vẽ được <img> trong SVG foreignObject lúc
-                  html-to-image chụp ảnh, làm mất logo trong ảnh tải về. */}
+              {/* Logo hiện trên màn hình bằng background-image; trong ảnh tải về
+                  logo được vẽ đè lên sau bằng Canvas API (xem compositeFalcoLogo)
+                  vì html-to-image không vẽ được logo vào canvas trên Safari iOS. */}
               <div
+                ref={logoRef}
                 role="img"
                 aria-label="Falco Express"
                 className="h-8 w-8 shrink-0 rounded-full bg-white bg-center bg-no-repeat"
