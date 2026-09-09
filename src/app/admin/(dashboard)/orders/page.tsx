@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { listOrders, listOrderMonths } from "@/lib/db";
-import ThuStatusSelect from "@/components/admin/ThuStatusSelect";
-import OrderRowActions from "@/components/admin/OrderRowActions";
 import MonthFilterSelect from "@/components/admin/MonthFilterSelect";
-import CopyOrderInfoButton from "@/components/admin/CopyOrderInfoButton";
+import OrdersTable from "@/components/admin/OrdersTable";
 import OrderEditHistory from "@/components/admin/OrderEditHistory";
 import { PackageCheckIcon, ClockIcon, CargoIcon } from "@/components/icons";
 
@@ -138,60 +136,7 @@ export default async function AdminOrdersPage({
         ))}
       </div>
 
-      <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-white">
-        <table className="w-full min-w-[1120px] text-sm">
-          <thead>
-            <tr className="border-b border-line bg-mist/60 text-left text-xs font-semibold uppercase tracking-wide text-ink/45">
-              <th className="px-3 py-2">Mã Falco</th>
-              <th className="px-3 py-2">AWB</th>
-              <th className="px-3 py-2">Người nhận</th>
-              <th className="px-3 py-2">Điện thoại</th>
-              <th className="px-3 py-2">Điểm đến</th>
-              <th className="px-3 py-2">Kiện</th>
-              <th className="px-3 py-2">Ngày nhận</th>
-              <th className="px-3 py-2">Trạng thái thu</th>
-              <th className="px-3 py-2" />
-              <th className="px-3 py-2">Gửi khách</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((o) => {
-              const copyText = `${o.falco_code} - ${o.recipient_name ?? ""} - ${o.tracking_codes ?? ""}`;
-              return (
-                <tr key={o.id} className="border-b border-line last:border-0 hover:bg-mist/40">
-                  <td className="px-3 py-2 font-semibold text-navy-900">{o.falco_code}</td>
-                  <td className="px-3 py-2 text-ink/70">{o.awb}</td>
-                  <td className="px-3 py-2 text-ink/70">{o.recipient_name || "—"}</td>
-                  <td className="px-3 py-2 text-ink/70">{o.recipient_phone || "—"}</td>
-                  <td className="px-3 py-2 text-ink/70">{o.destination || "—"}</td>
-                  <td className="px-3 py-2 text-ink/70">{o.parcel_count}</td>
-                  <td className="px-3 py-2 text-ink/70">
-                    {o.received_date
-                      ? new Date(o.received_date).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
-                      : "—"}
-                  </td>
-                  <td className="px-3 py-2">
-                    <ThuStatusSelect orderId={o.id} initialStatus={o.payment_status} />
-                  </td>
-                  <td className="px-3 py-2">
-                    <OrderRowActions orderId={o.id} falcoCode={o.falco_code} />
-                  </td>
-                  <td className="px-3 py-2">
-                    <CopyOrderInfoButton text={copyText} />
-                  </td>
-                </tr>
-              );
-            })}
-            {orders.length === 0 && (
-              <tr>
-                <td colSpan={10} className="px-5 py-10 text-center text-ink/45">
-                  Không tìm thấy đơn hàng nào.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <OrdersTable orders={orders} />
 
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-center gap-2">
