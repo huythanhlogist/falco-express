@@ -4,6 +4,7 @@ import { Fragment, useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import Image from "next/image";
 import { PRICE_QUOTE_CONTACT } from "@/lib/constants";
+import { saveOrDownloadImage } from "@/lib/download-image";
 import { ImageDownloadIcon, PencilIcon, TrashIcon } from "@/components/icons";
 import type { PriceQuoteLine } from "./types";
 
@@ -63,11 +64,8 @@ export default function PriceQuoteCard({
         pixelRatio: 2,
         backgroundColor: "#ffffff",
       });
-      const link = document.createElement("a");
       const safeName = line.title.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").toLowerCase();
-      link.download = `falco-bao-gia-${safeName || "bang-gia"}.png`;
-      link.href = dataUrl;
-      link.click();
+      await saveOrDownloadImage(dataUrl, `falco-bao-gia-${safeName || "bang-gia"}.png`);
     } finally {
       setDownloading(false);
     }
@@ -171,42 +169,44 @@ export default function PriceQuoteCard({
           </div>
 
           <div className="px-7 pt-1">
-            <table className="w-full border-collapse text-[13px]" style={{ fontVariantNumeric: "tabular-nums" }}>
-              <thead>
-                <tr>
-                  {Array.from({ length: GRID_COLUMNS }).map((_, i) => (
-                    <Fragment key={i}>
-                      <th
-                        className={`bg-navy-900 py-2 text-center text-[11px] font-bold uppercase tracking-wide text-white ${i === 0 ? "rounded-l-lg" : ""}`}
-                      >
-                        Số Kg
-                      </th>
-                      <th
-                        className={`bg-navy-900 py-2 text-center text-[11px] font-bold uppercase tracking-wide text-white ${i === GRID_COLUMNS - 1 ? "rounded-r-lg" : ""}`}
-                      >
-                        VNĐ
-                      </th>
-                    </Fragment>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {grid.map((rowGroup, ri) => (
-                  <tr key={ri} className={ri % 2 === 0 ? "bg-mist/60" : ""}>
-                    {rowGroup.map((cell, ci) => (
-                      <Fragment key={ci}>
-                        <td className="border-b border-line py-1.5 text-center font-bold text-navy-800">
-                          {cell?.weightLabel ?? ""}
-                        </td>
-                        <td className="border-b border-line py-1.5 text-center font-semibold text-ink">
-                          {cell ? money(cell.priceFinal) : ""}
-                        </td>
+            <div className="overflow-hidden rounded-lg border border-navy-900">
+              <table className="w-full border-collapse text-[13px]" style={{ fontVariantNumeric: "tabular-nums" }}>
+                <thead>
+                  <tr>
+                    {Array.from({ length: GRID_COLUMNS }).map((_, i) => (
+                      <Fragment key={i}>
+                        <th
+                          className={`border border-navy-700 bg-navy-900 py-2 text-center text-[11px] font-bold uppercase tracking-wide text-white ${i > 0 ? "border-l-2 border-l-navy-600" : ""}`}
+                        >
+                          Số Kg
+                        </th>
+                        <th className="border border-navy-700 bg-navy-900 py-2 text-center text-[11px] font-bold uppercase tracking-wide text-white">
+                          VNĐ
+                        </th>
                       </Fragment>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {grid.map((rowGroup, ri) => (
+                    <tr key={ri} className={ri % 2 === 0 ? "bg-mist/60" : "bg-white"}>
+                      {rowGroup.map((cell, ci) => (
+                        <Fragment key={ci}>
+                          <td
+                            className={`border border-line py-1.5 text-center font-bold text-navy-800 ${ci > 0 ? "border-l-2 border-l-navy-100" : ""}`}
+                          >
+                            {cell?.weightLabel ?? ""}
+                          </td>
+                          <td className="border border-line py-1.5 text-center font-semibold text-ink">
+                            {cell ? money(cell.priceFinal) : ""}
+                          </td>
+                        </Fragment>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
             {perKgFinal !== null && (
               <div className="mt-4 flex items-center justify-between rounded-xl border border-dashed border-flame-300 bg-flame-50 px-4 py-3">
@@ -217,9 +217,14 @@ export default function PriceQuoteCard({
           </div>
 
           <div className="mt-5 flex flex-wrap items-center justify-between gap-2 bg-navy-900 px-7 py-3.5">
-            <span className="text-[12.5px] font-bold text-white">
-              ☎ Tư vấn báo giá — {PRICE_QUOTE_CONTACT.name}: {PRICE_QUOTE_CONTACT.phone}
-            </span>
+            <a
+              href={PRICE_QUOTE_CONTACT.zaloHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[12.5px] font-bold text-white"
+            >
+              Liên hệ Zalo / SĐT ({PRICE_QUOTE_CONTACT.name}): {PRICE_QUOTE_CONTACT.phone}
+            </a>
             <span className="text-[10.5px] text-navy-300">
               Cập nhật {new Date().toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}
             </span>

@@ -5,6 +5,7 @@ import { toPng } from "html-to-image";
 import Image from "next/image";
 import { PencilIcon, TrashIcon, ImageDownloadIcon } from "@/components/icons";
 import { PRICE_QUOTE_CONTACT } from "@/lib/constants";
+import { saveOrDownloadImage } from "@/lib/download-image";
 import type { PolicyItem } from "./types";
 
 const CARD_WIDTH = 720;
@@ -71,10 +72,7 @@ export default function PolicyManager({ initialItems }: { initialItems: PolicyIt
     setDownloading(true);
     try {
       const dataUrl = await toPng(cardRef.current, { width: CARD_WIDTH, pixelRatio: 2, backgroundColor: "#ffffff" });
-      const link = document.createElement("a");
-      link.download = "falco-chinh-sach-van-chuyen.png";
-      link.href = dataUrl;
-      link.click();
+      await saveOrDownloadImage(dataUrl, "falco-chinh-sach-van-chuyen.png");
     } finally {
       setDownloading(false);
     }
@@ -182,9 +180,14 @@ export default function PolicyManager({ initialItems }: { initialItems: PolicyIt
             </ol>
           </div>
           <div className="mt-4 bg-navy-900 px-6 py-3">
-            <span className="text-[12px] font-bold text-white">
-              ☎ {PRICE_QUOTE_CONTACT.name}: {PRICE_QUOTE_CONTACT.phone}
-            </span>
+            <a
+              href={PRICE_QUOTE_CONTACT.zaloHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[12px] font-bold text-white"
+            >
+              Liên hệ Zalo / SĐT ({PRICE_QUOTE_CONTACT.name}): {PRICE_QUOTE_CONTACT.phone}
+            </a>
           </div>
         </div>
       </div>

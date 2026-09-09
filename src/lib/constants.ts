@@ -21,6 +21,9 @@ export const PRICE_QUOTE_CONTACT = {
   name: "Thuỷ",
   phone: "0867 615385",
   phoneHref: "tel:0867615385",
+  // Zalo cá nhân mở qua số điện thoại (định dạng zalo.me chuẩn: 84 + số bỏ
+  // số 0 đầu) — không có sẵn link OA riêng như SITE.zaloHref.
+  zaloHref: "https://zalo.me/84867615385",
 };
 
 export const NAV_LINKS = [
