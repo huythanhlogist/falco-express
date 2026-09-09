@@ -7,34 +7,36 @@
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",
     "lint": "next lint",
-    "import:kango": "tsx scripts/import-kango-orders.ts"
+    "import:kango": "tsx scripts/import-kango-orders.ts",
+    "import:price-quote": "tsx scripts/import-price-quote.ts"
   },
   "dependencies": {
-    "next": "16.3.4",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "framer-motion": "^13.2.0",
-    "nodemailer": "^10.0.0",
-    "googleapis": "^178.0.0",
-    "mysql2": "^3.24.3",
     "bcryptjs": "^3.0.2",
-    "jose": "^6.1.1"
+    "framer-motion": "^13.2.0",
+    "googleapis": "^178.0.0",
+    "html-to-image": "^1.11.13",
+    "jose": "^6.1.1",
+    "mysql2": "^3.24.3",
+    "next": "16.3.4",
+    "nodemailer": "^10.0.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "typescript": "^5.6.3",
+    "@eslint/eslintrc": "^3.3.7",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.16.11",
+    "@types/nodemailer": "^6.4.16",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
-    "@types/nodemailer": "^6.4.16",
-    "@types/bcryptjs": "^2.4.6",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
-    "tsx": "^4.19.2",
-    "dotenv": "^17.4.2",
-    "tailwindcss": "^3.4.13",
-    "postcss": "^8.4.47",
     "autoprefixer": "^10.4.20",
+    "dotenv": "^17.4.2",
     "eslint": "^10.10.0",
     "eslint-config-next": "16.3.4",
-    "@eslint/eslintrc": "^3.3.7"
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   }
 }

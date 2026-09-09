@@ -1,4 +1,5 @@
 import mysql from "mysql2/promise";
+import type { ParsedCategory } from "./price-quote-import";
 
 let pool: mysql.Pool | null = null;
 
@@ -635,4 +636,186 @@ export async function findOrderEditHistoryById(
 
 export async function markOrderEditHistoryUndone(id: number): Promise<void> {
   await getPool().query("UPDATE order_edit_history SET undone_at = NOW() WHERE id = ?", [id]);
+}
+
+// ---------- Admin: Báo giá (bảng giá + chính sách gửi khách) ----------
+
+export type PriceQuoteLineRow = {
+  id: number;
+  category_id: number;
+  position: number;
+  title: string;
+  countries: string | null;
+  min_weight_kg: string | null;
+  markup_flat_vnd: number;
+  markup_per_kg_vnd: number;
+  rows_json: string; // JSON.stringify(ParsedPriceRow[]) — giá GỐC Kango, chưa cộng markup
+  created_at: string;
+  updated_at: string;
+};
+
+export type PriceQuoteCategoryRow = {
+  id: number;
+  slug: string;
+  title: string;
+  position: number;
+  note: string | null;
+  source_file_name: string | null;
+  uploaded_by: string | null;
+  uploaded_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PriceQuoteCategoryWithLines = PriceQuoteCategoryRow & { lines: PriceQuoteLineRow[] };
+
+export async function listPriceQuoteCategories(): Promise<PriceQuoteCategoryWithLines[]> {
+  const [categoryRows] = await getPool().query(
+    "SELECT * FROM price_quote_categories ORDER BY position, id"
+  );
+  const categories = categoryRows as PriceQuoteCategoryRow[];
+  if (categories.length === 0) return [];
+
+  const [lineRows] = await getPool().query(
+    "SELECT * FROM price_quote_lines WHERE category_id IN (?) ORDER BY position, id",
+    [categories.map((c) => c.id)]
+  );
+  const lines = lineRows as PriceQuoteLineRow[];
+
+  return categories.map((category) => ({
+    ...category,
+    lines: lines.filter((l) => l.category_id === category.id),
+  }));
+}
+
+/**
+ * Thay TOÀN BỘ bảng giá bằng kết quả parse mới nhất từ file Kango vừa
+ * upload — xoá sạch categories+lines cũ, insert lại từ đầu trong 1
+ * transaction (tất-cả-hoặc-không-gì). Đây là cách DUY NHẤT để cập nhật GIÁ
+ * GỐC sau khi đã upload lần đầu (đã chốt với người dùng — sửa tay từng ô
+ * dễ lệch dữ liệu với ~40 dòng/bảng).
+ */
+export async function replaceAllPriceQuoteCategories(
+  categories: ParsedCategory[],
+  meta: { sourceFileName: string; uploadedBy: string }
+): Promise<void> {
+  const conn = await getPool().getConnection();
+  try {
+    await conn.beginTransaction();
+    await conn.query("DELETE FROM price_quote_categories"); // cascade xoá lines
+    for (let i = 0; i < categories.length; i++) {
+      const c = categories[i];
+      const [result] = await conn.query(
+        `INSERT INTO price_quote_categories (slug, title, position, note, source_file_name, uploaded_by, uploaded_at)
+         VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+        [c.slug, c.title, i, c.note, meta.sourceFileName, meta.uploadedBy]
+      );
+      const categoryId = (result as mysql.ResultSetHeader).insertId;
+      for (let j = 0; j < c.lines.length; j++) {
+        const l = c.lines[j];
+        await conn.query(
+          `INSERT INTO price_quote_lines
+             (category_id, position, title, countries, min_weight_kg, markup_flat_vnd, markup_per_kg_vnd, rows_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [categoryId, j, l.title, l.countries, l.minWeightKg, l.markupFlatVnd, l.markupPerKgVnd, JSON.stringify(l.rows)]
+        );
+      }
+    }
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+export async function updatePriceQuoteCategoryMeta(
+  id: number,
+  fields: { title?: string; note?: string | null }
+): Promise<void> {
+  const sets: string[] = [];
+  const args: unknown[] = [];
+  if (fields.title !== undefined) {
+    sets.push("title = ?");
+    args.push(fields.title);
+  }
+  if (fields.note !== undefined) {
+    sets.push("note = ?");
+    args.push(fields.note);
+  }
+  if (sets.length === 0) return;
+  args.push(id);
+  await getPool().query(`UPDATE price_quote_categories SET ${sets.join(", ")} WHERE id = ?`, args);
+}
+
+export async function deletePriceQuoteCategory(id: number): Promise<boolean> {
+  const [result] = await getPool().query("DELETE FROM price_quote_categories WHERE id = ?", [id]);
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
+export async function updatePriceQuoteLineMeta(
+  id: number,
+  fields: {
+    title?: string;
+    countries?: string | null;
+    minWeightKg?: number | null;
+    markupFlatVnd?: number;
+    markupPerKgVnd?: number;
+  }
+): Promise<void> {
+  const map: Record<string, unknown> = {
+    title: fields.title,
+    countries: fields.countries,
+    min_weight_kg: fields.minWeightKg,
+    markup_flat_vnd: fields.markupFlatVnd,
+    markup_per_kg_vnd: fields.markupPerKgVnd,
+  };
+  const sets: string[] = [];
+  const args: unknown[] = [];
+  for (const [col, value] of Object.entries(map)) {
+    if (value === undefined) continue;
+    sets.push(`${col} = ?`);
+    args.push(value);
+  }
+  if (sets.length === 0) return;
+  args.push(id);
+  await getPool().query(`UPDATE price_quote_lines SET ${sets.join(", ")} WHERE id = ?`, args);
+}
+
+export async function deletePriceQuoteLine(id: number): Promise<boolean> {
+  const [result] = await getPool().query("DELETE FROM price_quote_lines WHERE id = ?", [id]);
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
+export type PriceQuotePolicyItem = {
+  id: number;
+  position: number;
+  content: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export async function listPolicyItems(): Promise<PriceQuotePolicyItem[]> {
+  const [rows] = await getPool().query(
+    "SELECT * FROM price_quote_policy_items ORDER BY position, id"
+  );
+  return rows as PriceQuotePolicyItem[];
+}
+
+export async function insertPolicyItem(content: string, position = 0): Promise<number> {
+  const [result] = await getPool().query(
+    "INSERT INTO price_quote_policy_items (content, position) VALUES (?, ?)",
+    [content, position]
+  );
+  return (result as mysql.ResultSetHeader).insertId;
+}
+
+export async function updatePolicyItem(id: number, content: string): Promise<void> {
+  await getPool().query("UPDATE price_quote_policy_items SET content = ? WHERE id = ?", [content, id]);
+}
+
+export async function deletePolicyItem(id: number): Promise<boolean> {
+  const [result] = await getPool().query("DELETE FROM price_quote_policy_items WHERE id = ?", [id]);
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
 }

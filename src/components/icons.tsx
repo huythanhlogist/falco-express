@@ -260,3 +260,24 @@ export function UploadIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function TagIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...base} {...props}>
+      <path d="M11.5 4H6a2 2 0 0 0-2 2v5.5a2 2 0 0 0 .586 1.414l8 8a2 2 0 0 0 2.828 0l5.5-5.5a2 2 0 0 0 0-2.828l-8-8A2 2 0 0 0 11.5 4Z" />
+      <circle cx="8.25" cy="8.25" r="1.25" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function ImageDownloadIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...base} {...props}>
+      <rect x="3.5" y="4" width="17" height="13" rx="2" />
+      <circle cx="8.5" cy="9" r="1.25" fill="currentColor" stroke="none" />
+      <path d="m4.5 15.5 4-4 3 3 3.5-3.5L20.5 15" />
+      <path d="M12 20v-3.5" />
+      <path d="m9.5 18.5 2.5 2.5 2.5-2.5" />
+    </svg>
+  );
+}

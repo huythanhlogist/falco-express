@@ -11,6 +11,18 @@ export const SITE = {
   email: "info@falcoexpress.vn",
 };
 
+/**
+ * Số tư vấn báo giá riêng, chỉ dùng trên thẻ giá xuất ra ở tab admin "Báo
+ * giá" (nội bộ, không public) — KHÁC với `SITE.hotline` đang hiển thị trên
+ * web công khai, vì đây là số nhân viên (Thuỷ) phụ trách chốt giá trực
+ * tiếp với khách.
+ */
+export const PRICE_QUOTE_CONTACT = {
+  name: "Thuỷ",
+  phone: "0867 615385",
+  phoneHref: "tel:0867615385",
+};
+
 export const NAV_LINKS = [
   { href: "/", label: "Trang chủ" },
   { href: "/gioi-thieu", label: "Giới thiệu" },

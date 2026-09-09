@@ -1,4 +1,5 @@
 import UploadOrders from "@/components/admin/UploadOrders";
+import UploadPriceQuote from "@/components/admin/UploadPriceQuote";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,10 @@ export default function UploadPage() {
       </p>
       <div className="mt-4">
         <UploadOrders />
+      </div>
+
+      <div className="mt-8">
+        <UploadPriceQuote />
       </div>
     </div>
   );
