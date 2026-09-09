@@ -3,7 +3,10 @@ import bcrypt from "bcryptjs";
 import type { AdminRole } from "@/lib/db";
 
 export const ADMIN_SESSION_COOKIE = "falco_admin_session";
-const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 ngày
+// 30 ngày — nới dài hơn mức thường (7 ngày) vì app cài ở màn hình chính
+// iOS đôi khi không giữ được phiên đăng nhập ổn định như 1 tab Safari
+// thường, khiến nhân viên phải đăng nhập lại thường xuyên hơn dự tính.
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 ngày
 
 function getSecretKey(): Uint8Array {
   const secret = process.env.ADMIN_SESSION_SECRET;
