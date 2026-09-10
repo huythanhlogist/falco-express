@@ -213,11 +213,11 @@ export default function PriceQuoteCard({
                       {rowGroup.map((cell, ci) => (
                         <Fragment key={ci}>
                           <td
-                            className={`border border-line py-1.5 text-center font-bold text-navy-800 ${ci > 0 ? "border-l-2 border-l-navy-100" : ""}`}
+                            className={`border border-line py-1.5 text-center font-semibold text-ink/45 ${ci > 0 ? "border-l-2 border-l-navy-100" : ""}`}
                           >
                             {cell?.weightLabel ?? ""}
                           </td>
-                          <td className="border border-line py-1.5 text-center font-semibold text-ink">
+                          <td className="border border-line py-1.5 text-center font-bold text-navy-900">
                             {cell ? money(cell.priceFinal) : ""}
                           </td>
                         </Fragment>
