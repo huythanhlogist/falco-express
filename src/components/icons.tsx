@@ -292,3 +292,13 @@ export function RefreshIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function HandshakeIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...base} {...props}>
+      <path d="m2 12 4-4 4 3-2 2 3 3 2-2 1.5 1.5" />
+      <path d="m22 12-4-4-4 3 2 2-3 3-2-2-1.5 1.5" />
+      <path d="m9 14 2.5 2.5a1.6 1.6 0 0 0 2.3 0l.2-.2a1.6 1.6 0 0 0 0-2.3L11.5 11.5" />
+    </svg>
+  );
+}

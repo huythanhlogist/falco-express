@@ -303,6 +303,30 @@ tên quy ước từ `middleware.ts` sang `proxy.ts`), chặn toàn bộ `/admin
 thư viện `jose`) — đổi `ADMIN_SESSION_SECRET` sẽ đăng xuất mọi phiên đang
 mở.
 
+## Tài khoản CTV (cộng tác viên)
+
+Khu vực riêng `/ctv` cho cộng tác viên — tách biệt hoàn toàn khỏi `/admin`
+(cookie/secret ký session riêng, xem [`src/lib/ctv-auth.ts`](src/lib/ctv-auth.ts)),
+cũng được [`src/proxy.ts`](src/proxy.ts) chặn `/ctv/*` và `/api/ctv/*` trừ
+trang đăng nhập. CTV không tự đăng ký — chỉ admin tạo tài khoản ở
+`/admin/ctv`.
+
+1. **Tạo bảng** (1 lần):
+   ```bash
+   npx tsx scripts/setup-ctv-tables.ts
+   ```
+2. **Đặt `CTV_SESSION_SECRET`** trong `.env.local` (và Environment variables
+   trên hPanel) — PHẢI khác `ADMIN_SESSION_SECRET`:
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+3. Vào `/admin/ctv` (đăng nhập admin trước) để tạo tài khoản CTV đầu tiên.
+
+Đây là giai đoạn 1 (tài khoản + đăng nhập) của tính năng CTV — các tab tạo
+đơn/duyệt đơn, bảng giá, hoa hồng/công nợ, hiệu quả sẽ thêm dần ở các giai
+đoạn tiếp theo (xem `.claude/plans` trong lịch sử phát triển nếu cần đối
+chiếu kiến trúc dự kiến).
+
 ## Build production
 
 ```bash
@@ -339,7 +363,7 @@ Hostinger mà không cần cài lại `node_modules` đầy đủ trên server.
    `GOOGLE_SHEET_RANGE`, `KANGO_API_KEY`, `KANGO_API_URL`, `DB_HOST`,
    `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` (xem mục "Tra cứu vận đơn:
    MySQL + API Kango"), `ADMIN_SESSION_SECRET` (xem mục "Trang quản trị
-   (admin)").
+   (admin)"), `CTV_SESSION_SECRET` (xem mục "Tài khoản CTV").
 6. **Khởi động ứng dụng**: dùng nút Restart trong hPanel Node.js, hoặc trỏ
    startup file tới `server.js` dưới đây nếu Hostinger yêu cầu một entry
    point cố định:

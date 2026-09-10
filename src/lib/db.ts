@@ -254,6 +254,156 @@ export async function deleteAdminUser(id: number): Promise<boolean> {
   return (result as mysql.ResultSetHeader).affectedRows > 0;
 }
 
+// ---------- CTV: tài khoản cộng tác viên ----------
+
+export type CtvStatus = "active" | "disabled";
+
+export type CtvUser = {
+  id: number;
+  email: string;
+  password_hash: string;
+  ctv_code: string;
+  full_name: string;
+  phone: string;
+  cccd_number: string;
+  referred_by_ctv_id: number | null;
+  commission_pct: string;
+  referral_override_pct: string;
+  contact_name: string | null;
+  contact_phone: string | null;
+  contact_zalo_href: string | null;
+  status: CtvStatus;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export async function findCtvByEmail(email: string): Promise<CtvUser | null> {
+  const [rows] = await getPool().query(
+    "SELECT * FROM ctv_users WHERE email = ? LIMIT 1",
+    [email.trim().toLowerCase()]
+  );
+  const list = rows as CtvUser[];
+  return list[0] ?? null;
+}
+
+export async function findCtvById(id: number): Promise<CtvUser | null> {
+  const [rows] = await getPool().query("SELECT * FROM ctv_users WHERE id = ? LIMIT 1", [id]);
+  const list = rows as CtvUser[];
+  return list[0] ?? null;
+}
+
+export type CtvUserListItem = {
+  id: number;
+  ctv_code: string;
+  full_name: string;
+  phone: string;
+  status: CtvStatus;
+  referred_by_ctv_id: number | null;
+  referred_by_name: string | null;
+  created_at: string;
+};
+
+/** Danh sách CTV cho tab "Quản lý CTV" — kèm tên người giới thiệu (nếu có). */
+export async function listCtvUsers(): Promise<CtvUserListItem[]> {
+  const [rows] = await getPool().query(
+    `SELECT c.id, c.ctv_code, c.full_name, c.phone, c.status, c.referred_by_ctv_id,
+            r.full_name AS referred_by_name, c.created_at
+     FROM ctv_users c
+     LEFT JOIN ctv_users r ON r.id = c.referred_by_ctv_id
+     ORDER BY c.id ASC`
+  );
+  return rows as CtvUserListItem[];
+}
+
+export type NewCtvUser = {
+  email: string;
+  passwordHash: string;
+  fullName: string;
+  phone: string;
+  cccdNumber: string;
+  referredByCtvId: number | null;
+  commissionPct: number;
+  referralOverridePct: number;
+  createdBy: string;
+};
+
+/**
+ * ctv_code ("mã riêng") được sinh từ chính id sau khi insert (CTV-0001,
+ * CTV-0002, ...) — luôn duy nhất vì id là AUTO_INCREMENT, không cần khoá
+ * bảng hay đếm số dòng hiện có (tránh trùng nếu có dòng đã bị xoá).
+ */
+export async function insertCtvUser(
+  data: NewCtvUser
+): Promise<{ id: number; ctvCode: string }> {
+  const [result] = await getPool().query(
+    `INSERT INTO ctv_users
+      (email, password_hash, ctv_code, full_name, phone, cccd_number, referred_by_ctv_id, commission_pct, referral_override_pct, created_by)
+     VALUES (?, ?, '', ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      data.email.trim().toLowerCase(),
+      data.passwordHash,
+      data.fullName.trim(),
+      data.phone.trim(),
+      data.cccdNumber.trim(),
+      data.referredByCtvId,
+      data.commissionPct,
+      data.referralOverridePct,
+      data.createdBy,
+    ]
+  );
+  const id = (result as mysql.ResultSetHeader).insertId;
+  const ctvCode = `CTV-${String(id).padStart(4, "0")}`;
+  await getPool().query("UPDATE ctv_users SET ctv_code = ? WHERE id = ?", [ctvCode, id]);
+  return { id, ctvCode };
+}
+
+export type CtvEditableFields = Partial<{
+  fullName: string;
+  phone: string;
+  cccdNumber: string;
+  status: CtvStatus;
+  commissionPct: number;
+  referralOverridePct: number;
+  contactName: string | null;
+  contactPhone: string | null;
+  contactZaloHref: string | null;
+}>;
+
+const CTV_FIELD_COLUMNS: Record<keyof CtvEditableFields, string> = {
+  fullName: "full_name",
+  phone: "phone",
+  cccdNumber: "cccd_number",
+  status: "status",
+  commissionPct: "commission_pct",
+  referralOverridePct: "referral_override_pct",
+  contactName: "contact_name",
+  contactPhone: "contact_phone",
+  contactZaloHref: "contact_zalo_href",
+};
+
+/**
+ * Dùng chung cho cả admin sửa hồ sơ CTV (mọi field) lẫn CTV tự sửa liên hệ
+ * hiển thị trên bảng giá (chỉ contact*) — giới hạn field nào được sửa nằm ở
+ * route handler gọi hàm này, không phải ở đây.
+ */
+export async function updateCtvUser(id: number, fields: CtvEditableFields): Promise<boolean> {
+  const entries = Object.entries(fields) as [keyof CtvEditableFields, unknown][];
+  if (entries.length === 0) return false;
+  const setClause = entries.map(([key]) => `${CTV_FIELD_COLUMNS[key]} = ?`).join(", ");
+  const values = entries.map(([, value]) => value);
+  const [result] = await getPool().query(
+    `UPDATE ctv_users SET ${setClause} WHERE id = ?`,
+    [...values, id]
+  );
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
+export async function deleteCtvUser(id: number): Promise<boolean> {
+  const [result] = await getPool().query("DELETE FROM ctv_users WHERE id = ?", [id]);
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
 // ---------- Admin: quản lý đơn hàng ----------
 
 export type OrderListItem = OrderRecord & {

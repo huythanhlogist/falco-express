@@ -4,46 +4,20 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  CargoIcon,
-  SearchIcon,
-  GlobeIcon,
-  UsersIcon,
-  LogoutIcon,
-  MenuIcon,
-  CloseIcon,
-  WalletIcon,
-  UploadIcon,
-  TagIcon,
-  RefreshIcon,
-  HandshakeIcon,
-} from "@/components/icons";
+import { UsersIcon, LogoutIcon, MenuIcon, CloseIcon, RefreshIcon } from "@/components/icons";
 
-const LINKS = [
-  { href: "/admin/orders", label: "Đơn hàng", icon: CargoIcon },
-  { href: "/admin/ke-toan", label: "Kế toán", icon: WalletIcon },
-  { href: "/admin/bao-gia", label: "Báo giá", icon: TagIcon },
-  { href: "/admin/ctv", label: "Quản lý CTV", icon: HandshakeIcon },
-  { href: "/admin/upload", label: "Upload tài liệu", icon: UploadIcon },
-  { href: "/admin/seo", label: "SEO", icon: SearchIcon },
-  { href: "/admin/search-console", label: "Search Console", icon: GlobeIcon },
-  { href: "/admin/staff", label: "Nhân viên", icon: UsersIcon },
-];
+// Các tab tạo đơn / bảng giá / chính sách / thống kê / kênh sẽ thêm dần ở
+// các giai đoạn tiếp theo (xem plan) — phase này mới có tài khoản.
+const LINKS = [{ href: "/ctv/tai-khoan", label: "Tài khoản", icon: UsersIcon }];
 
-export default function AdminSidebar({
-  email,
-  role,
-}: {
-  email: string;
-  role: "owner" | "staff";
-}) {
+export default function CtvSidebar({ ctvCode, fullName }: { ctvCode: string; fullName: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
   async function handleLogout() {
-    await fetch("/api/admin/logout", { method: "POST" });
-    router.push("/admin/login");
+    await fetch("/api/ctv/logout", { method: "POST" });
+    router.push("/ctv/login");
     router.refresh();
   }
 
@@ -58,9 +32,7 @@ export default function AdminSidebar({
             href={link.href}
             onClick={() => setOpen(false)}
             className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
-              active
-                ? "bg-white/10 text-white"
-                : "text-navy-200 hover:bg-white/5 hover:text-white"
+              active ? "bg-white/10 text-white" : "text-navy-200 hover:bg-white/5 hover:text-white"
             }`}
           >
             <Icon className="h-4 w-4 shrink-0" />
@@ -73,7 +45,6 @@ export default function AdminSidebar({
 
   return (
     <>
-      {/* Mobile top bar */}
       <header className="flex h-14 items-center justify-between border-b border-line bg-white px-4 md:hidden">
         <div className="flex items-center gap-2">
           <Image
@@ -83,16 +54,9 @@ export default function AdminSidebar({
             height={26}
             className="h-6 w-6 rounded-full object-cover ring-1 ring-line"
           />
-          <span className="font-display text-sm font-extrabold text-navy-900">
-            FALCO Admin
-          </span>
+          <span className="font-display text-sm font-extrabold text-navy-900">FALCO CTV</span>
         </div>
         <div className="flex items-center gap-1">
-          {/* App đã khoá pinch-to-zoom nên vuốt-để-làm-mới của trình duyệt
-              không hoạt động ổn định trên iOS — thêm nút bấm làm mới thay
-              thế, luôn hoạt động chắc chắn thay vì phụ thuộc cử chỉ hệ điều
-              hành. Tải lại toàn trang (không chỉ router.refresh) để chắc
-              chắn lấy đúng bản mới nhất. */}
           <button
             type="button"
             aria-label="Làm mới trang"
@@ -113,7 +77,6 @@ export default function AdminSidebar({
         </div>
       </header>
 
-      {/* Mobile drawer overlay */}
       {open && (
         <div
           className="fixed inset-0 z-40 bg-navy-950/50 md:hidden"
@@ -122,7 +85,6 @@ export default function AdminSidebar({
         />
       )}
 
-      {/* Sidebar (desktop: static, mobile: slide-in drawer) */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex w-56 shrink-0 flex-col bg-navy-900 pb-3 pt-4 transition-transform duration-200 md:sticky md:top-0 md:h-screen md:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
@@ -137,18 +99,16 @@ export default function AdminSidebar({
             className="h-7 w-7 rounded-full object-cover ring-1 ring-white/15"
           />
           <div>
-            <p className="font-display text-sm font-extrabold text-white">FALCO Admin</p>
-            <p className="text-xs text-navy-300">Quản trị hệ thống</p>
+            <p className="font-display text-sm font-extrabold text-white">FALCO CTV</p>
+            <p className="text-xs text-navy-300">Cộng tác viên</p>
           </div>
         </div>
 
         {nav}
 
         <div className="mt-3 border-t border-white/10 px-4 pt-3">
-          <p className="truncate text-xs text-navy-300">{email}</p>
-          <p className="mt-0.5 text-xs font-semibold text-flame-400">
-            {role === "owner" ? "Chủ tài khoản" : "Nhân viên"}
-          </p>
+          <p className="truncate text-xs text-navy-300">{fullName}</p>
+          <p className="mt-0.5 text-xs font-semibold text-flame-400">{ctvCode}</p>
           <button
             type="button"
             onClick={handleLogout}
