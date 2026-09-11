@@ -8,9 +8,9 @@ import ZaloOAWidget from "@/components/ZaloOAWidget";
 
 export default function SiteChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isAdmin = pathname?.startsWith("/admin");
+  const isBareLayout = pathname?.startsWith("/admin") || pathname?.startsWith("/ctv");
 
-  if (isAdmin) return <>{children}</>;
+  if (isBareLayout) return <>{children}</>;
 
   return (
     <>
