@@ -24,6 +24,7 @@ const LINKS = [
   { href: "/admin/ke-toan", label: "Kế toán", icon: WalletIcon },
   { href: "/admin/bao-gia", label: "Báo giá", icon: TagIcon },
   { href: "/admin/ctv", label: "Quản lý CTV", icon: HandshakeIcon },
+  { href: "/admin/ctv-cong-no", label: "Công nợ CTV", icon: WalletIcon },
   { href: "/admin/upload", label: "Upload tài liệu", icon: UploadIcon },
   { href: "/admin/seo", label: "SEO", icon: SearchIcon },
   { href: "/admin/search-console", label: "Search Console", icon: GlobeIcon },

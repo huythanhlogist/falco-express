@@ -15,13 +15,14 @@ import {
   ShieldIcon,
   GlobeIcon,
   HandshakeIcon,
+  WalletIcon,
 } from "@/components/icons";
 
-// Tab thống kê sẽ thêm ở giai đoạn hoa hồng/công nợ (xem plan).
 const LINKS = [
   { href: "/ctv/tao-don", label: "Tạo đơn", icon: CargoIcon },
   { href: "/ctv/bao-gia", label: "Bảng giá", icon: TagIcon },
   { href: "/ctv/chinh-sach", label: "Chính sách", icon: ShieldIcon },
+  { href: "/ctv/thong-ke", label: "Thống kê", icon: WalletIcon },
   { href: "/ctv/huong-dan", label: "Hướng dẫn", icon: GlobeIcon },
   { href: "/ctv/kenh", label: "Nhóm & kênh", icon: HandshakeIcon },
   { href: "/ctv/tai-khoan", label: "Tài khoản", icon: UsersIcon },

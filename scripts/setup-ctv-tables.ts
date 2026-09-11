@@ -44,6 +44,32 @@ const DDL = [
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
   )`,
+  // Hoa hồng tính ĐỘNG từ orders + ctv_users mỗi lần xem (xem
+  // getCtvCommissionSummary trong src/lib/db.ts) — ctv_payouts là dữ kiện
+  // DUY NHẤT không thể tính lại được (đã trả thật hay chưa), nên là bảng sổ
+  // cố định duy nhất cần lưu.
+  `CREATE TABLE IF NOT EXISTS ctv_payouts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ctv_id INT NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    note VARCHAR(500) NULL,
+    paid_by VARCHAR(255) NOT NULL,
+    paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ctv_id) REFERENCES ctv_users(id) ON DELETE CASCADE
+  )`,
+  // Xác nhận CTV đã nộp lại tiền thu hộ khách cho Falco (ngược chiều với
+  // ctv_payouts) — 1 order chỉ có tối đa 1 dòng xác nhận.
+  `CREATE TABLE IF NOT EXISTS ctv_remittances (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    ctv_id INT NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    note VARCHAR(500) NULL,
+    remitted_to VARCHAR(255) NOT NULL,
+    remitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (ctv_id) REFERENCES ctv_users(id) ON DELETE CASCADE
+  )`,
 ];
 
 async function main() {

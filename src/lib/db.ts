@@ -499,6 +499,165 @@ export async function deleteCtvContentItem(id: number): Promise<boolean> {
   return (result as mysql.ResultSetHeader).affectedRows > 0;
 }
 
+// ---------- CTV: hoa hồng + công nợ ----------
+
+export type CtvCommissionSummary = {
+  baseRevenue: number;
+  baseCommission: number;
+  overrideRevenue: number;
+  overrideCommission: number;
+  totalAccrued: number;
+  totalPaid: number;
+  balance: number;
+};
+
+/**
+ * Tính ĐỘNG từ orders + ctv_users mỗi lần gọi (không có "sổ hoa hồng" lưu
+ * sẵn) — xem ghi chú trong ctv_payouts DDL (scripts/setup-ctv-tables.ts) về
+ * lý do chọn cách này. Chỉ đơn `review_status = 'approved'` mới tính.
+ */
+export async function getCtvCommissionSummary(ctvId: number): Promise<CtvCommissionSummary> {
+  const empty: CtvCommissionSummary = {
+    baseRevenue: 0,
+    baseCommission: 0,
+    overrideRevenue: 0,
+    overrideCommission: 0,
+    totalAccrued: 0,
+    totalPaid: 0,
+    balance: 0,
+  };
+  const ctv = await findCtvById(ctvId);
+  if (!ctv) return empty;
+
+  const commissionPct = Number(ctv.commission_pct);
+  const overridePct = Number(ctv.referral_override_pct);
+
+  const [baseRows] = await getPool().query(
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM orders WHERE ctv_id = ? AND review_status = 'approved'`,
+    [ctvId]
+  );
+  const baseRevenue = Number((baseRows as { total: string }[])[0]?.total ?? 0);
+
+  const [overrideRows] = await getPool().query(
+    `SELECT COALESCE(SUM(o.amount), 0) AS total
+     FROM orders o
+     JOIN ctv_users downline ON downline.id = o.ctv_id
+     WHERE downline.referred_by_ctv_id = ? AND o.review_status = 'approved'`,
+    [ctvId]
+  );
+  const overrideRevenue = Number((overrideRows as { total: string }[])[0]?.total ?? 0);
+
+  const [paidRows] = await getPool().query(
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM ctv_payouts WHERE ctv_id = ?`,
+    [ctvId]
+  );
+  const totalPaid = Number((paidRows as { total: string }[])[0]?.total ?? 0);
+
+  const baseCommission = baseRevenue * (commissionPct / 100);
+  const overrideCommission = overrideRevenue * (overridePct / 100);
+  const totalAccrued = baseCommission + overrideCommission;
+
+  return {
+    baseRevenue,
+    baseCommission,
+    overrideRevenue,
+    overrideCommission,
+    totalAccrued,
+    totalPaid,
+    balance: totalAccrued - totalPaid,
+  };
+}
+
+export type CtvDestinationStat = {
+  destination: string | null;
+  revenue: number;
+  weightKg: number;
+  orderCount: number;
+};
+
+/** "Thống kê doanh thu + sản lượng (kg)" của 1 CTV, chia theo destination — chỉ tính đơn đã duyệt. */
+export async function getCtvRevenueStats(ctvId: number): Promise<CtvDestinationStat[]> {
+  const [rows] = await getPool().query(
+    `SELECT destination, COALESCE(SUM(amount), 0) AS revenue, COALESCE(SUM(weight_kg), 0) AS weightKg, COUNT(*) AS orderCount
+     FROM orders
+     WHERE ctv_id = ? AND review_status = 'approved'
+     GROUP BY destination
+     ORDER BY revenue DESC`,
+    [ctvId]
+  );
+  return (rows as { destination: string | null; revenue: string; weightKg: string; orderCount: number }[]).map(
+    (r) => ({
+      destination: r.destination,
+      revenue: Number(r.revenue),
+      weightKg: Number(r.weightKg),
+      orderCount: r.orderCount,
+    })
+  );
+}
+
+export type CtvPayableRow = CtvCommissionSummary & { ctvId: number; ctvCode: string; fullName: string };
+
+/** Sổ công nợ (chiều Falco nợ CTV) cho tab "Công nợ" ở admin — 1 dòng / CTV. */
+export async function listCtvPayables(): Promise<CtvPayableRow[]> {
+  const ctvs = await listCtvUsers();
+  const rows: CtvPayableRow[] = [];
+  for (const c of ctvs) {
+    const summary = await getCtvCommissionSummary(c.id);
+    rows.push({ ctvId: c.id, ctvCode: c.ctv_code, fullName: c.full_name, ...summary });
+  }
+  return rows;
+}
+
+export async function insertCtvPayout(data: {
+  ctvId: number;
+  amount: number;
+  note: string | null;
+  paidBy: string;
+}): Promise<number> {
+  const [result] = await getPool().query(
+    "INSERT INTO ctv_payouts (ctv_id, amount, note, paid_by) VALUES (?, ?, ?, ?)",
+    [data.ctvId, data.amount, data.note, data.paidBy]
+  );
+  return (result as mysql.ResultSetHeader).insertId;
+}
+
+export type OutstandingCollection = {
+  orderId: number;
+  falcoCode: string;
+  ctvId: number;
+  ctvCode: string;
+  ctvFullName: string;
+  amount: string | null;
+};
+
+/** Đơn CTV thu hộ khách nhưng CHƯA xác nhận nộp lại cho Falco (chiều CTV nợ Falco). */
+export async function listOutstandingCtvCollections(): Promise<OutstandingCollection[]> {
+  const [rows] = await getPool().query(
+    `SELECT o.id AS orderId, o.falco_code AS falcoCode, o.ctv_id AS ctvId,
+            c.ctv_code AS ctvCode, c.full_name AS ctvFullName, o.amount
+     FROM orders o
+     JOIN ctv_users c ON c.id = o.ctv_id
+     WHERE o.payment_status = 'collected_by_ctv'
+       AND NOT EXISTS (SELECT 1 FROM ctv_remittances r WHERE r.order_id = o.id)
+     ORDER BY o.id DESC`
+  );
+  return rows as OutstandingCollection[];
+}
+
+export async function insertCtvRemittance(data: {
+  orderId: number;
+  ctvId: number;
+  amount: number;
+  note: string | null;
+  remittedTo: string;
+}): Promise<number> {
+  const [result] = await getPool().query(
+    "INSERT INTO ctv_remittances (order_id, ctv_id, amount, note, remitted_to) VALUES (?, ?, ?, ?, ?)",
+    [data.orderId, data.ctvId, data.amount, data.note, data.remittedTo]
+  );
+  return (result as mysql.ResultSetHeader).insertId;
+}
+
 // ---------- Admin: quản lý đơn hàng ----------
 
 export type OrderListItem = OrderRecord & {

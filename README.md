@@ -343,10 +343,18 @@ trang đăng nhập. CTV không tự đăng ký — chỉ admin tạo tài kho�
    `/admin/bao-gia` — không có bản sao riêng, chỉ khác chân trang liên hệ
    (mặc định theo hồ sơ CTV, sửa được ở `/ctv/tai-khoan`).
 
-Đây là giai đoạn 1-3 (tài khoản + đăng nhập, đơn hàng + duyệt, bảng
-giá/chính sách/nội dung) của tính năng CTV — hoa hồng/công nợ và hiệu quả
-sẽ thêm dần ở các giai đoạn tiếp theo (xem `.claude/plans` trong lịch sử
-phát triển nếu cần đối chiếu kiến trúc dự kiến).
+6. **Bảng hoa hồng/công nợ** (`ctv_payouts`, `ctv_remittances`, giai đoạn 4)
+   cũng nằm trong cùng `scripts/setup-ctv-tables.ts` — chạy lại lệnh ở bước 1
+   nếu cần. Hoa hồng (gốc + giới thiệu 1 cấp) tính ĐỘNG từ `orders` mỗi lần
+   xem, không lưu sổ — chỉ phần đã trả thật mới ghi cố định vào
+   `ctv_payouts` (xem ghi chú trong `src/lib/db.ts` hàm
+   `getCtvCommissionSummary`). Quản lý ở `/admin/ctv-cong-no`; CTV xem tổng
+   quan của mình ở `/ctv/thong-ke`.
+
+Đây là giai đoạn 1-4 (tài khoản, đơn hàng + duyệt, bảng giá/chính sách/nội
+dung, hoa hồng/công nợ) của tính năng CTV — dashboard "Hiệu quả" cho admin
+sẽ thêm ở giai đoạn cuối (xem `.claude/plans` trong lịch sử phát triển nếu
+cần đối chiếu kiến trúc dự kiến).
 
 ## Build production
 
