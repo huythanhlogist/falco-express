@@ -19,11 +19,13 @@ import {
   HandshakeIcon,
   LayoutGridIcon,
   PackageCheckIcon,
+  BoltIcon,
 } from "@/components/icons";
 
 const LINKS = [
   { href: "/admin/orders", label: "Đơn hàng", icon: CargoIcon },
   { href: "/admin/kango-bills", label: "Tạo bill", icon: PackageCheckIcon },
+  { href: "/admin/ai-nhap-don", label: "Nhập đơn AI", icon: BoltIcon },
   { href: "/admin/ke-toan", label: "Kế toán", icon: WalletIcon },
   { href: "/admin/bao-gia", label: "Báo giá", icon: TagIcon },
   { href: "/admin/ctv", label: "Quản lý CTV", icon: HandshakeIcon },
