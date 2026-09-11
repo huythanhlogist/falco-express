@@ -4,6 +4,19 @@ export type KangoCreateBillResult =
   | { ok: true; billId: string; hawbs: string[]; redirectUrl: string }
   | { ok: false; error: string };
 
+// Kango trả `message` dạng string khi lỗi chung, nhưng dạng object/array
+// (lỗi validate theo từng field) khi lỗi input — phải quy về 1 chuỗi đọc
+// được, nếu không sẽ bị ép kiểu thành "[object Object]" lúc lưu DB.
+function stringifyKangoMessage(message: unknown): string {
+  if (!message) return "";
+  if (typeof message === "string") return message;
+  try {
+    return JSON.stringify(message);
+  } catch {
+    return String(message);
+  }
+}
+
 /**
  * Gọi thật API tạo shipment của Kango (POST /api/create-bill) — dùng CHUNG
  * api-key với tính năng tra cứu vận đơn (KANGO_API_KEY, đã xác nhận là
@@ -72,7 +85,7 @@ export async function submitKangoBill(bill: KangoBill): Promise<KangoCreateBillR
 
   const json = await res.json().catch(() => null);
   if (!res.ok || !json || json.status !== 200) {
-    const message = json?.message || `Kango trả về lỗi (HTTP ${res.status})`;
+    const message = stringifyKangoMessage(json?.message) || `Kango trả về lỗi (HTTP ${res.status})`;
     return { ok: false, error: message };
   }
 
