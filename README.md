@@ -351,10 +351,14 @@ trang đăng nhập. CTV không tự đăng ký — chỉ admin tạo tài kho�
    `getCtvCommissionSummary`). Quản lý ở `/admin/ctv-cong-no`; CTV xem tổng
    quan của mình ở `/ctv/thong-ke`.
 
-Đây là giai đoạn 1-4 (tài khoản, đơn hàng + duyệt, bảng giá/chính sách/nội
-dung, hoa hồng/công nợ) của tính năng CTV — dashboard "Hiệu quả" cho admin
-sẽ thêm ở giai đoạn cuối (xem `.claude/plans` trong lịch sử phát triển nếu
-cần đối chiếu kiến trúc dự kiến).
+7. **Dashboard "Hiệu quả"** (`/admin/ctv-hieu-qua`, giai đoạn 5) — tổng số
+   CTV, doanh thu tháng này/tháng trước, số đơn CTV chờ duyệt, top 5 CTV
+   theo doanh thu. Chỉ đọc dữ liệu tính động từ `orders`/`ctv_users`, không
+   có bảng mới.
+
+Toàn bộ 5 giai đoạn của tính năng CTV (tài khoản, đơn hàng + duyệt, bảng
+giá/chính sách/nội dung, hoa hồng/công nợ, hiệu quả) đã hoàn thành theo
+plan trong lịch sử phát triển (`.claude/plans`).
 
 ## Build production
 

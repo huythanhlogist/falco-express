@@ -17,6 +17,7 @@ import {
   TagIcon,
   RefreshIcon,
   HandshakeIcon,
+  LayoutGridIcon,
 } from "@/components/icons";
 
 const LINKS = [
@@ -25,6 +26,7 @@ const LINKS = [
   { href: "/admin/bao-gia", label: "Báo giá", icon: TagIcon },
   { href: "/admin/ctv", label: "Quản lý CTV", icon: HandshakeIcon },
   { href: "/admin/ctv-cong-no", label: "Công nợ CTV", icon: WalletIcon },
+  { href: "/admin/ctv-hieu-qua", label: "Hiệu quả CTV", icon: LayoutGridIcon },
   { href: "/admin/upload", label: "Upload tài liệu", icon: UploadIcon },
   { href: "/admin/seo", label: "SEO", icon: SearchIcon },
   { href: "/admin/search-console", label: "Search Console", icon: GlobeIcon },

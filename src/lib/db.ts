@@ -658,6 +658,62 @@ export async function insertCtvRemittance(data: {
   return (result as mysql.ResultSetHeader).insertId;
 }
 
+// ---------- CTV: dashboard hiệu quả ----------
+
+export type CtvDashboardStats = {
+  totalCtvs: number;
+  activeCtvs: number;
+  thisMonthRevenue: number;
+  lastMonthRevenue: number;
+  pendingReviewCount: number;
+  topCtvs: { ctvId: number; ctvCode: string; fullName: string; revenue: number }[];
+};
+
+export async function getCtvDashboardStats(): Promise<CtvDashboardStats> {
+  const [countRows] = await getPool().query(
+    `SELECT COUNT(*) AS total, SUM(status = 'active') AS active FROM ctv_users`
+  );
+  const countRow = (countRows as { total: number; active: string | null }[])[0];
+
+  const [revenueRows] = await getPool().query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN DATE_FORMAT(received_date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m') THEN amount ELSE 0 END), 0) AS thisMonth,
+       COALESCE(SUM(CASE WHEN DATE_FORMAT(received_date, '%Y-%m') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m') THEN amount ELSE 0 END), 0) AS lastMonth
+     FROM orders
+     WHERE source = 'ctv' AND review_status = 'approved'`
+  );
+  const revenueRow = (revenueRows as { thisMonth: string; lastMonth: string }[])[0];
+
+  const [pendingRows] = await getPool().query(
+    `SELECT COUNT(*) AS c FROM orders WHERE source = 'ctv' AND review_status = 'pending'`
+  );
+  const pendingReviewCount = (pendingRows as { c: number }[])[0]?.c ?? 0;
+
+  const [topRows] = await getPool().query(
+    `SELECT o.ctv_id AS ctvId, c.ctv_code AS ctvCode, c.full_name AS fullName, COALESCE(SUM(o.amount), 0) AS revenue
+     FROM orders o
+     JOIN ctv_users c ON c.id = o.ctv_id
+     WHERE o.source = 'ctv' AND o.review_status = 'approved'
+     GROUP BY o.ctv_id
+     ORDER BY revenue DESC
+     LIMIT 5`
+  );
+
+  return {
+    totalCtvs: countRow?.total ?? 0,
+    activeCtvs: Number(countRow?.active ?? 0),
+    thisMonthRevenue: Number(revenueRow?.thisMonth ?? 0),
+    lastMonthRevenue: Number(revenueRow?.lastMonth ?? 0),
+    pendingReviewCount,
+    topCtvs: (topRows as { ctvId: number; ctvCode: string; fullName: string; revenue: string }[]).map((r) => ({
+      ctvId: r.ctvId,
+      ctvCode: r.ctvCode,
+      fullName: r.fullName,
+      revenue: Number(r.revenue),
+    })),
+  };
+}
+
 // ---------- Admin: quản lý đơn hàng ----------
 
 export type OrderListItem = OrderRecord & {
