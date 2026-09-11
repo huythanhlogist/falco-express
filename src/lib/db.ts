@@ -714,6 +714,246 @@ export async function getCtvDashboardStats(): Promise<CtvDashboardStats> {
   };
 }
 
+// ---------- Kango: tạo bill (khởi tạo shipment) ----------
+
+export type KangoBillStatus = "draft" | "sent";
+
+export type KangoPackage = {
+  packageQuantity: number;
+  packageType: number; // 0 Carton, 1 Pallet, 2 Túi(Phong bì)
+  packageLength: number;
+  packageWidth: number;
+  packageHeight: number;
+  packageWeight: number;
+};
+
+export type KangoInvoiceItem = {
+  invoiceGoodsDetails: string;
+  invoiceQuantity: number;
+  invoiceUnit: number; // 0 Pcs, 1 Bag, 2 Box, 3 Jar
+  invoicePrice: number;
+  invoiceTotalPrice: number;
+};
+
+export type KangoBill = {
+  id: number;
+  receiver_company_name: string;
+  receiver_contact_name: string;
+  receiver_telephone: string;
+  receiver_country: string;
+  receiver_state_name: string;
+  receiver_city: string;
+  receiver_postal_code: string;
+  receiver_address_1: string;
+  receiver_address_2: string | null;
+  receiver_address_3: string | null;
+  shipment_service: string;
+  shipment_signature_flg: number;
+  shipment_branch: string;
+  shipment_reference_code: string | null;
+  shipment_goods_name: string;
+  shipment_value: string;
+  shipment_export_as: number;
+  packages_json: string;
+  invoices_json: string | null;
+  status: KangoBillStatus;
+  kango_bill_id: string | null;
+  kango_hawbs_json: string | null;
+  kango_redirect_url: string | null;
+  send_error: string | null;
+  created_by: string;
+  sent_by: string | null;
+  sent_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type NewKangoBill = {
+  receiverCompanyName: string;
+  receiverContactName: string;
+  receiverTelephone: string;
+  receiverCountry: string;
+  receiverStateName: string;
+  receiverCity: string;
+  receiverPostalCode: string;
+  receiverAddress1: string;
+  receiverAddress2: string | null;
+  receiverAddress3: string | null;
+  shipmentService: string;
+  shipmentSignatureFlg: boolean;
+  shipmentBranch: string;
+  shipmentReferenceCode: string | null;
+  shipmentGoodsName: string;
+  shipmentValue: number;
+  shipmentExportAs: number;
+  packages: KangoPackage[];
+  invoices: KangoInvoiceItem[];
+  createdBy: string;
+};
+
+export async function listKangoBills(): Promise<KangoBill[]> {
+  const [rows] = await getPool().query("SELECT * FROM kango_bills ORDER BY id DESC");
+  return rows as KangoBill[];
+}
+
+export async function findKangoBillById(id: number): Promise<KangoBill | null> {
+  const [rows] = await getPool().query("SELECT * FROM kango_bills WHERE id = ? LIMIT 1", [id]);
+  const list = rows as KangoBill[];
+  return list[0] ?? null;
+}
+
+export async function insertKangoBill(data: NewKangoBill): Promise<number> {
+  const [result] = await getPool().query(
+    `INSERT INTO kango_bills
+      (receiver_company_name, receiver_contact_name, receiver_telephone, receiver_country,
+       receiver_state_name, receiver_city, receiver_postal_code, receiver_address_1,
+       receiver_address_2, receiver_address_3, shipment_service, shipment_signature_flg,
+       shipment_branch, shipment_reference_code, shipment_goods_name, shipment_value,
+       shipment_export_as, packages_json, invoices_json, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      data.receiverCompanyName,
+      data.receiverContactName,
+      data.receiverTelephone,
+      data.receiverCountry,
+      data.receiverStateName,
+      data.receiverCity,
+      data.receiverPostalCode,
+      data.receiverAddress1,
+      data.receiverAddress2,
+      data.receiverAddress3,
+      data.shipmentService,
+      data.shipmentSignatureFlg ? 1 : 0,
+      data.shipmentBranch,
+      data.shipmentReferenceCode,
+      data.shipmentGoodsName,
+      data.shipmentValue,
+      data.shipmentExportAs,
+      JSON.stringify(data.packages),
+      JSON.stringify(data.invoices),
+      data.createdBy,
+    ]
+  );
+  return (result as mysql.ResultSetHeader).insertId;
+}
+
+export type KangoBillEditableFields = Partial<{
+  receiverCompanyName: string;
+  receiverContactName: string;
+  receiverTelephone: string;
+  receiverCountry: string;
+  receiverStateName: string;
+  receiverCity: string;
+  receiverPostalCode: string;
+  receiverAddress1: string;
+  receiverAddress2: string | null;
+  receiverAddress3: string | null;
+  shipmentService: string;
+  shipmentSignatureFlg: boolean;
+  shipmentBranch: string;
+  shipmentReferenceCode: string | null;
+  shipmentGoodsName: string;
+  shipmentValue: number;
+  shipmentExportAs: number;
+  packages: KangoPackage[];
+  invoices: KangoInvoiceItem[];
+}>;
+
+const KANGO_BILL_FIELD_COLUMNS: Record<keyof KangoBillEditableFields, string> = {
+  receiverCompanyName: "receiver_company_name",
+  receiverContactName: "receiver_contact_name",
+  receiverTelephone: "receiver_telephone",
+  receiverCountry: "receiver_country",
+  receiverStateName: "receiver_state_name",
+  receiverCity: "receiver_city",
+  receiverPostalCode: "receiver_postal_code",
+  receiverAddress1: "receiver_address_1",
+  receiverAddress2: "receiver_address_2",
+  receiverAddress3: "receiver_address_3",
+  shipmentService: "shipment_service",
+  shipmentSignatureFlg: "shipment_signature_flg",
+  shipmentBranch: "shipment_branch",
+  shipmentReferenceCode: "shipment_reference_code",
+  shipmentGoodsName: "shipment_goods_name",
+  shipmentValue: "shipment_value",
+  shipmentExportAs: "shipment_export_as",
+  packages: "packages_json",
+  invoices: "invoices_json",
+};
+
+export async function updateKangoBill(id: number, fields: KangoBillEditableFields): Promise<boolean> {
+  const entries = Object.entries(fields) as [keyof KangoBillEditableFields, unknown][];
+  if (entries.length === 0) return false;
+  const setClause = entries.map(([key]) => `${KANGO_BILL_FIELD_COLUMNS[key]} = ?`).join(", ");
+  const values = entries.map(([key, value]) => {
+    if (key === "shipmentSignatureFlg") return value ? 1 : 0;
+    if (key === "packages" || key === "invoices") return JSON.stringify(value);
+    return value;
+  });
+  const [result] = await getPool().query(
+    `UPDATE kango_bills SET ${setClause} WHERE id = ?`,
+    [...values, id]
+  );
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
+export async function deleteKangoBill(id: number): Promise<boolean> {
+  const [result] = await getPool().query("DELETE FROM kango_bills WHERE id = ?", [id]);
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
+export async function markKangoBillSent(
+  id: number,
+  data: { sentBy: string; kangoBillId: string; hawbs: string[]; redirectUrl: string }
+): Promise<void> {
+  await getPool().query(
+    `UPDATE kango_bills
+     SET status = 'sent', sent_by = ?, sent_at = NOW(), kango_bill_id = ?, kango_hawbs_json = ?, kango_redirect_url = ?, send_error = NULL
+     WHERE id = ?`,
+    [data.sentBy, data.kangoBillId, JSON.stringify(data.hawbs), data.redirectUrl, id]
+  );
+}
+
+export async function markKangoBillSendFailed(id: number, error: string): Promise<void> {
+  await getPool().query("UPDATE kango_bills SET send_error = ? WHERE id = ?", [error, id]);
+}
+
+export type KangoRecentReceiver = {
+  receiverCompanyName: string;
+  receiverContactName: string;
+  receiverTelephone: string;
+  receiverCountry: string;
+  receiverStateName: string;
+  receiverCity: string;
+  receiverPostalCode: string;
+  receiverAddress1: string;
+  receiverAddress2: string | null;
+  receiverAddress3: string | null;
+};
+
+/** Danh sách người nhận gần đây (gộp theo SĐT) để chọn nhanh khi khách gửi lại. */
+export async function listRecentKangoReceivers(): Promise<KangoRecentReceiver[]> {
+  const [rows] = await getPool().query(
+    `SELECT
+       receiver_company_name AS receiverCompanyName,
+       receiver_contact_name AS receiverContactName,
+       receiver_telephone AS receiverTelephone,
+       receiver_country AS receiverCountry,
+       receiver_state_name AS receiverStateName,
+       receiver_city AS receiverCity,
+       receiver_postal_code AS receiverPostalCode,
+       receiver_address_1 AS receiverAddress1,
+       receiver_address_2 AS receiverAddress2,
+       receiver_address_3 AS receiverAddress3,
+       MAX(id) AS lastId
+     FROM kango_bills
+     GROUP BY receiver_telephone
+     ORDER BY lastId DESC
+     LIMIT 50`
+  );
+  return rows as KangoRecentReceiver[];
+}
+
 // ---------- Admin: quản lý đơn hàng ----------
 
 export type OrderListItem = OrderRecord & {

@@ -360,6 +360,33 @@ Toàn bộ 5 giai đoạn của tính năng CTV (tài khoản, đơn hàng + duy
 giá/chính sách/nội dung, hoa hồng/công nợ, hiệu quả) đã hoàn thành theo
 plan trong lịch sử phát triển (`.claude/plans`).
 
+## Tạo bill (khởi tạo shipment gửi lên Kango)
+
+`/admin/kango-bills` — form nhập tay theo đúng schema API
+`POST https://kango-post.com/api/create-bill` của Kango (người nhận, kiện
+hàng, invoice). Lưu dưới dạng **nháp** trước — sửa/xoá thoải mái, có ô
+"Chọn người nhận cũ" để điền nhanh lại thông tin khách đã gửi trước đó
+(gộp theo số điện thoại). **Không tự động gửi gì lên Kango** — chỉ khi bấm
+nút "Duyệt & Gửi Kango" trên trang chi tiết bill mới thật sự gọi API tạo
+vận đơn (hành động không hoàn tác được). Bill vẫn sửa/xoá được sau khi đã
+gửi — không tự đồng bộ ngược lại Kango, nếu cần sửa dữ liệu đã gửi thì sửa
+thẳng trên web Kango rồi cập nhật lại ở đây cho khớp.
+
+Dùng CHUNG `KANGO_API_KEY` với tính năng tra cứu vận đơn ở trên (đã xác
+nhận là 1 api-key cấp theo tài khoản Kango cho mọi endpoint, không phải
+key riêng). Chỉ cần thêm:
+
+```bash
+npx tsx scripts/setup-kango-bills-table.ts
+```
+
+và đặt thêm biến môi trường (trong `.env.local` và Environment variables
+trên hPanel):
+
+```
+KANGO_CREATE_BILL_API_URL=https://kango-post.com/api/create-bill
+```
+
 ## Build production
 
 ```bash
@@ -396,7 +423,8 @@ Hostinger mà không cần cài lại `node_modules` đầy đủ trên server.
    `GOOGLE_SHEET_RANGE`, `KANGO_API_KEY`, `KANGO_API_URL`, `DB_HOST`,
    `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` (xem mục "Tra cứu vận đơn:
    MySQL + API Kango"), `ADMIN_SESSION_SECRET` (xem mục "Trang quản trị
-   (admin)"), `CTV_SESSION_SECRET` (xem mục "Tài khoản CTV").
+   (admin)"), `CTV_SESSION_SECRET` (xem mục "Tài khoản CTV"),
+   `KANGO_CREATE_BILL_API_URL` (xem mục "Tạo bill").
 6. **Khởi động ứng dụng**: dùng nút Restart trong hPanel Node.js, hoặc trỏ
    startup file tới `server.js` dưới đây nếu Hostinger yêu cầu một entry
    point cố định:
