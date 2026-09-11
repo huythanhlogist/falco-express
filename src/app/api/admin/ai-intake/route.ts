@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentAdminSession } from "@/lib/auth";
-import { createIntakeOrder, listPendingIntakeOrders } from "@/lib/google-drive";
+import { insertAiIntakeOrder, listPendingAiIntakeOrders } from "@/lib/db";
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024; // 15MB/ảnh — đủ cho ảnh chụp từ điện thoại
 const MAX_IMAGES = 20;
@@ -9,15 +9,8 @@ export async function GET() {
   const session = await getCurrentAdminSession();
   if (!session) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
-  try {
-    const orders = await listPendingIntakeOrders();
-    return NextResponse.json({ orders });
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Không đọc được thư mục Drive" },
-      { status: 500 }
-    );
-  }
+  const orders = await listPendingAiIntakeOrders();
+  return NextResponse.json({ orders });
 }
 
 export async function POST(request: Request) {
@@ -43,20 +36,14 @@ export async function POST(request: Request) {
     }
   }
 
-  try {
-    const images = await Promise.all(
-      files.map(async (file) => ({
-        filename: file.name || "anh.jpg",
-        mimeType: file.type || "image/jpeg",
-        buffer: Buffer.from(await file.arrayBuffer()),
-      }))
-    );
-    const result = await createIntakeOrder(note, images);
-    return NextResponse.json({ ok: true, ...result });
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Tải lên Drive thất bại" },
-      { status: 500 }
-    );
-  }
+  const images = await Promise.all(
+    files.map(async (file) => ({
+      filename: file.name || "anh.jpg",
+      mimeType: file.type || "image/jpeg",
+      buffer: Buffer.from(await file.arrayBuffer()),
+    }))
+  );
+  const id = await insertAiIntakeOrder(note, images, session.email);
+
+  return NextResponse.json({ ok: true, id });
 }

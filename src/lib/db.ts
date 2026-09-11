@@ -1552,3 +1552,103 @@ export async function deletePolicyItem(id: number): Promise<boolean> {
   const [result] = await getPool().query("DELETE FROM price_quote_policy_items WHERE id = ?", [id]);
   return (result as mysql.ResultSetHeader).affectedRows > 0;
 }
+
+// ---------- Nhập đơn cho AI tạo bill (ghi chú + ảnh, lưu trong MySQL) ----------
+//
+// Ban đầu định lưu ảnh trên Google Drive qua service account có sẵn, nhưng
+// service account KHÔNG có storage quota trên Drive cá nhân (chỉ hoạt động
+// với Shared Drive — cần Google Workspace trả phí, hoặc OAuth uỷ quyền —
+// không khả thi với Gmail cá nhân). Chuyển sang lưu thẳng trong MySQL
+// (LONGBLOB) như mọi dữ liệu khác của dự án — đơn giản hơn, không cần thêm
+// bước Google Cloud nào, và đọc lại được trực tiếp khi xử lý.
+
+export type AiIntakeOrderStatus = "pending" | "processed";
+
+export type AiIntakeOrder = {
+  id: number;
+  note: string;
+  status: AiIntakeOrderStatus;
+  created_by: string;
+  created_at: string;
+  processed_at: string | null;
+};
+
+export type AiIntakeOrderWithImageCount = AiIntakeOrder & { imageCount: number };
+
+export type NewAiIntakeImage = {
+  filename: string;
+  mimeType: string;
+  buffer: Buffer;
+};
+
+export async function insertAiIntakeOrder(
+  note: string,
+  images: NewAiIntakeImage[],
+  createdBy: string
+): Promise<number> {
+  const pool = getPool();
+  const [result] = await pool.query("INSERT INTO ai_intake_orders (note, created_by) VALUES (?, ?)", [
+    note,
+    createdBy,
+  ]);
+  const orderId = (result as mysql.ResultSetHeader).insertId;
+
+  for (const image of images) {
+    await pool.query(
+      "INSERT INTO ai_intake_images (order_id, filename, mime_type, file_size, data) VALUES (?, ?, ?, ?, ?)",
+      [orderId, image.filename, image.mimeType, image.buffer.length, image.buffer]
+    );
+  }
+
+  return orderId;
+}
+
+export async function listPendingAiIntakeOrders(): Promise<AiIntakeOrderWithImageCount[]> {
+  const [rows] = await getPool().query(
+    `SELECT o.id, o.note, o.status, o.created_by, o.created_at, o.processed_at,
+            COUNT(i.id) AS imageCount
+     FROM ai_intake_orders o
+     LEFT JOIN ai_intake_images i ON i.order_id = o.id
+     WHERE o.status = 'pending'
+     GROUP BY o.id
+     ORDER BY o.created_at DESC`
+  );
+  return rows as AiIntakeOrderWithImageCount[];
+}
+
+export async function deleteAiIntakeOrder(id: number): Promise<boolean> {
+  const [result] = await getPool().query("DELETE FROM ai_intake_orders WHERE id = ?", [id]);
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
+export async function markAiIntakeOrderProcessed(id: number): Promise<void> {
+  await getPool().query(
+    "UPDATE ai_intake_orders SET status = 'processed', processed_at = NOW() WHERE id = ?",
+    [id]
+  );
+}
+
+export type AiIntakeImage = {
+  id: number;
+  order_id: number;
+  filename: string;
+  mime_type: string;
+  file_size: number;
+  data: Buffer;
+};
+
+export async function findAiIntakeImageById(id: number): Promise<AiIntakeImage | null> {
+  const [rows] = await getPool().query("SELECT * FROM ai_intake_images WHERE id = ? LIMIT 1", [id]);
+  const list = rows as AiIntakeImage[];
+  return list[0] ?? null;
+}
+
+export async function listAiIntakeImagesByOrder(
+  orderId: number
+): Promise<Pick<AiIntakeImage, "id" | "filename" | "mime_type">[]> {
+  const [rows] = await getPool().query(
+    "SELECT id, filename, mime_type FROM ai_intake_images WHERE order_id = ? ORDER BY id",
+    [orderId]
+  );
+  return rows as Pick<AiIntakeImage, "id" | "filename" | "mime_type">[];
+}

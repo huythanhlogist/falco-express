@@ -415,44 +415,33 @@ curl -X POST https://falcoexpress.com/api/admin/kango-bills \
   }'
 ```
 
-## Nhập đơn cho AI tạo bill (Google Drive)
+## Nhập đơn cho AI tạo bill
 
 `/admin/ai-nhap-don` — nhân viên dán ghi chú đơn hàng (tên/SĐT/địa chỉ
 khách, mô tả hàng...) + tải ảnh (kiện hàng, địa chỉ viết tay, CCCD...) lên,
-web tự upload thẳng vào Google Drive qua service account có sẵn — **không
-cần đăng nhập Google gì thêm**. Mỗi lần bấm "Tải lên đơn này" tạo **1 thư
-mục con riêng** trong Drive (đặt tên theo thời gian + trích ghi chú), nên
-tạo liên tiếp 5-10 đơn vẫn không bị lẫn ảnh/ghi chú đơn này sang đơn khác.
+lưu thẳng vào MySQL (bảng `ai_intake_orders` + `ai_intake_images`, ảnh lưu
+dạng `LONGBLOB`). Mỗi lần bấm "Tải lên đơn này" tạo **1 đơn riêng**, nên tạo
+liên tiếp 5-10 đơn vẫn không bị lẫn ảnh/ghi chú đơn này sang đơn khác.
 
 Khi đã gom đủ đơn, nhắn trực tiếp cho Claude trong phiên chat
-**"xử lý lô đơn mới"** — Claude tự đọc các thư mục chưa xử lý trong Drive,
-trích xuất thông tin, tạo bill nháp qua `/admin/kango-bills` (đúng luồng ở
-trên — vẫn cần bấm "Duyệt & Gửi Kango" thủ công mới gửi thật), rồi chuyển
-các thư mục đã đọc sang `Đã xử lý/` để lần sau không đọc lại. Đây **không**
-phải một quy trình tự động chạy nền — chỉ xảy ra khi được yêu cầu trong
-chat, và bước AI xử lý không phát sinh phí riêng ngoài gói chat đang dùng.
+**"xử lý lô đơn mới"** — Claude tự đọc các đơn `status = 'pending'`, trích
+xuất thông tin, tạo bill nháp qua `/admin/kango-bills` (đúng luồng ở trên —
+vẫn cần bấm "Duyệt & Gửi Kango" thủ công mới gửi thật), rồi đánh dấu các đơn
+đã đọc là `processed` để lần sau không đọc lại. Đây **không** phải một quy
+trình tự động chạy nền — chỉ xảy ra khi được yêu cầu trong chat, và bước AI
+xử lý không phát sinh phí riêng ngoài gói chat đang dùng.
 
-Dùng CHUNG service account với tích hợp Google Sheets ở trên
-(`GOOGLE_SERVICE_ACCOUNT_EMAIL`/`GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`), chỉ
-cần thêm quyền + biến môi trường mới. **2 việc phải tự làm trên Google
-Cloud/Drive** (không có cách nào làm thay qua code vì cần quyền chủ tài
-khoản Google):
+Ban đầu định lưu ảnh trên Google Drive qua service account có sẵn (đỡ phải
+tạo bảng DB mới), nhưng thử nghiệm thực tế cho thấy **service account
+không có storage quota trên Drive cá nhân** — Google chặn với lỗi "Service
+Accounts do not have storage quota", chỉ hoạt động được với Shared Drive
+(cần Google Workspace trả phí) hoặc OAuth uỷ quyền phức tạp, không khả thi
+với Gmail cá nhân. Nên chuyển hẳn sang lưu trong MySQL — không cần bước
+Google Cloud/Drive nào, chỉ cần chạy:
 
-1. Vào [Google Cloud Console](https://console.cloud.google.com/apis/library/drive.googleapis.com)
-   (đúng project đang dùng cho service account ở trên) → bật **Google Drive
-   API** (Sheets API không đủ quyền đọc/ghi Drive).
-2. Tạo 1 thư mục trên Drive cá nhân (vd "Falco - AI Bill Intake") → Share
-   thư mục đó cho đúng email trong `GOOGLE_SERVICE_ACCOUNT_EMAIL`, quyền
-   **Editor** → lấy folder ID từ URL
-   (`drive.google.com/drive/folders/<ID>`), điền vào:
-
+```bash
+npx tsx scripts/setup-ai-intake-tables.ts
 ```
-GOOGLE_DRIVE_INTAKE_FOLDER_ID=<folder ID>
-```
-
-(trong `.env.local` và Environment variables trên hPanel). Không cần chạy
-script tạo bảng DB nào — tính năng này không đụng tới MySQL, chỉ đọc/ghi
-Drive.
 
 ## Build production
 

@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { TrashIcon, UploadIcon, ClockIcon } from "@/components/icons";
 
 type PendingOrder = {
-  folderId: string;
-  folderName: string;
-  folderUrl: string;
-  createdAt: string;
-  fileCount: number;
+  id: number;
+  note: string;
+  status: "pending" | "processed";
+  created_by: string;
+  created_at: string;
+  imageCount: number;
 };
 
 function formatDate(iso: string): string {
@@ -19,9 +20,10 @@ function formatDate(iso: string): string {
 export default function AiIntakeForm() {
   const [note, setNote] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [justUploaded, setJustUploaded] = useState("");
+  const [justUploaded, setJustUploaded] = useState(false);
   const [pending, setPending] = useState<PendingOrder[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState("");
@@ -46,6 +48,12 @@ export default function AiIntakeForm() {
     loadPending();
   }, []);
 
+  useEffect(() => {
+    const urls = files.map((f) => URL.createObjectURL(f));
+    setPreviews(urls);
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, [files]);
+
   function resetForm() {
     setNote("");
     setFiles([]);
@@ -54,7 +62,7 @@ export default function AiIntakeForm() {
 
   async function submit() {
     setError("");
-    setJustUploaded("");
+    setJustUploaded(false);
     if (!note.trim() && files.length === 0) {
       setError("Cần ít nhất ghi chú hoặc 1 ảnh cho đơn này");
       return;
@@ -72,7 +80,7 @@ export default function AiIntakeForm() {
         setError(json.error || "Tải lên thất bại");
         return;
       }
-      setJustUploaded(json.folderName || "");
+      setJustUploaded(true);
       resetForm();
       loadPending();
     } catch {
@@ -82,11 +90,11 @@ export default function AiIntakeForm() {
     }
   }
 
-  async function removeOrder(folderId: string) {
-    if (!confirm("Xoá đơn này khỏi Drive? Không hoàn tác được.")) return;
-    const res = await fetch(`/api/admin/ai-intake/${folderId}`, { method: "DELETE" });
+  async function removeOrder(id: number) {
+    if (!confirm("Xoá đơn này? Không hoàn tác được.")) return;
+    const res = await fetch(`/api/admin/ai-intake/${id}`, { method: "DELETE" });
     if (res.ok) {
-      setPending((prev) => prev.filter((o) => o.folderId !== folderId));
+      setPending((prev) => prev.filter((o) => o.id !== id));
     } else {
       const json = await res.json().catch(() => null);
       alert(json?.error || "Xoá thất bại");
@@ -98,8 +106,8 @@ export default function AiIntakeForm() {
       <div className="rounded-xl border border-line bg-white p-4">
         <h2 className="text-sm font-semibold text-navy-900">Thêm 1 đơn mới</h2>
         <p className="mt-1 text-xs text-ink/55">
-          Mỗi lần bấm &quot;Tải lên đơn này&quot; sẽ tạo 1 thư mục riêng trên Drive — ghi chú và ảnh của
-          từng đơn không bị lẫn vào nhau. Tạo bao nhiêu đơn thì lặp lại bấy nhiêu lần.
+          Mỗi lần bấm &quot;Tải lên đơn này&quot; sẽ lưu thành 1 đơn riêng — ghi chú và ảnh của từng đơn
+          không bị lẫn vào nhau. Tạo bao nhiêu đơn thì lặp lại bấy nhiêu lần.
         </p>
 
         <div className="mt-4">
@@ -123,18 +131,19 @@ export default function AiIntakeForm() {
             onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
             className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-flame-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-flame-700"
           />
-          {files.length > 0 && (
-            <p className="mt-1.5 text-xs text-ink/55">
-              Đã chọn {files.length} ảnh ({(files.reduce((s, f) => s + f.size, 0) / 1024 / 1024).toFixed(1)} MB)
-            </p>
+          {previews.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {previews.map((src, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={i} src={src} alt="" className="h-16 w-16 rounded-md border border-line object-cover" />
+              ))}
+            </div>
           )}
         </div>
 
         {error && <p className="mt-3 text-xs font-medium text-flame-700">{error}</p>}
         {justUploaded && (
-          <p className="mt-3 text-xs font-medium text-green-700">
-            Đã tải lên: &quot;{justUploaded}&quot; — có thể tạo tiếp đơn khác ngay.
-          </p>
+          <p className="mt-3 text-xs font-medium text-green-700">Đã tải lên — có thể tạo tiếp đơn khác ngay.</p>
         )}
 
         <div className="mt-4 flex gap-2">
@@ -166,24 +175,19 @@ export default function AiIntakeForm() {
 
         <ul className="mt-3 flex flex-col divide-y divide-line">
           {pending.map((order) => (
-            <li key={order.folderId} className="flex items-center justify-between gap-3 py-2.5">
+            <li key={order.id} className="flex items-center justify-between gap-3 py-2.5">
               <div className="min-w-0">
-                <a
-                  href={order.folderUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block truncate text-sm font-medium text-ink hover:text-flame-700"
-                >
-                  {order.folderName}
-                </a>
+                <p className="truncate text-sm font-medium text-ink">
+                  {order.note.trim() ? order.note : <span className="italic text-ink/40">(không có ghi chú)</span>}
+                </p>
                 <p className="mt-0.5 flex items-center gap-1 text-xs text-ink/50">
                   <ClockIcon className="h-3 w-3" />
-                  {formatDate(order.createdAt)} · {order.fileCount} file
+                  {formatDate(order.created_at)} · {order.imageCount} ảnh · {order.created_by}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => removeOrder(order.folderId)}
+                onClick={() => removeOrder(order.id)}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/40 hover:bg-flame-50 hover:text-flame-700"
                 title="Xoá đơn này"
               >
@@ -200,7 +204,7 @@ export default function AiIntakeForm() {
             <a href="/admin/kango-bills" className="font-medium text-flame-700 hover:underline">
               Tạo bill
             </a>{" "}
-            và chuyển các đơn đã đọc sang thư mục &quot;Đã xử lý&quot; trên Drive.
+            và đánh dấu các đơn đã đọc là "đã xử lý".
           </p>
         )}
       </div>
