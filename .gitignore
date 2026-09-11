@@ -1,5 +1,6 @@
 # dependencies
 /node_modules
+mcp-kango-bill/node_modules
 /.pnp
 .pnp.js
 
