@@ -174,7 +174,7 @@ function toIsoDate(value: string | Date | null): string | null {
   return m ? m[1] : null;
 }
 
-function nextFalcoCode(existingCodes: Set<string>): string {
+export function nextFalcoCode(existingCodes: Set<string>): string {
   const today = new Date();
   const y = String(today.getFullYear()).slice(2);
   const m = String(today.getMonth() + 1).padStart(2, "0");

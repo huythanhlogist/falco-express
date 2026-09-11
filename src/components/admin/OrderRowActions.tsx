@@ -11,6 +11,7 @@ type OrderDetail = {
   service: string | null;
   destination: string | null;
   received_date: string | null;
+  weight_kg: string | null;
 };
 
 /**
@@ -56,6 +57,7 @@ export default function OrderRowActions({
           service: o.service || "",
           destination: o.destination || "",
           received_date: o.received_date ? toDateInputValue(o.received_date) : "",
+          weight_kg: o.weight_kg ?? "",
         });
         setTrackingCodes(
           (data.parcels as { tracking_code: string }[]).map((p) => p.tracking_code).join("\n")
@@ -80,6 +82,7 @@ export default function OrderRowActions({
           service: form.service,
           destination: form.destination,
           receivedDate: form.received_date || null,
+          weightKg: form.weight_kg === "" ? null : Number(form.weight_kg),
           trackingCodes: trackingCodes.split("\n"),
         }),
       });
@@ -170,6 +173,16 @@ export default function OrderRowActions({
                   value={form.destination || ""}
                   onChange={(v) => setForm({ ...form, destination: v })}
                 />
+                <div>
+                  <label className="text-xs font-semibold text-ink/60">Cân nặng (kg)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={form.weight_kg ?? ""}
+                    onChange={(e) => setForm({ ...form, weight_kg: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink focus:border-flame-400 focus:outline-none focus:ring-2 focus:ring-flame-100"
+                  />
+                </div>
                 <div>
                   <label className="text-xs font-semibold text-ink/60">Ngày nhận</label>
                   <input

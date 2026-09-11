@@ -4,11 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { UsersIcon, LogoutIcon, MenuIcon, CloseIcon, RefreshIcon } from "@/components/icons";
+import { UsersIcon, LogoutIcon, MenuIcon, CloseIcon, RefreshIcon, CargoIcon } from "@/components/icons";
 
-// Các tab tạo đơn / bảng giá / chính sách / thống kê / kênh sẽ thêm dần ở
-// các giai đoạn tiếp theo (xem plan) — phase này mới có tài khoản.
-const LINKS = [{ href: "/ctv/tai-khoan", label: "Tài khoản", icon: UsersIcon }];
+// Các tab bảng giá / chính sách / thống kê / kênh sẽ thêm dần ở các giai
+// đoạn tiếp theo (xem plan).
+const LINKS = [
+  { href: "/ctv/tao-don", label: "Tạo đơn", icon: CargoIcon },
+  { href: "/ctv/tai-khoan", label: "Tài khoản", icon: UsersIcon },
+];
 
 export default function CtvSidebar({ ctvCode, fullName }: { ctvCode: string; fullName: string }) {
   const pathname = usePathname();

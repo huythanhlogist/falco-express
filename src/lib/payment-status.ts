@@ -5,6 +5,7 @@ export type { PaymentStatus };
 export const PAYMENT_STATUS_OPTIONS: { value: PaymentStatus; label: string; className: string }[] = [
   { value: "unpaid", label: "Chưa thu", className: "bg-flame-50 text-flame-700" },
   { value: "collected_by_staff", label: "Thu hộ", className: "bg-amber-50 text-amber-700" },
+  { value: "collected_by_ctv", label: "Thu hộ (CTV)", className: "bg-purple-50 text-purple-700" },
   { value: "paid", label: "Đã thu", className: "bg-emerald-50 text-emerald-700" },
 ];
 

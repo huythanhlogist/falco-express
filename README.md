@@ -321,11 +321,23 @@ trang đăng nhập. CTV không tự đăng ký — chỉ admin tạo tài kho�
    node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    ```
 3. Vào `/admin/ctv` (đăng nhập admin trước) để tạo tài khoản CTV đầu tiên.
+4. **Mở rộng bảng `orders`** cho đơn do CTV tạo (giai đoạn 2, 1 lần):
+   ```bash
+   npx tsx scripts/alter-orders-for-ctv.ts
+   ```
+   Thêm các cột `weight_kg`, `source` ('staff'/'ctv'), `ctv_id`,
+   `review_status` ('auto_approved'/'pending'/'approved'/'rejected'),
+   `reviewed_by`, `reviewed_at`, và thêm `'collected_by_ctv'` vào enum
+   `payment_status`. Đơn cũ giữ nguyên `source='staff'`,
+   `review_status='auto_approved'` theo giá trị mặc định — không ảnh hưởng
+   dữ liệu/luồng hiện có. Đơn CTV tạo ở `/ctv/tao-don` ở trạng thái
+   "chờ duyệt" cho tới khi 1 nhân viên admin duyệt/từ chối ở `/admin/orders`
+   (tab "Của CTV").
 
-Đây là giai đoạn 1 (tài khoản + đăng nhập) của tính năng CTV — các tab tạo
-đơn/duyệt đơn, bảng giá, hoa hồng/công nợ, hiệu quả sẽ thêm dần ở các giai
-đoạn tiếp theo (xem `.claude/plans` trong lịch sử phát triển nếu cần đối
-chiếu kiến trúc dự kiến).
+Đây là giai đoạn 1-2 (tài khoản + đăng nhập, đơn hàng + duyệt) của tính
+năng CTV — bảng giá, hoa hồng/công nợ, hiệu quả sẽ thêm dần ở các giai đoạn
+tiếp theo (xem `.claude/plans` trong lịch sử phát triển nếu cần đối chiếu
+kiến trúc dự kiến).
 
 ## Build production
 

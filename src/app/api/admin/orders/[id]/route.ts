@@ -19,7 +19,7 @@ function formatDateVN(value: string | Date | null): string {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
-const VALID_STATUSES: PaymentStatus[] = ["unpaid", "collected_by_staff", "paid"];
+const VALID_STATUSES: PaymentStatus[] = ["unpaid", "collected_by_staff", "collected_by_ctv", "paid"];
 
 export async function GET(
   request: Request,
@@ -60,6 +60,7 @@ export async function PATCH(
     paymentStatus,
     amount,
     cost,
+    weightKg,
     awb,
     recipientName,
     recipientPhone,
@@ -80,6 +81,7 @@ export async function PATCH(
   if (paymentStatus !== undefined) fields.paymentStatus = paymentStatus;
   if (amount !== undefined) fields.amount = amount === null || amount === "" ? null : Number(amount);
   if (cost !== undefined) fields.cost = cost === null || cost === "" ? null : Number(cost);
+  if (weightKg !== undefined) fields.weightKg = weightKg === null || weightKg === "" ? null : Number(weightKg);
   if (awb !== undefined) fields.awb = String(awb).trim();
   if (recipientName !== undefined) fields.recipientName = String(recipientName).trim();
   if (recipientPhone !== undefined) fields.recipientPhone = String(recipientPhone).trim();

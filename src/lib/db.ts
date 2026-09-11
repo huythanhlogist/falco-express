@@ -30,7 +30,9 @@ export function getPool(): mysql.Pool {
   return pool;
 }
 
-export type PaymentStatus = "unpaid" | "collected_by_staff" | "paid";
+export type PaymentStatus = "unpaid" | "collected_by_staff" | "collected_by_ctv" | "paid";
+export type OrderSource = "staff" | "ctv";
+export type OrderReviewStatus = "auto_approved" | "pending" | "approved" | "rejected";
 
 export type OrderRecord = {
   id: number;
@@ -44,6 +46,12 @@ export type OrderRecord = {
   payment_status: PaymentStatus;
   amount: string | null;
   cost: string | null;
+  weight_kg: string | null;
+  source: OrderSource;
+  ctv_id: number | null;
+  review_status: OrderReviewStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -84,12 +92,20 @@ export type NewOrder = {
   service: string;
   destination: string;
   receivedDate: string | null; // "YYYY-MM-DD" or null
+  weightKg?: number | null;
+  amount?: number | null;
+  cost?: number | null;
+  source?: OrderSource;
+  ctvId?: number | null;
+  reviewStatus?: OrderReviewStatus;
 };
 
 export async function insertOrder(order: NewOrder): Promise<number> {
   const [result] = await getPool().query(
-    `INSERT INTO orders (falco_code, awb, recipient_name, recipient_phone, service, destination, received_date)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO orders
+      (falco_code, awb, recipient_name, recipient_phone, service, destination, received_date,
+       weight_kg, amount, cost, source, ctv_id, review_status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       order.falcoCode,
       order.awb,
@@ -98,6 +114,12 @@ export async function insertOrder(order: NewOrder): Promise<number> {
       order.service,
       order.destination,
       order.receivedDate,
+      order.weightKg ?? null,
+      order.amount ?? null,
+      order.cost ?? null,
+      order.source ?? "staff",
+      order.ctvId ?? null,
+      order.reviewStatus ?? "auto_approved",
     ]
   );
   return (result as mysql.ResultSetHeader).insertId;
@@ -150,6 +172,7 @@ export type OrderEditableFields = Partial<{
   paymentStatus: PaymentStatus;
   amount: number | null;
   cost: number | null;
+  weightKg: number | null;
 }>;
 
 const ORDER_FIELD_COLUMNS: Record<keyof OrderEditableFields, string> = {
@@ -162,6 +185,7 @@ const ORDER_FIELD_COLUMNS: Record<keyof OrderEditableFields, string> = {
   paymentStatus: "payment_status",
   amount: "amount",
   cost: "cost",
+  weightKg: "weight_kg",
 };
 
 export async function updateOrder(
@@ -181,6 +205,25 @@ export async function updateOrder(
 
 export async function deleteOrder(id: number): Promise<boolean> {
   const [result] = await getPool().query("DELETE FROM orders WHERE id = ?", [id]);
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
+/** Duyệt 1 đơn do CTV tạo — chỉ tác dụng khi đơn đang "chờ duyệt". */
+export async function approveOrder(id: number, adminEmail: string): Promise<boolean> {
+  const [result] = await getPool().query(
+    `UPDATE orders SET review_status = 'approved', reviewed_by = ?, reviewed_at = NOW()
+     WHERE id = ? AND review_status = 'pending'`,
+    [adminEmail, id]
+  );
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
+export async function rejectOrder(id: number, adminEmail: string): Promise<boolean> {
+  const [result] = await getPool().query(
+    `UPDATE orders SET review_status = 'rejected', reviewed_by = ?, reviewed_at = NOW()
+     WHERE id = ? AND review_status = 'pending'`,
+    [adminEmail, id]
+  );
   return (result as mysql.ResultSetHeader).affectedRows > 0;
 }
 
@@ -409,6 +452,8 @@ export async function deleteCtvUser(id: number): Promise<boolean> {
 export type OrderListItem = OrderRecord & {
   parcel_count: number;
   tracking_codes: string | null; // các mã tracking nối bằng dấu "," — dùng cho nút copy gửi khách
+  ctv_code: string | null;
+  ctv_full_name: string | null;
 };
 
 export async function listOrders(params: {
@@ -417,14 +462,19 @@ export async function listOrders(params: {
   offset: number;
   status?: "all" | PaymentStatus;
   month?: string; // "YYYY-MM"
+  source?: "all" | OrderSource;
+  reviewStatus?: "all" | OrderReviewStatus;
+  ctvId?: number;
 }): Promise<{
   orders: OrderListItem[];
   total: number;
   paidCount: number;
   collectedByStaffCount: number;
+  collectedByCtvCount: number;
   unpaidCount: number;
+  pendingReviewCount: number;
 }> {
-  const { search, limit, offset, status = "all", month } = params;
+  const { search, limit, offset, status = "all", month, source = "all", reviewStatus = "all", ctvId } = params;
   const like = `%${search.trim()}%`;
 
   const conditions: string[] = [];
@@ -440,17 +490,31 @@ export async function listOrders(params: {
     conditions.push("DATE_FORMAT(o.received_date, '%Y-%m') = ?");
     whereArgs.push(month);
   }
-  if (status === "paid" || status === "unpaid" || status === "collected_by_staff") {
+  if (status === "paid" || status === "unpaid" || status === "collected_by_staff" || status === "collected_by_ctv") {
     conditions.push("o.payment_status = ?");
     whereArgs.push(status);
+  }
+  if (source === "staff" || source === "ctv") {
+    conditions.push("o.source = ?");
+    whereArgs.push(source);
+  }
+  if (reviewStatus !== "all") {
+    conditions.push("o.review_status = ?");
+    whereArgs.push(reviewStatus);
+  }
+  if (ctvId !== undefined) {
+    conditions.push("o.ctv_id = ?");
+    whereArgs.push(ctvId);
   }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const [rows] = await getPool().query(
     `SELECT o.*, COUNT(p.id) AS parcel_count,
-       GROUP_CONCAT(p.tracking_code ORDER BY p.id SEPARATOR ',') AS tracking_codes
+       GROUP_CONCAT(p.tracking_code ORDER BY p.id SEPARATOR ',') AS tracking_codes,
+       c.ctv_code AS ctv_code, c.full_name AS ctv_full_name
      FROM orders o
      LEFT JOIN order_parcels p ON p.order_id = o.id
+     LEFT JOIN ctv_users c ON c.id = o.ctv_id
      ${where}
      GROUP BY o.id
      ORDER BY o.received_date DESC, o.id DESC
@@ -464,8 +528,9 @@ export async function listOrders(params: {
   );
   const total = (countRows as { total: number }[])[0]?.total ?? 0;
 
-  // Đếm riêng theo trạng thái thu tiền (không áp bộ lọc status, chỉ áp tìm
-  // kiếm + tháng) để hiển thị số lượng trên các tab lọc.
+  // Đếm riêng theo trạng thái thu tiền + số đơn CTV đang chờ duyệt (không áp
+  // bộ lọc status/source/reviewStatus, chỉ áp tìm kiếm + tháng) để hiển thị
+  // số lượng trên các tab lọc kể cả khi đang xem tab khác.
   const searchMonthConditions: string[] = [];
   const searchMonthArgs: unknown[] = [];
   if (search.trim()) {
@@ -488,19 +553,30 @@ export async function listOrders(params: {
   );
   let paidCount = 0;
   let collectedByStaffCount = 0;
+  let collectedByCtvCount = 0;
   let unpaidCount = 0;
   for (const r of statusRows as { payment_status: PaymentStatus; c: number }[]) {
     if (r.payment_status === "paid") paidCount = r.c;
     else if (r.payment_status === "collected_by_staff") collectedByStaffCount = r.c;
+    else if (r.payment_status === "collected_by_ctv") collectedByCtvCount = r.c;
     else unpaidCount = r.c;
   }
+
+  const pendingConditions = [...searchMonthConditions, "o.source = 'ctv'", "o.review_status = 'pending'"];
+  const [pendingRows] = await getPool().query(
+    `SELECT COUNT(*) AS c FROM orders o WHERE ${pendingConditions.join(" AND ")}`,
+    searchMonthArgs
+  );
+  const pendingReviewCount = Number((pendingRows as { c: number }[])[0]?.c ?? 0);
 
   return {
     orders: rows as OrderListItem[],
     total,
     paidCount,
     collectedByStaffCount,
+    collectedByCtvCount,
     unpaidCount,
+    pendingReviewCount,
   };
 }
 

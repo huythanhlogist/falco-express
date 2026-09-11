@@ -30,7 +30,7 @@ export default function CtvLoginForm() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Đăng nhập thất bại");
-      router.push("/ctv/tai-khoan");
+      router.push("/ctv/tao-don");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Có lỗi xảy ra");
