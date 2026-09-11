@@ -5,9 +5,17 @@ import { insertAiIntakeOrder, listPendingAiIntakeOrders } from "@/lib/db";
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024; // 15MB/ảnh — đủ cho ảnh chụp từ điện thoại
 const MAX_IMAGES = 20;
 
-export async function GET() {
+function isValidAgentKey(request: Request): boolean {
+  const key = request.headers.get("x-agent-api-key");
+  const expected = process.env.AGENT_API_KEY;
+  return Boolean(key && expected && key === expected);
+}
+
+export async function GET(request: Request) {
   const session = await getCurrentAdminSession();
-  if (!session) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  if (!session && !isValidAgentKey(request)) {
+    return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  }
 
   const orders = await listPendingAiIntakeOrders();
   return NextResponse.json({ orders });

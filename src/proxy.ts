@@ -6,17 +6,30 @@ const PUBLIC_ADMIN_PATHS = ["/admin/login", "/api/admin/login"];
 const PUBLIC_CTV_PATHS = ["/ctv/login", "/api/ctv/login"];
 
 /**
- * Cho phép 1 agent ngoài (không có phiên đăng nhập admin) tạo BILL NHÁP
- * qua API bằng 1 key riêng (AGENT_API_KEY, khác hẳn mật khẩu admin) — CHỈ
- * áp dụng đúng route tạo bill này. Route gửi thật lên Kango (.../send)
- * KHÔNG nằm trong ngoại lệ này — agent chỉ tạo được nháp, người duyệt vẫn
- * phải tự vào web bấm "Duyệt & Gửi Kango" như đã chốt.
+ * Cho phép 1 agent ngoài (không có phiên đăng nhập admin) dùng 1 key riêng
+ * (AGENT_API_KEY, khác hẳn mật khẩu admin) cho 1 tập route CỐ ĐỊNH, giới
+ * hạn đúng những gì agent cần để: (1) tạo BILL NHÁP, (2) đọc hàng chờ
+ * "AI nhập đơn" (note + ảnh nhân viên upload) để chính agent xử lý, (3)
+ * đánh dấu 1 đơn trong hàng chờ đó là đã xử lý. Agent KHÔNG có ngoại lệ để
+ * xoá đơn (DELETE vẫn chỉ session admin mới gọi được) và KHÔNG có ngoại lệ
+ * cho route gửi thật lên Kango (.../send) — agent chỉ tạo được nháp/đọc dữ
+ * liệu, người duyệt vẫn phải tự vào web bấm "Duyệt & Gửi Kango" như đã chốt.
  */
-function isAgentCreateBillRequest(request: NextRequest): boolean {
-  if (request.nextUrl.pathname !== "/api/admin/kango-bills" || request.method !== "POST") return false;
+const AGENT_ALLOWED_ROUTES: { method: string; pattern: RegExp }[] = [
+  { method: "POST", pattern: /^\/api\/admin\/kango-bills$/ },
+  { method: "GET", pattern: /^\/api\/admin\/ai-intake$/ },
+  { method: "GET", pattern: /^\/api\/admin\/ai-intake\/\d+\/images$/ },
+  { method: "GET", pattern: /^\/api\/admin\/ai-intake\/image\/\d+$/ },
+  { method: "PATCH", pattern: /^\/api\/admin\/ai-intake\/\d+$/ },
+];
+
+function isAgentApiRequest(request: NextRequest): boolean {
   const key = request.headers.get("x-agent-api-key");
   const expected = process.env.AGENT_API_KEY;
-  return Boolean(key && expected && key === expected);
+  if (!key || !expected || key !== expected) return false;
+  return AGENT_ALLOWED_ROUTES.some(
+    (r) => r.method === request.method && r.pattern.test(request.nextUrl.pathname)
+  );
 }
 
 export async function proxy(request: NextRequest) {
@@ -44,7 +57,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (isAgentCreateBillRequest(request)) {
+  if (isAgentApiRequest(request)) {
     return NextResponse.next();
   }
 
