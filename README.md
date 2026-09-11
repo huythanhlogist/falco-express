@@ -387,6 +387,34 @@ trên hPanel):
 KANGO_CREATE_BILL_API_URL=https://kango-post.com/api/create-bill
 ```
 
+### Tạo bill từ agent ngoài (không qua trình duyệt)
+
+`POST /api/admin/kango-bills` chấp nhận thêm 1 cách xác thực khác ngoài
+phiên đăng nhập admin: header `x-agent-api-key` khớp biến môi trường
+`AGENT_API_KEY` (xem `src/proxy.ts` + hàm `isValidAgentKey` trong
+`src/app/api/admin/kango-bills/route.ts`). Agent gọi thẳng route này bằng
+`fetch`/`curl`, không cần Chrome/trình duyệt gì cả — nhưng **chỉ tạo được
+bill ở trạng thái nháp**, route gửi thật lên Kango
+(`/api/admin/kango-bills/[id]/send`) KHÔNG nhận key này, vẫn bắt buộc
+đăng nhập admin thật để bấm "Duyệt & Gửi Kango" — agent không tự gửi được.
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" # tạo AGENT_API_KEY
+
+curl -X POST https://falcoexpress.com/api/admin/kango-bills \
+  -H "Content-Type: application/json" \
+  -H "x-agent-api-key: <AGENT_API_KEY>" \
+  -d '{
+    "receiverCompanyName": "...", "receiverContactName": "...",
+    "receiverTelephone": "...", "receiverCountry": "...",
+    "receiverStateName": "...", "receiverCity": "...",
+    "receiverPostalCode": "...", "receiverAddress1": "...",
+    "shipmentService": "AIR-AU", "shipmentBranch": "HCM",
+    "shipmentGoodsName": "...", "shipmentValue": 100,
+    "packages": [{"packageQuantity":1,"packageType":0,"packageLength":1,"packageWidth":1,"packageHeight":1,"packageWeight":1}]
+  }'
+```
+
 ## Build production
 
 ```bash
@@ -424,7 +452,7 @@ Hostinger mà không cần cài lại `node_modules` đầy đủ trên server.
    `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` (xem mục "Tra cứu vận đơn:
    MySQL + API Kango"), `ADMIN_SESSION_SECRET` (xem mục "Trang quản trị
    (admin)"), `CTV_SESSION_SECRET` (xem mục "Tài khoản CTV"),
-   `KANGO_CREATE_BILL_API_URL` (xem mục "Tạo bill").
+   `KANGO_CREATE_BILL_API_URL`, `AGENT_API_KEY` (xem mục "Tạo bill").
 6. **Khởi động ứng dụng**: dùng nút Restart trong hPanel Node.js, hoặc trỏ
    startup file tới `server.js` dưới đây nếu Hostinger yêu cầu một entry
    point cố định:

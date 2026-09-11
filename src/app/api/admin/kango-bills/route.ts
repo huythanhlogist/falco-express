@@ -8,9 +8,18 @@ export async function GET() {
   return NextResponse.json({ bills });
 }
 
+function isValidAgentKey(request: Request): boolean {
+  const key = request.headers.get("x-agent-api-key");
+  const expected = process.env.AGENT_API_KEY;
+  return Boolean(key && expected && key === expected);
+}
+
 export async function POST(request: Request) {
   const session = await getCurrentAdminSession();
-  if (!session) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const isAgent = !session && isValidAgentKey(request);
+  if (!session && !isAgent) {
+    return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  }
 
   const body = await request.json();
   const {
@@ -87,7 +96,7 @@ export async function POST(request: Request) {
     shipmentExportAs: Number.isFinite(Number(shipmentExportAs)) ? Number(shipmentExportAs) : 0,
     packages: parsedPackages,
     invoices: parsedInvoices,
-    createdBy: session.email,
+    createdBy: session ? session.email : "agent (API key)",
   });
 
   return NextResponse.json({ ok: true, id });
