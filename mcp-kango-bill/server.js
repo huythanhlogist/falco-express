@@ -61,7 +61,9 @@ server.registerTool(
       receiverAddress3: z.string().optional().describe("Địa chỉ dòng 3 (tuỳ chọn)"),
       shipmentService: z.string().min(1).describe("Mã dịch vụ Kango, vd: AIR-AU"),
       shipmentSignatureFlg: z.boolean().optional().describe("Yêu cầu chữ ký người nhận (mặc định true)"),
-      shipmentBranch: z.enum(["HCM", "HN", "DN"]).describe("Chi nhánh tạo đơn"),
+      shipmentBranch: z
+        .enum(["HCM", "HN", "DN", "NGHE-AN", "DQH - HCM", "QUẢNG TRỊ"])
+        .describe("Chi nhánh tạo đơn — phải khớp đúng 1 trong các chi nhánh có thật trong tài khoản Kango"),
       shipmentReferenceCode: z.string().optional().describe("Mã theo dõi nội bộ (tuỳ chọn)"),
       shipmentGoodsName: z.string().min(1).describe("Tên hàng hoá"),
       shipmentValue: z.number().min(0).describe("Giá trị kiện hàng (USD)"),

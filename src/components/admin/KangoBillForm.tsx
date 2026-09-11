@@ -8,6 +8,9 @@ const BRANCH_OPTIONS = [
   { value: "HCM", label: "TP. Hồ Chí Minh (HCM)" },
   { value: "HN", label: "Hà Nội (HN)" },
   { value: "DN", label: "Đà Nẵng (DN)" },
+  { value: "NGHE-AN", label: "Nghệ An (NGHE-AN)" },
+  { value: "DQH - HCM", label: "DQH - TP. Hồ Chí Minh" },
+  { value: "QUẢNG TRỊ", label: "Quảng Trị" },
 ];
 const PACKAGE_TYPE_OPTIONS = [
   { value: 0, label: "Carton" },
