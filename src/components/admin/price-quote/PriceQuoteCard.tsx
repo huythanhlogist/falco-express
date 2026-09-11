@@ -34,14 +34,26 @@ function buildGrid(rows: { weightLabel: string; priceFinal: number }[]): ({ weig
   return grid;
 }
 
+type PriceQuoteContact = {
+  name: string;
+  phone: string;
+  zaloHref: string;
+  website: string;
+  websiteHref: string;
+};
+
 export default function PriceQuoteCard({
   line,
   onEdit,
   onDelete,
+  contact = PRICE_QUOTE_CONTACT,
 }: {
   line: PriceQuoteLine;
   onEdit?: () => void;
   onDelete?: () => void;
+  // Mặc định = thông tin liên hệ báo giá chung của Falco; trang bảng giá
+  // CTV truyền thông tin liên hệ của chính CTV đó (xem /ctv/bao-gia).
+  contact?: PriceQuoteContact;
 }) {
   const [flatMarkup, setFlatMarkup] = useState(line.markupFlatVnd);
   const [perKgMarkup, setPerKgMarkup] = useState(line.markupPerKgVnd);
@@ -239,24 +251,24 @@ export default function PriceQuoteCard({
           <div className="mt-5 bg-navy-900 px-7 py-3.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <a
-                href={PRICE_QUOTE_CONTACT.zaloHref}
+                href={contact.zaloHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[12.5px] font-bold text-white"
               >
-                Liên hệ Zalo / SĐT ({PRICE_QUOTE_CONTACT.name}): {PRICE_QUOTE_CONTACT.phone}
+                Liên hệ Zalo / SĐT ({contact.name}): {contact.phone}
               </a>
               <span className="text-[10.5px] text-navy-300">
                 Cập nhật {new Date().toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}
               </span>
             </div>
             <a
-              href={PRICE_QUOTE_CONTACT.websiteHref}
+              href={contact.websiteHref}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-1 inline-block text-[11px] font-semibold text-navy-200"
             >
-              Tra cứu vận đơn tại: {PRICE_QUOTE_CONTACT.website}
+              Tra cứu vận đơn tại: {contact.website}
             </a>
           </div>
           <p className="px-7 pb-5 pt-3 text-[10px] leading-relaxed text-ink/45">

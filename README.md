@@ -334,10 +334,19 @@ trang đăng nhập. CTV không tự đăng ký — chỉ admin tạo tài kho�
    "chờ duyệt" cho tới khi 1 nhân viên admin duyệt/từ chối ở `/admin/orders`
    (tab "Của CTV").
 
-Đây là giai đoạn 1-2 (tài khoản + đăng nhập, đơn hàng + duyệt) của tính
-năng CTV — bảng giá, hoa hồng/công nợ, hiệu quả sẽ thêm dần ở các giai đoạn
-tiếp theo (xem `.claude/plans` trong lịch sử phát triển nếu cần đối chiếu
-kiến trúc dự kiến).
+5. **Bảng nội dung CTV** (hướng dẫn sử dụng + nhóm/kênh, giai đoạn 3) đã
+   được thêm vào cùng `scripts/setup-ctv-tables.ts` ở bước 1 — chạy lại lệnh
+   đó (an toàn, dùng `IF NOT EXISTS`) nếu bảng `ctv_users` đã tạo từ trước
+   giai đoạn 3. Quản lý nội dung ở `/admin/ctv` (2 khối bên dưới danh sách
+   CTV); CTV xem tại `/ctv/huong-dan` và `/ctv/kenh`. Bảng giá/chính sách CTV
+   (`/ctv/bao-gia`, `/ctv/chinh-sach`) đọc thẳng cùng dữ liệu với
+   `/admin/bao-gia` — không có bản sao riêng, chỉ khác chân trang liên hệ
+   (mặc định theo hồ sơ CTV, sửa được ở `/ctv/tai-khoan`).
+
+Đây là giai đoạn 1-3 (tài khoản + đăng nhập, đơn hàng + duyệt, bảng
+giá/chính sách/nội dung) của tính năng CTV — hoa hồng/công nợ và hiệu quả
+sẽ thêm dần ở các giai đoạn tiếp theo (xem `.claude/plans` trong lịch sử
+phát triển nếu cần đối chiếu kiến trúc dự kiến).
 
 ## Build production
 

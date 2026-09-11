@@ -447,6 +447,58 @@ export async function deleteCtvUser(id: number): Promise<boolean> {
   return (result as mysql.ResultSetHeader).affectedRows > 0;
 }
 
+// ---------- CTV: nội dung hướng dẫn + nhóm/kênh (admin quản lý, CTV chỉ xem) ----------
+
+export type CtvContentKind = "guide" | "channel";
+
+export type CtvContentItem = {
+  id: number;
+  kind: CtvContentKind;
+  title: string;
+  content: string;
+  position: number;
+};
+
+export async function listCtvContentItems(kind: CtvContentKind): Promise<CtvContentItem[]> {
+  const [rows] = await getPool().query(
+    "SELECT id, kind, title, content, position FROM ctv_content_items WHERE kind = ? ORDER BY position ASC, id ASC",
+    [kind]
+  );
+  return rows as CtvContentItem[];
+}
+
+export async function insertCtvContentItem(
+  kind: CtvContentKind,
+  title: string,
+  content: string
+): Promise<number> {
+  const [result] = await getPool().query(
+    "INSERT INTO ctv_content_items (kind, title, content) VALUES (?, ?, ?)",
+    [kind, title, content]
+  );
+  return (result as mysql.ResultSetHeader).insertId;
+}
+
+export async function updateCtvContentItem(
+  id: number,
+  fields: Partial<{ title: string; content: string; position: number }>
+): Promise<boolean> {
+  const entries = Object.entries(fields) as [keyof typeof fields, unknown][];
+  if (entries.length === 0) return false;
+  const setClause = entries.map(([key]) => `${key} = ?`).join(", ");
+  const values = entries.map(([, value]) => value);
+  const [result] = await getPool().query(
+    `UPDATE ctv_content_items SET ${setClause} WHERE id = ?`,
+    [...values, id]
+  );
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
+export async function deleteCtvContentItem(id: number): Promise<boolean> {
+  const [result] = await getPool().query("DELETE FROM ctv_content_items WHERE id = ?", [id]);
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
 // ---------- Admin: quản lý đơn hàng ----------
 
 export type OrderListItem = OrderRecord & {

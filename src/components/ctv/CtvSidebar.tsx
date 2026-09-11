@@ -4,12 +4,26 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { UsersIcon, LogoutIcon, MenuIcon, CloseIcon, RefreshIcon, CargoIcon } from "@/components/icons";
+import {
+  UsersIcon,
+  LogoutIcon,
+  MenuIcon,
+  CloseIcon,
+  RefreshIcon,
+  CargoIcon,
+  TagIcon,
+  ShieldIcon,
+  GlobeIcon,
+  HandshakeIcon,
+} from "@/components/icons";
 
-// Các tab bảng giá / chính sách / thống kê / kênh sẽ thêm dần ở các giai
-// đoạn tiếp theo (xem plan).
+// Tab thống kê sẽ thêm ở giai đoạn hoa hồng/công nợ (xem plan).
 const LINKS = [
   { href: "/ctv/tao-don", label: "Tạo đơn", icon: CargoIcon },
+  { href: "/ctv/bao-gia", label: "Bảng giá", icon: TagIcon },
+  { href: "/ctv/chinh-sach", label: "Chính sách", icon: ShieldIcon },
+  { href: "/ctv/huong-dan", label: "Hướng dẫn", icon: GlobeIcon },
+  { href: "/ctv/kenh", label: "Nhóm & kênh", icon: HandshakeIcon },
   { href: "/ctv/tai-khoan", label: "Tài khoản", icon: UsersIcon },
 ];
 

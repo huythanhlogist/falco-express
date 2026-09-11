@@ -35,6 +35,15 @@ const DDL = [
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (referred_by_ctv_id) REFERENCES ctv_users(id) ON DELETE SET NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS ctv_content_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    kind ENUM('guide','channel') NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    position INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  )`,
 ];
 
 async function main() {
