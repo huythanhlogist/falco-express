@@ -1,48 +1,20 @@
-import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import Link from "next/link";
 import PageHero from "@/components/PageHero";
 import Reveal from "@/components/Reveal";
 import CTABanner from "@/components/CTABanner";
-import { COUNTRY_ROUTES, EU_CUSTOMS_FAQS, SITE, UK_CUSTOMS_FAQS } from "@/lib/constants";
-import { resolveMetadataOverride } from "@/lib/seo";
+import { COUNTRY_ROUTES, EU_CUSTOMS_FAQS, SITE, UK_CUSTOMS_FAQS, type CountryRoute } from "@/lib/constants";
 import { ArrowRightIcon, CheckCircleIcon, GlobeIcon } from "@/components/icons";
 import { InternationalIllustration } from "@/components/ServiceIllustrations";
 
-export const revalidate = 300;
-
-function getCountry(slug: string) {
-  return COUNTRY_ROUTES.find((c) => c.slug === slug);
-}
-
-export function generateStaticParams() {
-  return COUNTRY_ROUTES.map((c) => ({ slug: c.slug }));
-}
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}): Promise<Metadata> {
-  const { slug } = await params;
-  const country = getCountry(slug);
-  if (!country) return {};
-
-  return resolveMetadataOverride(`/gui-hang-di-${country.slug}`, {
-    title: country.metaTitle,
-    description: country.metaDescription,
-  });
-}
-
-export default async function CountryRoutePage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
-  const country = getCountry(slug);
-  if (!country) notFound();
-
+/**
+ * Nội dung dùng chung cho các trang tuyến quốc gia (gui-hang-di-duc,
+ * gui-hang-di-anh, ...). Mỗi tuyến có 1 page.tsx riêng (thư mục tĩnh,
+ * KHÔNG dùng dynamic segment [slug]) để đảm bảo Next.js prerender ra file
+ * HTML tĩnh thật sự — xem ghi chú trong seo-workflow-falco-express.md về
+ * lý do bỏ route động gui-hang-di-[slug] (không sinh ra trang tĩnh trên
+ * môi trường build/host hiện tại, luôn trả 404 dù code đúng).
+ */
+export default function CountryRoutePageContent({ country }: { country: CountryRoute }) {
   const otherCountries = COUNTRY_ROUTES.filter((c) => c.slug !== country.slug);
 
   return (
