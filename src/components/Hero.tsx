@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Reveal from "@/components/Reveal";
-import { STATS } from "@/lib/constants";
+import { COUNTRY_ROUTES, STATS } from "@/lib/constants";
 import { ArrowRightIcon, SearchIcon, TruckIcon } from "@/components/icons";
 
 const ROUTE_POINTS = [
@@ -12,8 +12,6 @@ const ROUTE_POINTS = [
   { code: "NA", label: "Nghệ An" },
   { code: "HCM", label: "TP.HCM" },
 ];
-
-const POPULAR_COUNTRIES = ["Anh", "Đức", "Pháp", "Hà Lan", "Séc", "Ba Lan"];
 
 export default function Hero() {
   const [code, setCode] = useState("");
@@ -66,13 +64,14 @@ export default function Hero() {
             <span className="text-sm font-medium text-ink/50">
               Tuyến phổ biến:
             </span>
-            {POPULAR_COUNTRIES.map((country) => (
-              <span
-                key={country}
-                className="rounded-full border border-line bg-white px-3.5 py-1.5 text-sm font-semibold text-navy-800"
+            {COUNTRY_ROUTES.map((country) => (
+              <Link
+                key={country.slug}
+                href={`/gui-hang-di-${country.slug}`}
+                className="rounded-full border border-line bg-white px-3.5 py-1.5 text-sm font-semibold text-navy-800 transition hover:border-flame-400"
               >
-                {country}
-              </span>
+                {country.name}
+              </Link>
             ))}
           </div>
         </Reveal>

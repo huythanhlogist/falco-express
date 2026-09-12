@@ -20,6 +20,10 @@ export default function ContactForm() {
       phone: (form.elements.namedItem("phone") as HTMLInputElement).value,
       email: (form.elements.namedItem("email") as HTMLInputElement).value,
       message: (form.elements.namedItem("message") as HTMLTextAreaElement).value,
+      // Trang khách đang đứng khi bấm gửi — dùng để biết trang/tuyến nào
+      // thực sự ra khách (VD /gui-hang-di-duc), phục vụ đánh giá hiệu quả
+      // từng trang SEO thay vì chỉ nhìn lượt truy cập.
+      sourcePage: typeof window !== "undefined" ? window.location.pathname : "",
     };
 
     try {

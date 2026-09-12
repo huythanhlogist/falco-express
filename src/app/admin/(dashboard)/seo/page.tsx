@@ -1,5 +1,6 @@
 import { listSeoSettings } from "@/lib/db";
 import SeoEditor from "@/components/admin/SeoEditor";
+import { COUNTRY_ROUTES } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,10 @@ const PAGES = [
   { path: "/dich-vu", label: "Dịch vụ" },
   { path: "/tra-cuu-van-don", label: "Tra cứu vận đơn" },
   { path: "/lien-he", label: "Liên hệ" },
+  ...COUNTRY_ROUTES.map((c) => ({
+    path: `/gui-hang-di-${c.slug}`,
+    label: `Gửi hàng đi ${c.name}`,
+  })),
 ];
 
 export default async function AdminSeoPage() {
