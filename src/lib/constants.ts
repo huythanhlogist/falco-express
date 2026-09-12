@@ -35,6 +35,7 @@ export const NAV_LINKS = [
   { href: "/gioi-thieu", label: "Giới thiệu" },
   { href: "/dich-vu", label: "Dịch vụ" },
   { href: "/tra-cuu-van-don", label: "Tra cứu vận đơn" },
+  { href: "/blog", label: "Blog" },
   { href: "/lien-he", label: "Liên hệ" },
 ];
 

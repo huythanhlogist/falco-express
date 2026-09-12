@@ -1,6 +1,7 @@
 import { listSeoSettings } from "@/lib/db";
 import SeoEditor from "@/components/admin/SeoEditor";
 import { COUNTRY_ROUTES } from "@/lib/constants";
+import { BLOG_POSTS } from "@/lib/blog-posts";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,11 @@ const PAGES = [
   ...COUNTRY_ROUTES.map((c) => ({
     path: `/gui-hang-di-${c.slug}`,
     label: `Gửi hàng đi ${c.name}`,
+  })),
+  { path: "/blog", label: "Blog" },
+  ...BLOG_POSTS.map((p) => ({
+    path: `/blog/${p.slug}`,
+    label: `Blog: ${p.title}`,
   })),
 ];
 
