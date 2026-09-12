@@ -1652,3 +1652,97 @@ export async function listAiIntakeImagesByOrder(
   );
   return rows as Pick<AiIntakeImage, "id" | "filename" | "mime_type">[];
 }
+
+// ---------- DBN: báo giá cước gửi khách (nhập tay theo mẫu Excel) ----------
+//
+// Chỉ giữ lại 10 bản DBN gần nhất kèm ảnh trong MySQL — cũ hơn tự xoá hẳn
+// (không phải chỗ lưu trữ lâu dài, chỉ để "lỡ cần tải lại" ngay sau khi tạo).
+
+const DBN_KEEP_COUNT = 10;
+
+export type DbnRow = {
+  orderId: number | null; // gắn với 1 đơn có thật trong hệ thống, nếu chọn từ danh sách
+  label: string; // MÃ ĐƠN HÀNG / tên khách trên dòng này
+  loaiHang: string;
+  kichThuoc: string; // "dài x rộng x cao", không bắt buộc
+  dimKg: number | null;
+  canThucKg: number | null;
+  donGiaPerKg: number | null; // null với đơn <21kg (giá cố định, nhập thẳng thanhTien)
+  phuPhi: number;
+  thanhTien: number;
+  ghiChu: string;
+};
+
+export type DbnQuote = {
+  id: number;
+  customer_name: string;
+  customer_phone: string | null;
+  customer_email: string | null;
+  quote_date: string;
+  rows_json: string;
+  total_amount: string;
+  created_by: string;
+  created_at: string;
+};
+
+export type NewDbnQuote = {
+  customerName: string;
+  customerPhone: string | null;
+  customerEmail: string | null;
+  quoteDate: string; // "YYYY-MM-DD"
+  rows: DbnRow[];
+  totalAmount: number;
+  createdBy: string;
+};
+
+export async function insertDbnQuote(data: NewDbnQuote): Promise<number> {
+  const pool = getPool();
+  const [result] = await pool.query(
+    `INSERT INTO dbn_quotes (customer_name, customer_phone, customer_email, quote_date, rows_json, total_amount, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      data.customerName,
+      data.customerPhone,
+      data.customerEmail,
+      data.quoteDate,
+      JSON.stringify(data.rows),
+      data.totalAmount,
+      data.createdBy,
+    ]
+  );
+  const id = (result as mysql.ResultSetHeader).insertId;
+
+  await pool.query(
+    `DELETE FROM dbn_quotes WHERE id NOT IN (
+       SELECT id FROM (SELECT id FROM dbn_quotes ORDER BY created_at DESC LIMIT ?) t
+     )`,
+    [DBN_KEEP_COUNT]
+  );
+
+  return id;
+}
+
+export async function updateDbnQuoteImage(id: number, image: Buffer): Promise<void> {
+  await getPool().query("UPDATE dbn_quotes SET image = ? WHERE id = ?", [image, id]);
+}
+
+export async function listDbnQuotes(): Promise<DbnQuote[]> {
+  const [rows] = await getPool().query(
+    `SELECT id, customer_name, customer_phone, customer_email, quote_date, rows_json,
+            total_amount, created_by, created_at
+     FROM dbn_quotes ORDER BY created_at DESC LIMIT ?`,
+    [DBN_KEEP_COUNT]
+  );
+  return rows as DbnQuote[];
+}
+
+export async function findDbnQuoteImageById(id: number): Promise<Buffer | null> {
+  const [rows] = await getPool().query("SELECT image FROM dbn_quotes WHERE id = ? LIMIT 1", [id]);
+  const list = rows as { image: Buffer | null }[];
+  return list[0]?.image ?? null;
+}
+
+export async function deleteDbnQuote(id: number): Promise<boolean> {
+  const [result] = await getPool().query("DELETE FROM dbn_quotes WHERE id = ?", [id]);
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
+}

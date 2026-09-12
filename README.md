@@ -443,6 +443,28 @@ Google Cloud/Drive nào, chỉ cần chạy:
 npx tsx scripts/setup-ai-intake-tables.ts
 ```
 
+## Tạo DBN (báo giá cước gửi khách)
+
+`/admin/dbn` — thay cho việc gõ tay báo giá vào file Excel mẫu ("DBN"),
+nhân viên: (1) tìm và chọn 1+ đơn có sẵn trong hệ thống (tự điền tên khách +
+cân nặng + điểm đến) và/hoặc bấm "+ Thêm dòng trống" để tự gõ tay đơn chưa
+có trong hệ thống — 2 cách trộn lẫn tự do trong cùng 1 DBN; (2) nhập tay các
+ô hệ thống không có sẵn (cân thực nếu thiếu, đơn giá/kg, phụ phí); (3) bấm
+"Tạo DBN" rồi "Tải ảnh gửi khách" để xuất ảnh PNG gửi khách qua Zalo/tin
+nhắn. Đơn **dưới 21kg tự ẩn ô đơn giá/kg** (giá cố định theo chính sách
+Falco) — Thành tiền nhập tay thẳng; đơn **từ 21kg** nhập đơn giá/kg thì
+Thành tiền tự tính (cân × đơn giá + phụ phí).
+
+Tên file ảnh tải về theo đúng quy ước cũ: `DBN - <mã DBN> - <tên khách>.png`.
+Chỉ lưu **10 bản DBN gần nhất kèm ảnh** trong MySQL (bảng `dbn_quotes`, ảnh
+`LONGBLOB`) để xem/tải lại nhanh — tạo DBN thứ 11 thì bản cũ nhất tự xoá
+hẳn (không phải nơi lưu trữ lâu dài, dùng Excel/Drive riêng nếu cần lưu vĩnh
+viễn). Cần chạy 1 lần:
+
+```bash
+npx tsx scripts/setup-dbn-tables.ts
+```
+
 ## Build production
 
 ```bash
