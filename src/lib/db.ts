@@ -1663,7 +1663,7 @@ const DBN_KEEP_COUNT = 10;
 export type DbnRow = {
   orderId: number | null; // gắn với 1 đơn có thật trong hệ thống, nếu chọn từ danh sách
   label: string; // MÃ ĐƠN HÀNG / tên khách trên dòng này
-  loaiHang: string;
+  diaChi: string;
   kichThuoc: string; // "dài x rộng x cao", không bắt buộc
   dimKg: number | null;
   canThucKg: number | null;

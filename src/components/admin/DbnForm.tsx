@@ -23,7 +23,7 @@ type OrderSearchResult = {
 type RowState = {
   orderId: number | null;
   label: string;
-  loaiHang: string;
+  diaChi: string;
   kichThuoc: string;
   dimKg: string;
   canThucKg: string;
@@ -37,7 +37,7 @@ function emptyRow(): RowState {
   return {
     orderId: null,
     label: "",
-    loaiHang: "",
+    diaChi: "",
     kichThuoc: "",
     dimKg: "",
     canThucKg: "",
@@ -137,14 +137,14 @@ export default function DbnForm() {
       orderId: order.id,
       label: order.recipient_name || order.falco_code,
       canThucKg: order.weight_kg ? String(Number(order.weight_kg)) : "",
-      ghiChu: order.destination || "",
+      diaChi: order.destination || "",
     };
   }
 
   function addSelectedOrders() {
     const toAdd = searchResults.filter((o) => selectedOrderIds.has(o.id)).map(orderToRow);
     if (toAdd.length === 0) return;
-    setRows((prev) => [...prev.filter((r) => r.label.trim() || r.loaiHang.trim() || r.orderId), ...toAdd]);
+    setRows((prev) => [...prev.filter((r) => r.label.trim() || r.diaChi.trim() || r.orderId), ...toAdd]);
     setSelectedOrderIds(new Set());
   }
 
@@ -197,7 +197,7 @@ export default function DbnForm() {
           rows: validRows.map((r) => ({
             orderId: r.orderId,
             label: r.label,
-            loaiHang: r.loaiHang,
+            diaChi: r.diaChi,
             kichThuoc: r.kichThuoc,
             dimKg: r.dimKg === "" ? null : Number(r.dimKg),
             canThucKg: r.canThucKg === "" ? null : Number(r.canThucKg),
@@ -231,7 +231,7 @@ export default function DbnForm() {
         skipFonts: true,
       });
       if (logoRef.current) {
-        dataUrl = await compositeFalcoLogo(dataUrl, cardRef.current, logoRef.current);
+        dataUrl = await compositeFalcoLogo(dataUrl, cardRef.current, logoRef.current, "rect");
       }
 
       const filename = `DBN - ${created.dbnCode} - ${sanitizeFilename(created.customerName)}.png`;
@@ -285,8 +285,8 @@ export default function DbnForm() {
                 ref={logoRef}
                 role="img"
                 aria-label="Falco Express"
-                className="h-10 w-10 shrink-0 rounded-full bg-navy-900 bg-center bg-no-repeat"
-                style={{ backgroundImage: `url(${FALCO_LOGO_DATA_URI})`, backgroundSize: "88%" }}
+                className="h-10 w-10 shrink-0 bg-center bg-no-repeat"
+                style={{ backgroundImage: `url(${FALCO_LOGO_DATA_URI})`, backgroundSize: "contain" }}
               />
               <div>
                 <p className="font-display text-base font-extrabold text-navy-900">FALCO EXPRESS</p>
@@ -315,7 +315,7 @@ export default function DbnForm() {
                 <tr className="bg-navy-900 text-white">
                   <th className="border border-line px-2 py-1.5">STT</th>
                   <th className="border border-line px-2 py-1.5">MÃ ĐƠN HÀNG</th>
-                  <th className="border border-line px-2 py-1.5">LOẠI HÀNG</th>
+                  <th className="border border-line px-2 py-1.5">ĐIỂM ĐẾN</th>
                   <th className="border border-line px-2 py-1.5">KÍCH THƯỚC (LxWxH)</th>
                   <th className="border border-line px-2 py-1.5">DIM (kg)</th>
                   <th className="border border-line px-2 py-1.5">CÂN THỰC (kg)</th>
@@ -332,7 +332,7 @@ export default function DbnForm() {
                     <tr key={i} className="text-center">
                       <td className="border border-line px-2 py-1.5">{i + 1}</td>
                       <td className="border border-line px-2 py-1.5 text-left">{r.label}</td>
-                      <td className="border border-line px-2 py-1.5 text-left">{r.loaiHang || "-"}</td>
+                      <td className="border border-line px-2 py-1.5 text-left">{r.diaChi || "-"}</td>
                       <td className="border border-line px-2 py-1.5">{r.kichThuoc || "-"}</td>
                       <td className="border border-line px-2 py-1.5">{r.dimKg || "-"}</td>
                       <td className="border border-line px-2 py-1.5">{r.canThucKg || "-"}</td>
@@ -485,7 +485,7 @@ export default function DbnForm() {
               <tr className="text-left text-ink/55">
                 <th className="w-8 px-1.5 py-1">#</th>
                 <th className="px-1.5 py-1">Mã đơn / Tên khách *</th>
-                <th className="px-1.5 py-1">Loại hàng</th>
+                <th className="px-1.5 py-1">Điểm đến</th>
                 <th className="px-1.5 py-1">Kích thước</th>
                 <th className="w-20 px-1.5 py-1">DIM (kg)</th>
                 <th className="w-24 px-1.5 py-1">Cân thực (kg)</th>
@@ -510,7 +510,7 @@ export default function DbnForm() {
                       />
                     </td>
                     <td className="px-1.5 py-1">
-                      <input value={row.loaiHang} onChange={(e) => updateRow(i, { loaiHang: e.target.value })} className="w-full rounded-md border border-line px-2 py-1" />
+                      <input value={row.diaChi} onChange={(e) => updateRow(i, { diaChi: e.target.value })} className="w-full rounded-md border border-line px-2 py-1" />
                     </td>
                     <td className="px-1.5 py-1">
                       <input

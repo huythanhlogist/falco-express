@@ -30,7 +30,12 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 export async function compositeFalcoLogo(
   baseDataUrl: string,
   cardEl: HTMLElement,
-  logoEl: HTMLElement
+  logoEl: HTMLElement,
+  // "circle" = khung tròn nền trắng đè lên nền màu (thẻ báo giá gradient).
+  // "rect" = vẽ thẳng logo giữ nguyên tỉ lệ, không khung/không nền — dùng
+  // cho DBN vì nền đã là trang giấy trắng, thêm vòng tròn trắng lại thành
+  // 1 lớp viền thừa nhìn như lỗi (đã bị báo lại thật).
+  shape: "circle" | "rect" = "circle"
 ): Promise<string> {
   const [baseImg, logoImg] = await Promise.all([
     loadImage(baseDataUrl),
@@ -53,6 +58,16 @@ export async function compositeFalcoLogo(
   if (!ctx) return baseDataUrl;
 
   ctx.drawImage(baseImg, 0, 0);
+
+  if (shape === "rect") {
+    // Giữ đúng tỉ lệ ảnh gốc (không ép vuông làm méo logo), canh giữa
+    // trong đúng khung đo được từ DOM.
+    const logoAspect = logoImg.width / logoImg.height;
+    const drawW = logoAspect >= 1 ? size : size * logoAspect;
+    const drawH = logoAspect >= 1 ? size / logoAspect : size;
+    ctx.drawImage(logoImg, x + (size - drawW) / 2, y + (size - drawH) / 2, drawW, drawH);
+    return canvas.toDataURL("image/png");
+  }
 
   // Vòng nền trắng tròn quanh logo + logo bo tròn đè lên, đúng phong cách cũ.
   ctx.save();
