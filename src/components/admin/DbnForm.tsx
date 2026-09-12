@@ -1,14 +1,16 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { FALCO_LOGO_DATA_URI } from "@/lib/falco-logo-data-uri";
 import { compositeFalcoLogo } from "@/lib/composite-logo";
 import { saveOrDownloadImage } from "@/lib/download-image";
+import { loadDraft, saveDraft, clearDraft } from "@/lib/session-draft";
 import { TrashIcon, ImageDownloadIcon, SearchIcon } from "@/components/icons";
 
 const CARD_WIDTH = 1000;
 const UNDER_FLAT_PRICE_KG = 21; // <21kg = giá cố định, không nhập đơn giá/kg
+const DRAFT_KEY = "falco-dbn-draft";
 
 type OrderSearchResult = {
   id: number;
@@ -74,6 +76,7 @@ export default function DbnForm() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<OrderSearchResult[]>([]);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<number>>(new Set());
   const [searching, setSearching] = useState(false);
 
   const [created, setCreated] = useState<{ id: number; dbnCode: string; customerName: string } | null>(null);
@@ -81,6 +84,36 @@ export default function DbnForm() {
 
   const cardRef = useRef<HTMLDivElement>(null);
   const logoRef = useRef<HTMLDivElement>(null);
+
+  const [draftLoaded, setDraftLoaded] = useState(false);
+
+  // Khôi phục nháp đang gõ dở (nếu có) khi vào lại trang — vd chuyển sang
+  // tab "Đơn hàng" tra cứu gì đó rồi quay lại "Tạo DBN".
+  useEffect(() => {
+    const draft = loadDraft<{
+      customerName: string;
+      customerPhone: string;
+      customerEmail: string;
+      quoteDate: string;
+      rows: RowState[];
+    }>(DRAFT_KEY);
+    if (draft) {
+      setCustomerName(draft.customerName ?? "");
+      setCustomerPhone(draft.customerPhone ?? "");
+      setCustomerEmail(draft.customerEmail ?? "");
+      setQuoteDate(draft.quoteDate || todayIso());
+      setRows(draft.rows && draft.rows.length ? draft.rows : [emptyRow()]);
+    }
+    setDraftLoaded(true);
+  }, []);
+
+  // Tự lưu nháp mỗi khi form thay đổi — bỏ qua lúc chưa khôi phục xong
+  // (tránh ghi đè nháp cũ bằng state rỗng ban đầu) và lúc đã tạo xong DBN
+  // (đang xem preview, không còn là "đang gõ dở" nữa).
+  useEffect(() => {
+    if (!draftLoaded || created) return;
+    saveDraft(DRAFT_KEY, { customerName, customerPhone, customerEmail, quoteDate, rows });
+  }, [draftLoaded, created, customerName, customerPhone, customerEmail, quoteDate, rows]);
 
   function updateRow(index: number, patch: Partial<RowState>) {
     setRows((prev) =>
@@ -98,17 +131,30 @@ export default function DbnForm() {
     );
   }
 
-  function addOrderRow(order: OrderSearchResult) {
-    setRows((prev) => [
-      ...prev.filter((r) => r.label.trim() || r.loaiHang.trim() || r.orderId),
-      {
-        ...emptyRow(),
-        orderId: order.id,
-        label: order.recipient_name || order.falco_code,
-        canThucKg: order.weight_kg ? String(Number(order.weight_kg)) : "",
-        ghiChu: order.destination || "",
-      },
-    ]);
+  function orderToRow(order: OrderSearchResult): RowState {
+    return {
+      ...emptyRow(),
+      orderId: order.id,
+      label: order.recipient_name || order.falco_code,
+      canThucKg: order.weight_kg ? String(Number(order.weight_kg)) : "",
+      ghiChu: order.destination || "",
+    };
+  }
+
+  function addSelectedOrders() {
+    const toAdd = searchResults.filter((o) => selectedOrderIds.has(o.id)).map(orderToRow);
+    if (toAdd.length === 0) return;
+    setRows((prev) => [...prev.filter((r) => r.label.trim() || r.loaiHang.trim() || r.orderId), ...toAdd]);
+    setSelectedOrderIds(new Set());
+  }
+
+  function toggleOrderSelected(id: number) {
+    setSelectedOrderIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   async function runSearch() {
@@ -118,6 +164,7 @@ export default function DbnForm() {
       const res = await fetch(`/api/admin/orders?q=${encodeURIComponent(searchQuery.trim())}`);
       const json = await res.json();
       setSearchResults(json.orders ?? []);
+      setSelectedOrderIds(new Set());
     } finally {
       setSearching(false);
     }
@@ -167,6 +214,7 @@ export default function DbnForm() {
         return;
       }
       setCreated({ id: json.id, dbnCode: json.dbnCode, customerName: customerName.trim() });
+      clearDraft(DRAFT_KEY);
     } finally {
       setSaving(false);
     }
@@ -386,21 +434,40 @@ export default function DbnForm() {
           </button>
         </div>
         {searchResults.length > 0 && (
-          <ul className="mt-3 flex flex-col divide-y divide-line">
-            {searchResults.map((o) => (
-              <li key={o.id} className="flex items-center justify-between gap-3 py-2">
-                <div className="min-w-0 text-sm">
-                  <p className="font-medium text-ink">{o.recipient_name || "(chưa có tên)"} — {o.falco_code}</p>
-                  <p className="text-xs text-ink/50">
-                    {o.destination || "?"} {o.weight_kg ? `· ${o.weight_kg}kg` : ""}
-                  </p>
-                </div>
-                <button type="button" onClick={() => addOrderRow(o)} className="btn-outline shrink-0 !px-3 !py-1.5 text-xs">
-                  + Thêm
-                </button>
-              </li>
-            ))}
-          </ul>
+          <>
+            <p className="mt-3 text-xs text-ink/50">Tick chọn nhiều khách rồi bấm &quot;Thêm đã chọn&quot; — thêm cùng lúc 1 lần.</p>
+            <ul className="mt-1 flex flex-col divide-y divide-line">
+              {searchResults.map((o) => {
+                const checked = selectedOrderIds.has(o.id);
+                return (
+                  <li key={o.id}>
+                    <label className="flex cursor-pointer items-center gap-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleOrderSelected(o.id)}
+                        className="h-4 w-4 shrink-0 rounded border-line text-flame-600 focus:ring-flame-400"
+                      />
+                      <div className="min-w-0 text-sm">
+                        <p className="font-medium text-ink">{o.recipient_name || "(chưa có tên)"} — {o.falco_code}</p>
+                        <p className="text-xs text-ink/50">
+                          {o.destination || "?"} {o.weight_kg ? `· ${o.weight_kg}kg` : ""}
+                        </p>
+                      </div>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+            <button
+              type="button"
+              onClick={addSelectedOrders}
+              disabled={selectedOrderIds.size === 0}
+              className="btn-primary mt-3 !px-4 !py-2 text-sm disabled:opacity-50"
+            >
+              + Thêm đã chọn ({selectedOrderIds.size})
+            </button>
+          </>
         )}
       </div>
 
