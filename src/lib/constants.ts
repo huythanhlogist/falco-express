@@ -171,3 +171,113 @@ export const STATS = [
   { value: "50.000+", label: "Đơn hàng đã xử lý" },
   { value: "99%", label: "Đơn giao đúng hẹn" },
 ];
+
+export type CountryRoute = {
+  slug: string;
+  name: string;
+  metaTitle: string;
+  metaDescription: string;
+  heroDescription: string;
+  bullets: string[];
+};
+
+/**
+ * Trang riêng theo từng nước cho tuyến Châu Âu & Anh hiện Falco đang phục
+ * vụ (khớp với danh sách nước trong SERVICES/Hero) — mỗi nước 1 URL để
+ * bắt đúng từ khóa tìm kiếm dạng "gửi hàng đi [nước]". Nội dung tái dùng
+ * đúng cam kết thật đã có trên site (hải quan, theo dõi vận đơn, thực
+ * phẩm/đặc sản/quà) — không thêm số liệu hay chi tiết hải quan riêng
+ * từng nước chưa được xác nhận.
+ */
+export const COUNTRY_ROUTES: CountryRoute[] = [
+  {
+    slug: "duc",
+    name: "Đức",
+    metaTitle: "Gửi hàng đi Đức từ Việt Nam | Falco Express",
+    metaDescription:
+      "Falco Express nhận gửi thực phẩm, đặc sản, quà và đồ dùng cá nhân từ Việt Nam sang Đức cho người Việt xa xứ, du học sinh. Hỗ trợ trọn gói thủ tục hải quan, theo dõi vận đơn minh bạch.",
+    heroDescription:
+      "Gửi thực phẩm khô, đặc sản quê nhà và quà cho người thân, du học sinh đang sinh sống tại Đức — Falco Express lo trọn thủ tục hải quan, bạn chỉ cần đóng gói và gửi.",
+    bullets: [
+      "Nhận gửi thực phẩm khô, đặc sản, quà cho người Việt tại Đức",
+      "Hỗ trợ trọn gói thủ tục hải quan, chứng từ xuất khẩu",
+      "Tư vấn đóng gói đúng quy định để hàng thông quan thuận lợi",
+      "Cập nhật hành trình vận đơn xuyên suốt tới tận tay người nhận",
+    ],
+  },
+  {
+    slug: "anh",
+    name: "Anh",
+    metaTitle: "Gửi hàng đi Anh (UK) từ Việt Nam | Falco Express",
+    metaDescription:
+      "Falco Express nhận gửi thực phẩm, đặc sản, quà và đồ dùng cá nhân từ Việt Nam sang Anh (UK) cho người Việt xa xứ, du học sinh. Hỗ trợ trọn gói thủ tục hải quan, theo dõi vận đơn minh bạch.",
+    heroDescription:
+      "Gửi thực phẩm khô, đặc sản quê nhà và quà cho người thân, du học sinh đang sinh sống tại Vương quốc Anh — Falco Express lo trọn thủ tục hải quan, bạn chỉ cần đóng gói và gửi.",
+    bullets: [
+      "Nhận gửi thực phẩm khô, đặc sản, quà cho người Việt tại Anh",
+      "Hỗ trợ trọn gói thủ tục hải quan, chứng từ xuất khẩu",
+      "Tư vấn đóng gói đúng quy định để hàng thông quan thuận lợi",
+      "Cập nhật hành trình vận đơn xuyên suốt tới tận tay người nhận",
+    ],
+  },
+  {
+    slug: "phap",
+    name: "Pháp",
+    metaTitle: "Gửi hàng đi Pháp từ Việt Nam | Falco Express",
+    metaDescription:
+      "Falco Express nhận gửi thực phẩm, đặc sản, quà và đồ dùng cá nhân từ Việt Nam sang Pháp cho người Việt xa xứ, du học sinh. Hỗ trợ trọn gói thủ tục hải quan, theo dõi vận đơn minh bạch.",
+    heroDescription:
+      "Gửi thực phẩm khô, đặc sản quê nhà và quà cho người thân, du học sinh đang sinh sống tại Pháp — Falco Express lo trọn thủ tục hải quan, bạn chỉ cần đóng gói và gửi.",
+    bullets: [
+      "Nhận gửi thực phẩm khô, đặc sản, quà cho người Việt tại Pháp",
+      "Hỗ trợ trọn gói thủ tục hải quan, chứng từ xuất khẩu",
+      "Tư vấn đóng gói đúng quy định để hàng thông quan thuận lợi",
+      "Cập nhật hành trình vận đơn xuyên suốt tới tận tay người nhận",
+    ],
+  },
+  {
+    slug: "ha-lan",
+    name: "Hà Lan",
+    metaTitle: "Gửi hàng đi Hà Lan từ Việt Nam | Falco Express",
+    metaDescription:
+      "Falco Express nhận gửi thực phẩm, đặc sản, quà và đồ dùng cá nhân từ Việt Nam sang Hà Lan cho người Việt xa xứ, du học sinh. Hỗ trợ trọn gói thủ tục hải quan, theo dõi vận đơn minh bạch.",
+    heroDescription:
+      "Gửi thực phẩm khô, đặc sản quê nhà và quà cho người thân, du học sinh đang sinh sống tại Hà Lan — Falco Express lo trọn thủ tục hải quan, bạn chỉ cần đóng gói và gửi.",
+    bullets: [
+      "Nhận gửi thực phẩm khô, đặc sản, quà cho người Việt tại Hà Lan",
+      "Hỗ trợ trọn gói thủ tục hải quan, chứng từ xuất khẩu",
+      "Tư vấn đóng gói đúng quy định để hàng thông quan thuận lợi",
+      "Cập nhật hành trình vận đơn xuyên suốt tới tận tay người nhận",
+    ],
+  },
+  {
+    slug: "sec",
+    name: "Séc",
+    metaTitle: "Gửi hàng đi Séc từ Việt Nam | Falco Express",
+    metaDescription:
+      "Falco Express nhận gửi thực phẩm, đặc sản, quà và đồ dùng cá nhân từ Việt Nam sang Séc cho người Việt xa xứ, du học sinh. Hỗ trợ trọn gói thủ tục hải quan, theo dõi vận đơn minh bạch.",
+    heroDescription:
+      "Gửi thực phẩm khô, đặc sản quê nhà và quà cho người thân, du học sinh đang sinh sống tại Séc — Falco Express lo trọn thủ tục hải quan, bạn chỉ cần đóng gói và gửi.",
+    bullets: [
+      "Nhận gửi thực phẩm khô, đặc sản, quà cho người Việt tại Séc",
+      "Hỗ trợ trọn gói thủ tục hải quan, chứng từ xuất khẩu",
+      "Tư vấn đóng gói đúng quy định để hàng thông quan thuận lợi",
+      "Cập nhật hành trình vận đơn xuyên suốt tới tận tay người nhận",
+    ],
+  },
+  {
+    slug: "ba-lan",
+    name: "Ba Lan",
+    metaTitle: "Gửi hàng đi Ba Lan từ Việt Nam | Falco Express",
+    metaDescription:
+      "Falco Express nhận gửi thực phẩm, đặc sản, quà và đồ dùng cá nhân từ Việt Nam sang Ba Lan cho người Việt xa xứ, du học sinh. Hỗ trợ trọn gói thủ tục hải quan, theo dõi vận đơn minh bạch.",
+    heroDescription:
+      "Gửi thực phẩm khô, đặc sản quê nhà và quà cho người thân, du học sinh đang sinh sống tại Ba Lan — Falco Express lo trọn thủ tục hải quan, bạn chỉ cần đóng gói và gửi.",
+    bullets: [
+      "Nhận gửi thực phẩm khô, đặc sản, quà cho người Việt tại Ba Lan",
+      "Hỗ trợ trọn gói thủ tục hải quan, chứng từ xuất khẩu",
+      "Tư vấn đóng gói đúng quy định để hàng thông quan thuận lợi",
+      "Cập nhật hành trình vận đơn xuyên suốt tới tận tay người nhận",
+    ],
+  },
+];
