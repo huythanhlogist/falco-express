@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 
 export async function POST(request: Request) {
-  let body: { name?: string; phone?: string; email?: string; message?: string };
+  let body: {
+    name?: string;
+    phone?: string;
+    email?: string;
+    message?: string;
+    sourcePage?: string;
+  };
 
   try {
     body = await request.json();
@@ -10,7 +16,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Dữ liệu không hợp lệ" }, { status: 400 });
   }
 
-  const { name, phone, email, message } = body;
+  const { name, phone, email, message, sourcePage } = body;
 
   if (!name || !phone || !message) {
     return NextResponse.json(
@@ -22,7 +28,12 @@ export async function POST(request: Request) {
   const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, CONTACT_TO_EMAIL } = process.env;
 
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
-    console.log("[contact] SMTP chưa được cấu hình. Nội dung liên hệ:", body);
+    console.log(
+      "[contact] SMTP chưa được cấu hình. Nội dung liên hệ:",
+      body,
+      "| Trang nguồn:",
+      sourcePage || "(không rõ)"
+    );
     return NextResponse.json({
       ok: true,
       note: "Đã ghi nhận (SMTP chưa cấu hình trên server).",
@@ -41,12 +52,13 @@ export async function POST(request: Request) {
       from: `"Website Falco Express" <${SMTP_USER}>`,
       to: CONTACT_TO_EMAIL || SMTP_USER,
       replyTo: email || undefined,
-      subject: `Liên hệ mới từ website – ${name}`,
-      text: `Họ tên: ${name}\nSĐT: ${phone}\nEmail: ${email || "(không có)"}\n\nNội dung:\n${message}`,
+      subject: `Liên hệ mới từ website${sourcePage ? ` (${sourcePage})` : ""} – ${name}`,
+      text: `Họ tên: ${name}\nSĐT: ${phone}\nEmail: ${email || "(không có)"}\nTrang nguồn: ${sourcePage || "(không rõ)"}\n\nNội dung:\n${message}`,
       html: `
         <p><strong>Họ tên:</strong> ${escapeHtml(name)}</p>
         <p><strong>SĐT:</strong> ${escapeHtml(phone)}</p>
         <p><strong>Email:</strong> ${escapeHtml(email || "(không có)")}</p>
+        <p><strong>Trang nguồn:</strong> ${escapeHtml(sourcePage || "(không rõ)")}</p>
         <p><strong>Nội dung:</strong></p>
         <p>${escapeHtml(message).replace(/\n/g, "<br/>")}</p>
       `,

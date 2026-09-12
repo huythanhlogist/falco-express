@@ -4,7 +4,7 @@ import Link from "next/link";
 import PageHero from "@/components/PageHero";
 import Reveal from "@/components/Reveal";
 import CTABanner from "@/components/CTABanner";
-import { COUNTRY_ROUTES, SITE } from "@/lib/constants";
+import { COUNTRY_ROUTES, EU_CUSTOMS_FAQS, SITE, UK_CUSTOMS_FAQS } from "@/lib/constants";
 import { resolveMetadataOverride } from "@/lib/seo";
 import { ArrowRightIcon, CheckCircleIcon, GlobeIcon } from "@/components/icons";
 import { InternationalIllustration } from "@/components/ServiceIllustrations";
@@ -91,6 +91,32 @@ export default async function CountryRoutePage({
               <InternationalIllustration />
             </Reveal>
           </div>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="container-page">
+          <Reveal>
+            <span className="eyebrow">Hải quan &amp; thuế</span>
+            <h2 className="mt-4 max-w-xl text-2xl font-extrabold leading-tight tracking-tight text-navy-900 sm:text-3xl">
+              Gửi hàng đi {country.name} có phải đóng thuế không?
+            </h2>
+          </Reveal>
+          <div className="mt-8 space-y-3">
+            {(country.customsRegion === "uk" ? UK_CUSTOMS_FAQS : EU_CUSTOMS_FAQS).map((faq) => (
+              <div key={faq.question} className="card p-5 sm:p-6">
+                <p className="text-sm font-semibold text-navy-900 sm:text-base">
+                  {faq.question}
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-ink/65">{faq.answer}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-5 text-xs leading-relaxed text-ink/45">
+            Thông tin chung mang tính tham khảo (cập nhật 09/2026), không phải tư vấn
+            thuế/pháp lý — quy định hải quan có thể thay đổi và còn tuỳ từng lô hàng cụ
+            thể. Liên hệ Falco Express để được tư vấn chính xác cho lô hàng của bạn.
+          </p>
         </div>
       </section>
 
