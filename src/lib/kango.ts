@@ -50,6 +50,26 @@ export async function fetchKangoTracking(
     throw new Error("Thiếu KANGO_API_KEY hoặc KANGO_API_URL");
   }
 
+  // Kango thỉnh thoảng bị treo request thật sự (đã đo trực tiếp: ~1/3 lần
+  // gọi treo tới hơn 25s trong khi các lần còn lại chỉ mất 6-7s) — không
+  // phải lỗi cấu hình. Thử lại 1 lần khi gặp timeout/lỗi mạng trước khi
+  // báo lỗi cho khách, vì lần thử lại thường trả về nhanh bình thường.
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await fetchKangoTrackingOnce(apiUrl, apiKey, code);
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr;
+}
+
+async function fetchKangoTrackingOnce(
+  apiUrl: string,
+  apiKey: string,
+  code: string
+): Promise<KangoTrackingResponse | null> {
   const res = await fetch(
     `${apiUrl}?code=${encodeURIComponent(code.trim())}`,
     {
@@ -65,7 +85,10 @@ export async function fetchKangoTracking(
       // trọn vòng gọi sang API Kango (nguồn gây delay đã quan sát được).
       next: { revalidate: 90 },
       // Giới hạn thời gian chờ để 1 request chậm không treo cả trang.
-      signal: AbortSignal.timeout(8000),
+      // Kango có lúc phản hồi mất 6-7s thật (đã đo trực tiếp) nên mốc 8s
+      // cũ hay trượt timeout dù API vẫn hoạt động bình thường — nới lên
+      // 20s để không báo lỗi oan cho khách tra cứu.
+      signal: AbortSignal.timeout(20000),
     }
   );
 

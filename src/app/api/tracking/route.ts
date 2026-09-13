@@ -16,7 +16,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ found: false, data: null });
     }
 
-    const kango = await fetchKangoTracking(order.awb);
+    let kango;
+    try {
+      kango = await fetchKangoTracking(order.awb);
+    } catch (kangoErr) {
+      // Đơn có thật trong hệ thống Falco — nếu chỉ riêng đối tác Kango
+      // đang chậm/lỗi (đã quan sát thực tế: Kango thỉnh thoảng treo
+      // request), vẫn nên trả về thông tin cơ bản thay vì báo lỗi trắng,
+      // để khách không hiểu nhầm là mã tra cứu sai.
+      console.error("[tracking] Kango lỗi, trả về thông tin cơ bản:", kangoErr);
+      kango = null;
+    }
     if (!kango) {
       // Đơn có trong hệ thống Falco nhưng Kango chưa có dữ liệu (đơn quá
       // mới, chưa được quét lần đầu) — vẫn trả về thông tin cơ bản.
