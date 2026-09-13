@@ -10,6 +10,8 @@ import {
 import AccountingOrderList from "@/components/admin/AccountingOrderList";
 import ExpenseManager from "@/components/admin/ExpenseManager";
 import MonthFilterSelect from "@/components/admin/MonthFilterSelect";
+import UploadDbnInvoice from "@/components/admin/UploadDbnInvoice";
+import OrderEditHistory from "@/components/admin/OrderEditHistory";
 import { WalletIcon, ClockIcon, PackageCheckIcon } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
@@ -190,6 +192,16 @@ export default async function KeToanPage({
       )}
 
       <div className="mt-6">
+        <h2 className="font-display text-base font-bold text-navy-900">Nhập CHI từ hoá đơn Kango (DBN)</h2>
+        <p className="mt-0.5 text-sm text-ink/55">
+          Upload file "Debit note" Kango gửi — hệ thống khớp theo AWB và điền CHI vào đúng đơn, không cần nhập tay từng ô.
+        </p>
+        <div className="mt-3">
+          <UploadDbnInvoice />
+        </div>
+      </div>
+
+      <div className="mt-6">
         <h2 className="font-display text-base font-bold text-navy-900">Chi phí phát sinh</h2>
         <p className="mt-0.5 text-sm text-ink/55">
           Chi phí chung không gắn với đơn cụ thể — nhập tay, có thể sửa/xoá từng dòng.
@@ -198,6 +210,8 @@ export default async function KeToanPage({
           <ExpenseManager initialExpenses={expenses} />
         </div>
       </div>
+
+      <OrderEditHistory />
     </div>
   );
 }

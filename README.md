@@ -465,6 +465,31 @@ viễn). Cần chạy 1 lần:
 npx tsx scripts/setup-dbn-tables.ts
 ```
 
+## Nhập CHI từ hoá đơn Kango (DBN — debit note)
+
+Trên `/admin/ke-toan`, mục "Nhập CHI từ hoá đơn Kango (DBN)" cho phép upload
+trực tiếp file Excel "Debit note" Kango/KOKO gửi (chọn/kéo được nhiều file 1
+lúc) thay vì gõ tay từng ô CHI. Mỗi file = 1 hoá đơn, có nhiều dòng AWB + số
+tiền (`TOTAL PRICE`) + ghi chú (`DESCRIPTION OF GOODS`) — khớp theo AWB
+("BILL NO") với đơn có sẵn (`findOrderByAwb`), điền vào cột `orders.cost`.
+
+Luồng 2 bước: chọn file → xem trước (không ghi gì, chỉ tính toán khớp/không
+khớp) → bấm "Xác nhận ghi CHI" mới ghi thật. AWB không tìm thấy được báo rõ,
+không bỏ qua âm thầm. Mỗi lần ghi tự lưu vào "Lịch sử chỉnh sửa đơn" sẵn có
+(hoàn tác được như sửa tay).
+
+**Idempotent theo số hoá đơn**: cột `orders.chi_source_invoice` đánh dấu CHI
+hiện tại của đơn đến từ hoá đơn DBN nào. Upload lại đúng hoá đơn đó (Kango
+gửi bản bổ sung) sẽ ghi đè an toàn; nếu đơn đã có CHI từ hoá đơn khác hoặc
+nhập tay từ trước (không rõ nguồn) thì đánh dấu "Cần xem lại" — phải tick
+"Ghi đè" mới ghi, không tự động ghi đè âm thầm. Sửa CHI bằng tay ở Kế toán/
+Đơn hàng sẽ tự xoá tag này (không còn coi là "đến từ hoá đơn X" nữa). Cần
+chạy 1 lần:
+
+```bash
+npx tsx scripts/alter-orders-add-chi-source-invoice.ts
+```
+
 ## Build production
 
 ```bash

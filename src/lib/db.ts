@@ -1,5 +1,13 @@
 import mysql from "mysql2/promise";
+import dns from "node:dns";
 import type { ParsedCategory } from "./price-quote-import";
+
+// Máy dev nối DB_HOST dạng tên miền WAN (vd đang phát triển từ máy cá nhân)
+// có lúc bị resolve ra địa chỉ IPv6 không nằm trong danh sách IP được phép
+// truy cập từ xa của Hostinger, gây lỗi "Access denied" dù mật khẩu đúng.
+// Production dùng DB_HOST=localhost nên không bị ảnh hưởng — chỉ set để an
+// toàn hơn cho môi trường dev.
+dns.setDefaultResultOrder("ipv4first");
 
 let pool: mysql.Pool | null = null;
 
@@ -46,6 +54,7 @@ export type OrderRecord = {
   payment_status: PaymentStatus;
   amount: string | null;
   cost: string | null;
+  chi_source_invoice: string | null;
   weight_kg: string | null;
   source: OrderSource;
   ctv_id: number | null;
@@ -172,6 +181,7 @@ export type OrderEditableFields = Partial<{
   paymentStatus: PaymentStatus;
   amount: number | null;
   cost: number | null;
+  chiSourceInvoice: string | null;
   weightKg: number | null;
 }>;
 
@@ -185,6 +195,7 @@ const ORDER_FIELD_COLUMNS: Record<keyof OrderEditableFields, string> = {
   paymentStatus: "payment_status",
   amount: "amount",
   cost: "cost",
+  chiSourceInvoice: "chi_source_invoice",
   weightKg: "weight_kg",
 };
 

@@ -80,7 +80,14 @@ export async function PATCH(
   const fields: Parameters<typeof updateOrder>[1] = {};
   if (paymentStatus !== undefined) fields.paymentStatus = paymentStatus;
   if (amount !== undefined) fields.amount = amount === null || amount === "" ? null : Number(amount);
-  if (cost !== undefined) fields.cost = cost === null || cost === "" ? null : Number(cost);
+  if (cost !== undefined) {
+    fields.cost = cost === null || cost === "" ? null : Number(cost);
+    // Sửa CHI bằng tay (ở đây hoặc Kế toán) nghĩa là giá trị không còn hoàn
+    // toàn đến từ 1 hoá đơn DBN đã upload nữa — bỏ tag nguồn để lần upload
+    // DBN sau không hiểu nhầm là "đã khớp hoá đơn X", tránh bị ghi đè âm
+    // thầm giá trị người dùng vừa tự sửa.
+    fields.chiSourceInvoice = null;
+  }
   if (weightKg !== undefined) fields.weightKg = weightKg === null || weightKg === "" ? null : Number(weightKg);
   if (awb !== undefined) fields.awb = String(awb).trim();
   if (recipientName !== undefined) fields.recipientName = String(recipientName).trim();

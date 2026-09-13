@@ -77,6 +77,7 @@ export async function POST(
         paymentStatus: o.payment_status,
         amount: o.amount === null ? null : Number(o.amount),
         cost: o.cost === null ? null : Number(o.cost),
+        chiSourceInvoice: o.chi_source_invoice,
       });
       await replaceOrderParcels(entry.order_id, before.trackingCodes);
       restoredOrderId = entry.order_id;
@@ -97,6 +98,7 @@ export async function POST(
         paymentStatus: o.payment_status,
         amount: o.amount === null ? null : Number(o.amount),
         cost: o.cost === null ? null : Number(o.cost),
+        chiSourceInvoice: o.chi_source_invoice,
       });
       if (before.trackingCodes.length > 0) {
         await insertParcels(
