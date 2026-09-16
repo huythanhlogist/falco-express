@@ -32,6 +32,20 @@ function cellToString(value: unknown): string {
   return String(value).trim();
 }
 
+/**
+ * Cột tiền trong file DBN có lúc là số thuần (8505000), có lúc là chuỗi có
+ * dấu phẩy ngăn cách hàng nghìn ("9,639,000") — đã gặp thực tế cả 2 dạng
+ * giữa các lần Kango xuất file khác nhau. Bỏ dấu phẩy trước khi parse để
+ * không báo nhầm "không phải số hợp lệ" và huỷ xử lý oan cả file.
+ */
+function parseAmount(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const cleaned = cellToString(value).replace(/,/g, "");
+  if (cleaned === "") return null;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
 type HeaderMap = { rowIndex: number; colOf: Record<string, number> };
 
 function findHeaderRow(rows: unknown[][]): HeaderMap | null {
@@ -130,16 +144,15 @@ export function parseDbnInvoiceWorkbook(buffer: Buffer): ParsedDbnInvoice {
     // Dòng tổng luôn bắt đầu bằng "TOTAL" ở cột đầu tiên trong mẫu thực tế —
     // gặp dòng này thì dừng hẳn, bỏ qua phần ghi chú/điều khoản phía sau.
     if (cellToString(row[0]).toUpperCase() === "TOTAL") {
-      const t = Number(row[colTotalPrice]);
-      totalFromFile = Number.isFinite(t) ? t : null;
+      totalFromFile = parseAmount(row[colTotalPrice]);
       break;
     }
 
     const awb = cellToString(row[colBillNo]);
     if (!awb) continue;
 
-    const amount = Number(row[colTotalPrice]);
-    if (!Number.isFinite(amount)) {
+    const amount = parseAmount(row[colTotalPrice]);
+    if (amount === null) {
       return {
         ok: false,
         error: `Dòng AWB ${awb}: cột TOTAL PRICE không phải số hợp lệ — đã HUỶ xử lý toàn bộ file.`,
