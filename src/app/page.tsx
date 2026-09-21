@@ -13,12 +13,12 @@ export const revalidate = 300;
 export async function generateMetadata(): Promise<Metadata> {
   // title dùng "absolute" để không bị layout.tsx nối thêm "| FALCO EXPRESS"
   // vào trang chủ (trang chủ đã có tên thương hiệu trong tiêu đề rồi).
-  const { title, description } = await resolveMetadataOverride("/", {
+  const { title, description, alternates } = await resolveMetadataOverride("/", {
     title: `${SITE.name} – Gửi hàng Việt Nam sang Châu Âu & Anh`,
     description:
       "Falco Express – gửi hàng, thực phẩm và quà từ Việt Nam sang Châu Âu, Vương quốc Anh (Anh, Đức, Pháp, Hà Lan, Séc, Ba Lan...) cho người Việt xa xứ. Nhanh chóng, an toàn, minh bạch, hỗ trợ trọn gói thủ tục hải quan.",
   });
-  return { title: { absolute: title }, description };
+  return { title: { absolute: title }, description, alternates };
 }
 
 export default function HomePage() {
