@@ -168,6 +168,82 @@ export const BLOG_POSTS: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "hang-cam-hang-han-che-khi-gui-di-chau-au-va-anh",
+    title:
+      "Gửi hàng đi Anh, Đức, Pháp, Hà Lan, Séc, Ba Lan: hàng gì bị cấm hoặc hạn chế, ngoài thực phẩm?",
+    metaTitle: "Hàng cấm, hàng hạn chế khi gửi đi châu Âu & Anh | Falco Express",
+    metaDescription:
+      "Pin lithium, nước hoa, hàng giả, vũ khí... là những nhóm hàng dễ bị giữ hoặc từ chối nhất khi gửi đi Anh, Đức, Pháp. Xem danh sách cụ thể trước khi đóng gói để tránh mất hàng, mất phí.",
+    excerpt:
+      "Không chỉ thực phẩm tươi sống mới bị giữ ở hải quan — pin sạc dự phòng, nước hoa, hàng giả hay đồ cổ cũng là những nhóm hàng rất dễ gặp rắc rối. Danh sách cụ thể để kiểm tra trước khi đóng gói.",
+    publishedAt: "2026-09-28",
+    content: [
+      {
+        type: "p",
+        text: "Nhiều khách hỏi Falco Express không chỉ về thực phẩm mà còn về pin sạc dự phòng, nước hoa, mỹ phẩm, hàng xách tay, đồ cổ... \"gửi được không?\". Câu trả lời phụ thuộc vào việc mặt hàng đó bị cấm hoàn toàn theo luật hải quan nước đến, hay chỉ bị hạn chế và cần khai báo/đóng gói đúng cách. Phân biệt rõ hai nhóm này trước khi đóng gói giúp bạn tránh mất hàng, mất phí kiểm tra hoặc bị trả hàng về.",
+      },
+      {
+        type: "h2",
+        text: "Nhóm hàng bị cấm hoàn toàn (theo luật hải quan nước đến)",
+      },
+      {
+        type: "p",
+        text: "Lấy ví dụ từ danh mục hàng cấm nhập khẩu chính thức của Vương quốc Anh (gov.uk, cập nhật 09/2026) — các nhóm hàng dưới đây bị cấm tuyệt đối, không có ngoại lệ cho hàng cá nhân/quà tặng:",
+      },
+      {
+        type: "list",
+        items: [
+          "Hàng giả, hàng nhái vi phạm quyền sở hữu trí tuệ (nhãn hiệu, bản quyền)",
+          "Ma tuý, chất kích thích, dược phẩm thuộc danh mục kiểm soát không có giấy phép nhập khẩu",
+          "Vũ khí, đạn dược, súng/vũ khí giả giống thật, mìn sát thương",
+          "Sản phẩm từ động vật, thực vật quý hiếm thuộc danh mục CITES (ngà voi, một số loại lông thú, mai rùa...) nếu không có giấy phép đặc biệt",
+          "Ấn phẩm khiêu dâm, phản cảm theo quy định pháp luật nước sở tại",
+        ],
+      },
+      {
+        type: "note",
+        text: "Đây là ví dụ theo danh mục của Anh — Đức, Pháp, Hà Lan, Séc, Ba Lan (đều thuộc EU) có khung pháp lý về hàng giả, vũ khí, CITES tương tự nhau ở mức độ chung, nhưng danh mục chi tiết và mức xử phạt có thể khác nhau theo từng nước. Không nên suy ra một mặt hàng được phép ở nước này thì cũng được phép ở nước khác.",
+      },
+      {
+        type: "h2",
+        text: "Nhóm hàng hạn chế — không bị cấm, nhưng cần khai báo hoặc đóng gói đúng chuẩn",
+      },
+      {
+        type: "list",
+        items: [
+          "Pin lithium, pin sạc dự phòng: phần lớn hãng vận chuyển hàng không hạn chế nghiêm ngặt việc gửi pin rời (không gắn liền thiết bị) do quy định an toàn hàng không, nhiều trường hợp phải khai báo riêng hoặc không nhận gửi pin tách rời",
+          "Chất lỏng dễ cháy: nước hoa, sơn móng tay, một số mỹ phẩm/gel chứa cồn — cần đóng gói kín, khai đúng loại hàng, một số nước giới hạn thể tích/số lượng",
+          "Thực phẩm chức năng, thuốc không kê đơn: cần khai rõ thành phần, tên hoạt chất; một số nước yêu cầu giấy tờ nếu số lượng lớn",
+          "Đồ cổ, đồ có giá trị nghệ thuật/lịch sử: một số nước yêu cầu giấy tờ chứng minh nguồn gốc trước khi cho xuất/nhập khẩu",
+        ],
+      },
+      {
+        type: "note",
+        text: "Phần lớn hạn chế về pin và chất lỏng dễ cháy đến từ quy định an toàn vận chuyển hàng không quốc tế (áp dụng chung cho ngành, không riêng đơn vị nào), nên gần như mọi đơn vị chuyển phát quốc tế đều áp dụng nguyên tắc tương tự — không phải điều riêng của Falco Express.",
+      },
+      {
+        type: "h2",
+        text: "Vì sao \"cứ đóng gói rồi gửi thử\" là cách dễ mất tiền nhất",
+      },
+      {
+        type: "p",
+        text: "Với hàng thuộc nhóm hạn chế, việc đóng gói xong mới phát hiện không gửi được thường dẫn tới một trong ba tình huống: hàng bị giữ lại tại kho ở Việt Nam hoặc hải quan nước đến để kiểm tra thêm (mất thời gian), phải tháo bỏ phần không hợp lệ trước khi gửi tiếp (ví dụ tháo pin rời), hoặc hàng bị trả lại người gửi — trong mọi trường hợp bạn đều mất công đóng gói và có thể mất thêm phí xử lý.",
+      },
+      {
+        type: "h2",
+        text: "Cách kiểm tra nhanh trước khi đóng gói",
+      },
+      {
+        type: "p",
+        text: "Vì danh mục hàng cấm/hạn chế khác nhau theo từng nước và có thể thay đổi theo thời gian, Falco Express luôn kiểm tra trước khi nhận đóng gói. Bạn chỉ cần nhắn Zalo hoặc gọi hotline mô tả loại hàng và nước đến, đội ngũ Falco sẽ tư vấn miễn phí có gửi được hay không, cần khai báo gì trước khi bạn đóng gói — áp dụng cho cả hàng thực phẩm (xem bài viết riêng về thực phẩm/đặc sản) lẫn các mặt hàng khác trong bài này.",
+      },
+      {
+        type: "note",
+        text: "Thông tin trong bài viết tổng hợp từ danh mục hàng cấm/hạn chế nhập khẩu chính thức của Chính phủ Anh (gov.uk, cập nhật 09/2026) và các quy định an toàn phổ biến trong ngành vận chuyển hàng không quốc tế, mang tính tham khảo chung, không phải tư vấn pháp lý hay hải quan chính thức. Danh mục cụ thể khác nhau theo từng nước và từng lô hàng — liên hệ Falco Express hoặc cơ quan hải quan nước nhận để được tư vấn chính xác cho trường hợp của bạn.",
+      },
+    ],
+  },
 ];
 
 export function getBlogPost(slug: string) {
