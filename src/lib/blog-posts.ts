@@ -244,6 +244,89 @@ export const BLOG_POSTS: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "gui-do-cho-du-hoc-sinh-moi-sang-chau-au",
+    title:
+      "Gửi đồ cho du học sinh Việt mới sang Anh, Đức, Pháp, Hà Lan, Séc, Ba Lan: nên chuẩn bị gì, đóng gói thế nào?",
+    metaTitle: "Gửi đồ cho du học sinh mới sang châu Âu, Anh | Falco Express",
+    metaDescription:
+      "Sau vài tuần ổn định chỗ ở, nhiều phụ huynh muốn gửi thêm đồ cho con mới sang du học. Nên gửi gì, đóng gói ra sao, cần lưu ý gì về địa chỉ và hải quan — hướng dẫn thực tế từ Falco Express.",
+    excerpt:
+      "Mùa nhập học mới, sau khi con đã ổn định chỗ ở vài tuần, nhiều phụ huynh muốn gửi thêm thực phẩm, đồ dùng quen thuộc. Nên gửi gì, đóng gói thế nào để hàng đến nguyên vẹn, không vướng hải quan?",
+    publishedAt: "2026-10-05",
+    content: [
+      {
+        type: "p",
+        text: "Tháng 9–10 là thời điểm nhiều du học sinh Việt Nam bắt đầu năm học mới tại Anh, Đức, Pháp, Hà Lan, Séc, Ba Lan. Sau vài tuần đầu bận rộn làm quen chỗ ở, trường lớp, không ít phụ huynh muốn gửi thêm một gói đồ hỗ trợ con: vài món ăn quen vị, gia vị để tự nấu, hay đơn giản là vài món đồ dùng còn thiếu. Vì đây thường là lần gửi đồ đầu tiên cho một địa chỉ mới, chưa quen, nên cần chuẩn bị kỹ hơn bình thường một chút.",
+      },
+      {
+        type: "h2",
+        text: "Nhóm đồ phụ huynh thường gửi thêm sau vài tuần con ổn định chỗ ở",
+      },
+      {
+        type: "list",
+        items: [
+          "Thực phẩm khô, gia vị nấu ăn quen thuộc (mì, miến, gia vị khô, nước mắm/nước tương đóng chai kín) — giúp con tự nấu ăn tiết kiệm hơn ăn ngoài, xem nhóm thực phẩm được phép gửi trong bài viết riêng về thực phẩm/đặc sản",
+          "Đặc sản, bánh kẹo quê nhà đóng gói công nghiệp, hạn sử dụng rõ ràng",
+          "Quần áo ấm phù hợp khí hậu lạnh hơn Việt Nam, nếu con sang vào mùa thu/đông chưa kịp mua sắm đầy đủ",
+          "Vài món đồ dùng cá nhân, kỷ niệm nhỏ gọn mà con quên mang hoặc không mua được ngay ở nước sở tại",
+        ],
+      },
+      {
+        type: "h2",
+        text: "Những nhóm hàng nên cân nhắc kỹ trước khi gửi kèm",
+      },
+      {
+        type: "p",
+        text: "Vì đây thường là kiện hàng gửi gấp, phụ huynh dễ gói kèm luôn những món thuộc nhóm hạn chế hoặc cấm mà không để ý. Một số nhóm cần kiểm tra lại trước khi đóng gói — đã nêu chi tiết trong bài viết riêng về hàng cấm/hạn chế:",
+      },
+      {
+        type: "list",
+        items: [
+          "Pin lithium rời: sạc dự phòng, pin thay thế cho tai nghe/đèn pin — phần lớn hãng vận chuyển hàng không hạn chế nghiêm ngặt khi tách rời khỏi thiết bị",
+          "Thực phẩm tươi sống, chế phẩm từ sữa và thịt (giò chả, ruốc, phô mai tự làm...) — gần như không được phép gửi vào EU và Anh dù đã cấp đông hay hút chân không",
+          "Chất lỏng dễ cháy hoặc dễ rò rỉ: nước hoa, dầu gió, một số mỹ phẩm dạng gel — nếu vẫn muốn gửi, cần đóng gói kín, khai đúng loại hàng",
+          "Thực phẩm chức năng, thuốc không kê đơn — cần khai rõ thành phần, tên hoạt chất, tránh gửi số lượng lớn nếu chưa hỏi trước",
+        ],
+      },
+      {
+        type: "h2",
+        text: "3 nguyên tắc đóng gói để đồ đến nơi nguyên vẹn",
+      },
+      {
+        type: "list",
+        items: [
+          "Tách riêng thực phẩm với quần áo, đồ điện tử trong các lớp đóng gói khác nhau, tránh mùi hoặc rò rỉ ảnh hưởng lẫn nhau khi vận chuyển dài ngày",
+          "Chèn lót kỹ từng món dễ vỡ, dùng thùng đúng kích cỡ thay vì thùng quá to khiến đồ xô lệch bên trong",
+          "Khai đúng và đủ nội dung, giá trị từng món trên tờ khai hải quan — không khai chung chung \"quà tặng\" cho toàn bộ kiện hàng, đặc biệt nếu có vài món giá trị cao hơn bình thường",
+        ],
+      },
+      {
+        type: "h2",
+        text: "Lưu ý riêng khi người nhận là du học sinh mới sang",
+      },
+      {
+        type: "p",
+        text: "Khác với gửi cho người đã ở ổn định lâu năm, du học sinh mới sang đôi khi chưa có địa chỉ lâu dài ngay (ở tạm ký túc xá ngắn hạn, chờ chuyển phòng, chờ ký hợp đồng thuê nhà...). Trước khi gửi, nên xác nhận lại với con: địa chỉ ghi trên vận đơn có phải nơi con sẽ ở đủ lâu để nhận hàng không, số điện thoại liên hệ còn dùng được không — tránh trường hợp hàng tới nơi nhưng người nhận đã chuyển chỗ ở.",
+      },
+      {
+        type: "note",
+        text: "Vì đây thường là lần đầu con tự nhận và làm việc với hải quan nước sở tại, dịch vụ DDP (Falco Express lo trọn thuế, thủ tục hải quan từ phía Việt Nam) giúp con không phải tự đóng thêm phí hay làm thủ tục phát sinh khi nhận hàng — xem thêm trong bài viết riêng về DDP.",
+      },
+      {
+        type: "h2",
+        text: "Chưa chắc nên gửi gì hoặc đóng gói thế nào?",
+      },
+      {
+        type: "p",
+        text: "Mỗi gia đình có nhu cầu khác nhau — có nhà muốn gửi nhiều thực phẩm, có nhà ưu tiên quần áo ấm hoặc đồ dùng học tập. Bạn chỉ cần nhắn Zalo hoặc gọi hotline mô tả những món muốn gửi và nước con đang ở, đội ngũ Falco Express sẽ tư vấn miễn phí món nào gửi được, cần đóng gói ra sao trước khi bạn chuẩn bị kiện hàng.",
+      },
+      {
+        type: "note",
+        text: "Thông tin trong bài viết mang tính hướng dẫn chung dựa trên kinh nghiệm đóng gói, không phải tư vấn pháp lý hay hải quan chính thức. Quy định hàng cấm/hạn chế cụ thể theo từng nước đã nêu trong bài viết riêng — liên hệ Falco Express để được kiểm tra chính xác cho từng món hàng trước khi gửi.",
+      },
+    ],
+  },
 ];
 
 export function getBlogPost(slug: string) {
