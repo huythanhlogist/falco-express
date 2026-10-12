@@ -538,11 +538,18 @@ npx tsx scripts/setup-tracking-cache-table.ts
 
 Biến môi trường `CRON_SECRET` (chuỗi ngẫu nhiên dài, chỉ đặt trên server, đừng
 commit): bảo vệ route `POST /api/cron/refresh-tracking`. Đặt lịch trong hPanel
-→ Nâng cao → Công việc định kỳ, chọn chế độ **Node.js**, đường dẫn script
-`scripts/cron.js`, lịch mỗi ngày 1 lần (vd 02:00). Script đọc `CRON_SECRET` từ
-file env của app (`--env-file` do Hostinger điền sẵn) nên không phải gõ secret vào
-cấu hình cron. Chỉ đơn có bản cache cũ hơn 20h mới được làm mới, nên gọi thừa không
-tốn thêm lượt Kango.
+→ Nâng cao → Công việc định kỳ, chọn "Tùy chỉnh", lịch mỗi giờ (`0 * * * *`),
+lệnh lấy secret từ file env của app lúc chạy nên không phải gõ secret vào cấu hình
+cron (chế độ "Node.js" của hPanel không dùng được vì thư mục triển khai không có
+`scripts/`):
+
+```bash
+curl -s -i -X POST -H "x-cron-secret: $(grep '^CRON_SECRET=' /home/<user>/domains/falcoexpress.com/hbuilds/config/.env | cut -d= -f2- | tr -d "\"'\r")" https://falcoexpress.com/api/cron/refresh-tracking
+```
+
+Chỉ đơn có bản cache cũ hơn 20h mới được làm mới (mỗi đơn ~1 lượt gọi Kango/ngày),
+nên chạy mỗi giờ hầu hết các lượt không làm gì. Xem kết quả: nút "Xem đầu ra"
+của job (dòng `HTTP/2 202` là thành công, `401` là sai secret).
 
 Route trả 202 ngay và chạy nền (tối đa ~8 phút, 3 luồng song song). Thêm
 `?wait=1` để chạy xong mới trả kết quả (dùng khi chạy tay/backfill lần đầu).
