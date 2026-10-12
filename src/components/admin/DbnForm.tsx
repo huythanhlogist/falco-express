@@ -20,11 +20,13 @@ type OrderSearchResult = {
   recipient_name: string | null;
   destination: string | null;
   weight_kg: string | null;
+  received_date: string | null;
 };
 
 type RowState = {
   orderId: number | null;
   label: string;
+  ngay: string; // ngày của đơn, dd/mm/yyyy
   diaChi: string;
   kichThuoc: string;
   dimKg: string;
@@ -39,6 +41,7 @@ function emptyRow(): RowState {
   return {
     orderId: null,
     label: "",
+    ngay: "",
     diaChi: "",
     kichThuoc: "",
     dimKg: "",
@@ -57,6 +60,11 @@ function isUnderFlatPrice(row: RowState): boolean {
 
 function money(n: number): string {
   return n.toLocaleString("vi-VN");
+}
+
+function formatOrderDate(value: string | null): string {
+  if (!value) return "";
+  return new Date(value).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
 }
 
 function todayIso(): string {
@@ -110,7 +118,7 @@ export default function DbnForm() {
       quoteDate: string;
       rows: RowState[];
     }>(DRAFT_KEY);
-    let nextRows = draft?.rows && draft.rows.length ? draft.rows : [emptyRow()];
+    let nextRows = draft?.rows && draft.rows.length ? draft.rows.map((r) => ({ ...r, ngay: r.ngay ?? "" })) : [emptyRow()];
     let nextName = draft?.customerName ?? "";
     if (draft) {
       setCustomerPhone(draft.customerPhone ?? "");
@@ -162,6 +170,7 @@ export default function DbnForm() {
       ...emptyRow(),
       orderId: order.id,
       label: order.recipient_name || order.falco_code,
+      ngay: formatOrderDate(order.received_date),
       canThucKg: order.weight_kg ? String(Number(order.weight_kg)) : "",
       diaChi: order.destination || "",
     };
@@ -223,6 +232,7 @@ export default function DbnForm() {
           rows: validRows.map((r) => ({
             orderId: r.orderId,
             label: r.label,
+            ngay: r.ngay,
             diaChi: r.diaChi,
             kichThuoc: r.kichThuoc,
             dimKg: r.dimKg === "" ? null : Number(r.dimKg),
@@ -377,6 +387,7 @@ export default function DbnForm() {
                 <tr className="bg-navy-900 text-white">
                   <th className="border border-line px-2 py-1.5">STT</th>
                   <th className="border border-line px-2 py-1.5">MÃ ĐƠN HÀNG</th>
+                  <th className="border border-line px-2 py-1.5">NGÀY</th>
                   <th className="border border-line px-2 py-1.5">ĐIỂM ĐẾN</th>
                   <th className="border border-line px-2 py-1.5">KÍCH THƯỚC (LxWxH)</th>
                   <th className="border border-line px-2 py-1.5">DIM (kg)</th>
@@ -394,6 +405,7 @@ export default function DbnForm() {
                     <tr key={i} className="text-center">
                       <td className="border border-line px-2 py-1.5">{i + 1}</td>
                       <td className="border border-line px-2 py-1.5 text-left">{r.label}</td>
+                      <td className="border border-line px-2 py-1.5">{r.ngay || "-"}</td>
                       <td className="border border-line px-2 py-1.5 text-left">{r.diaChi || "-"}</td>
                       <td className="border border-line px-2 py-1.5">{r.kichThuoc || "-"}</td>
                       <td className="border border-line px-2 py-1.5">{r.dimKg || "-"}</td>
@@ -407,7 +419,7 @@ export default function DbnForm() {
                     </tr>
                   ))}
                 <tr className="font-bold">
-                  <td colSpan={8} className="border border-line px-2 py-1.5 text-right">
+                  <td colSpan={9} className="border border-line px-2 py-1.5 text-right">
                     TỔNG CỘNG:
                   </td>
                   <td className="border border-line px-2 py-1.5 text-center">{money(total)}</td>
@@ -513,6 +525,7 @@ export default function DbnForm() {
                       <div className="min-w-0 text-sm">
                         <p className="font-medium text-ink">{o.recipient_name || "(chưa có tên)"} — {o.falco_code}</p>
                         <p className="text-xs text-ink/50">
+                          {o.received_date ? `Ngày ${formatOrderDate(o.received_date)} · ` : ""}
                           {o.destination || "?"} {o.weight_kg ? `· ${o.weight_kg}kg` : ""}
                         </p>
                       </div>
@@ -542,11 +555,12 @@ export default function DbnForm() {
         </div>
 
         <div className="mt-3 overflow-x-auto">
-          <table className="w-full min-w-[1100px] border-collapse text-xs">
+          <table className="w-full min-w-[1200px] border-collapse text-xs">
             <thead>
               <tr className="text-left text-ink/55">
                 <th className="w-8 px-1.5 py-1">#</th>
                 <th className="px-1.5 py-1">Mã đơn / Tên khách *</th>
+                <th className="w-28 px-1.5 py-1">Ngày đơn</th>
                 <th className="px-1.5 py-1">Điểm đến</th>
                 <th className="px-1.5 py-1">Kích thước</th>
                 <th className="w-20 px-1.5 py-1">DIM (kg)</th>
@@ -568,6 +582,14 @@ export default function DbnForm() {
                       <input
                         value={row.label}
                         onChange={(e) => updateRow(i, { label: e.target.value })}
+                        className="w-full rounded-md border border-line px-2 py-1"
+                      />
+                    </td>
+                    <td className="px-1.5 py-1">
+                      <input
+                        value={row.ngay}
+                        onChange={(e) => updateRow(i, { ngay: e.target.value })}
+                        placeholder="dd/mm/yyyy"
                         className="w-full rounded-md border border-line px-2 py-1"
                       />
                     </td>

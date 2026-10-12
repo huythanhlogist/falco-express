@@ -36,6 +36,7 @@ export async function POST(request: Request) {
   const normalizedRows: DbnRow[] = rows.map((r) => ({
     orderId: Number.isFinite(Number(r.orderId)) ? Number(r.orderId) : null,
     label: String(r.label).trim(),
+    ngay: typeof r.ngay === "string" ? r.ngay.trim() : "",
     diaChi: typeof r.diaChi === "string" ? r.diaChi.trim() : "",
     kichThuoc: typeof r.kichThuoc === "string" ? r.kichThuoc.trim() : "",
     dimKg: Number.isFinite(Number(r.dimKg)) ? Number(r.dimKg) : null,

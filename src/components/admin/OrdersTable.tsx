@@ -34,6 +34,7 @@ function pickOrder(o: OrderListItem): QuoteHandoffOrder {
     recipient_name: o.recipient_name,
     destination: o.destination,
     weight_kg: o.weight_kg,
+    received_date: o.received_date,
   };
 }
 

@@ -13,4 +13,5 @@ export type QuoteHandoffOrder = {
   recipient_name: string | null;
   destination: string | null;
   weight_kg: string | null;
+  received_date: string | null;
 };
