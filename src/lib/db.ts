@@ -1181,7 +1181,8 @@ export async function markTrackingCacheError(orderId: number, message: string): 
  */
 export async function listOrdersNeedingTrackingRefresh(
   sinceDate: string, // "YYYY-MM-DD"
-  limit: number
+  limit: number,
+  staleBeforeMs: number // chỉ lấy bản cache cũ hơn mốc này (epoch ms); đơn chưa có cache luôn được lấy
 ): Promise<{ id: number; awb: string }[]> {
   const [rows] = await getPool().query(
     `SELECT o.id, o.awb
@@ -1189,10 +1190,11 @@ export async function listOrdersNeedingTrackingRefresh(
      LEFT JOIN order_tracking_cache tc ON tc.order_id = o.id AND tc.awb = o.awb
      WHERE o.review_status IN ('auto_approved', 'approved')
        AND COALESCE(o.received_date, DATE(o.created_at)) >= ?
-       AND (tc.order_id IS NULL OR tc.shipment_status NOT IN ('delivered', 'returned'))
+       AND (tc.order_id IS NULL
+            OR (tc.shipment_status NOT IN ('delivered', 'returned') AND tc.fetched_at < ?))
      ORDER BY (tc.order_id IS NULL) DESC, tc.fetched_at ASC
      LIMIT ?`,
-    [sinceDate, limit]
+    [sinceDate, staleBeforeMs, limit]
   );
   return rows as { id: number; awb: string }[];
 }

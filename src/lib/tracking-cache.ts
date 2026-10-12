@@ -135,13 +135,21 @@ export async function refreshTrackingCache(opts?: {
   windowDays?: number;
   concurrency?: number;
   budgetMs?: number;
+  staleAfterMs?: number;
 }): Promise<RefreshSummary> {
   const windowDays = opts?.windowDays ?? 30;
   const concurrency = opts?.concurrency ?? 3;
   const budgetMs = opts?.budgetMs ?? 8 * 60 * 1000;
+  // Chỉ làm mới bản cache đã quá 20h — gọi lại endpoint nhiều lần trong ngày
+  // (hoặc lượt trước hết ngân sách giữa chừng) thì chỉ xử lý phần còn lại.
+  const staleAfterMs = opts?.staleAfterMs ?? 20 * 60 * 60 * 1000;
   const startedAt = Date.now();
 
-  const candidates = await listOrdersNeedingTrackingRefresh(vnDateString(windowDays), 1000);
+  const candidates = await listOrdersNeedingTrackingRefresh(
+    vnDateString(windowDays),
+    1000,
+    Date.now() - staleAfterMs
+  );
   let next = 0;
   let refreshed = 0;
   let failed = 0;
