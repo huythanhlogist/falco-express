@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import ThuStatusSelect from "@/components/admin/ThuStatusSelect";
 import OrderRowActions from "@/components/admin/OrderRowActions";
 import CopyOrderInfoButton from "@/components/admin/CopyOrderInfoButton";
@@ -8,6 +9,8 @@ import CtvOrderReviewActions from "@/components/admin/CtvOrderReviewActions";
 import { CopyIcon, CheckIcon } from "@/components/icons";
 import type { OrderListItem } from "@/lib/db";
 import { shipmentStatusClassName, shipmentStatusLabel } from "@/lib/shipment-status";
+import { loadDraft, saveDraft, clearDraft } from "@/lib/session-draft";
+import { ORDERS_SELECTION_KEY, QUOTE_HANDOFF_KEY, type QuoteHandoffOrder } from "@/lib/quote-handoff";
 
 async function copyText(text: string): Promise<void> {
   try {
@@ -24,27 +27,65 @@ async function copyText(text: string): Promise<void> {
   }
 }
 
+function pickOrder(o: OrderListItem): QuoteHandoffOrder {
+  return {
+    id: o.id,
+    falco_code: o.falco_code,
+    recipient_name: o.recipient_name,
+    destination: o.destination,
+    weight_kg: o.weight_kg,
+  };
+}
+
 export default function OrdersTable({ orders }: { orders: OrderListItem[] }) {
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const router = useRouter();
+  // Giữ cả thông tin đơn đã chọn (không chỉ id) để lựa chọn sống qua phân
+  // trang/đổi bộ lọc — các link đó tải lại trang nên state thường bị mất.
+  const [selected, setSelected] = useState<Map<number, QuoteHandoffOrder>>(new Map());
+  const [selectionRestored, setSelectionRestored] = useState(false);
   const [copiedBulk, setCopiedBulk] = useState(false);
 
-  const allSelected = orders.length > 0 && selected.size === orders.length;
+  useEffect(() => {
+    const saved = loadDraft<QuoteHandoffOrder[]>(ORDERS_SELECTION_KEY);
+    if (saved?.length) setSelected(new Map(saved.map((o) => [o.id, o])));
+    setSelectionRestored(true);
+  }, []);
 
-  function toggleOne(id: number) {
+  useEffect(() => {
+    if (!selectionRestored) return;
+    if (selected.size === 0) clearDraft(ORDERS_SELECTION_KEY);
+    else saveDraft(ORDERS_SELECTION_KEY, [...selected.values()]);
+  }, [selected, selectionRestored]);
+
+  const allSelected = orders.length > 0 && orders.every((o) => selected.has(o.id));
+
+  function toggleOne(order: OrderListItem) {
     setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      const next = new Map(prev);
+      if (next.has(order.id)) next.delete(order.id);
+      else next.set(order.id, pickOrder(order));
       return next;
     });
   }
 
   function toggleAll() {
-    setSelected(allSelected ? new Set() : new Set(orders.map((o) => o.id)));
+    setSelected((prev) => {
+      const next = new Map(prev);
+      if (allSelected) orders.forEach((o) => next.delete(o.id));
+      else orders.forEach((o) => next.set(o.id, pickOrder(o)));
+      return next;
+    });
+  }
+
+  function createQuote() {
+    if (selected.size === 0) return;
+    saveDraft(QUOTE_HANDOFF_KEY, [...selected.values()]);
+    clearDraft(ORDERS_SELECTION_KEY);
+    router.push("/admin/ke-toan#bao-gia");
   }
 
   async function copySelected() {
-    const codes = orders.filter((o) => selected.has(o.id)).map((o) => o.falco_code);
+    const codes = [...selected.values()].map((o) => o.falco_code);
     if (codes.length === 0) return;
     await copyText(codes.join("\n"));
     setCopiedBulk(true);
@@ -61,10 +102,17 @@ export default function OrdersTable({ orders }: { orders: OrderListItem[] }) {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setSelected(new Set())}
+              onClick={() => setSelected(new Map())}
               className="text-xs font-medium text-ink/50 hover:text-ink/80"
             >
               Bỏ chọn
+            </button>
+            <button
+              type="button"
+              onClick={createQuote}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-flame-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-flame-700"
+            >
+              Tạo báo giá ({selected.size})
             </button>
             <button
               type="button"
@@ -130,7 +178,7 @@ export default function OrdersTable({ orders }: { orders: OrderListItem[] }) {
                     <input
                       type="checkbox"
                       checked={selected.has(o.id)}
-                      onChange={() => toggleOne(o.id)}
+                      onChange={() => toggleOne(o)}
                       aria-label={`Chọn đơn ${o.falco_code}`}
                       className="h-4 w-4 rounded border-line accent-navy-800"
                     />

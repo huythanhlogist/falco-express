@@ -5,7 +5,9 @@ import { toPng } from "html-to-image";
 import { FALCO_LOGO_DATA_URI } from "@/lib/falco-logo-data-uri";
 import { compositeFalcoLogo } from "@/lib/composite-logo";
 import { saveOrDownloadImage } from "@/lib/download-image";
+import { useRouter } from "next/navigation";
 import { loadDraft, saveDraft, clearDraft } from "@/lib/session-draft";
+import { QUOTE_HANDOFF_KEY, type QuoteHandoffOrder } from "@/lib/quote-handoff";
 import { TrashIcon, ImageDownloadIcon, SearchIcon } from "@/components/icons";
 
 const CARD_WIDTH = 1000;
@@ -66,6 +68,7 @@ function sanitizeFilename(s: string): string {
 }
 
 export default function DbnForm() {
+  const router = useRouter();
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -86,10 +89,20 @@ export default function DbnForm() {
   const logoRef = useRef<HTMLDivElement>(null);
 
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const loadedRef = useRef(false);
+
+  // Sau khi tạo báo giá: ghi "Thành tiền" từng dòng vào cột Thu của đơn tương ứng.
+  const [writeAmounts, setWriteAmounts] = useState(true);
+  const [amountsResult, setAmountsResult] = useState("");
 
   // Khôi phục nháp đang gõ dở (nếu có) khi vào lại trang — vd chuyển sang
-  // tab "Đơn hàng" tra cứu gì đó rồi quay lại "Tạo DBN".
+  // tab "Đơn hàng" tra cứu gì đó rồi quay lại "Tạo DBN". Nếu vừa bấm "Tạo
+  // báo giá" từ danh sách đơn thì nhận luôn các đơn đó (gộp vào nháp, bỏ
+  // trùng theo đơn, xoá gói chuyển để không nhận lại lần sau).
   useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+
     const draft = loadDraft<{
       customerName: string;
       customerPhone: string;
@@ -97,13 +110,26 @@ export default function DbnForm() {
       quoteDate: string;
       rows: RowState[];
     }>(DRAFT_KEY);
+    let nextRows = draft?.rows && draft.rows.length ? draft.rows : [emptyRow()];
+    let nextName = draft?.customerName ?? "";
     if (draft) {
-      setCustomerName(draft.customerName ?? "");
       setCustomerPhone(draft.customerPhone ?? "");
       setCustomerEmail(draft.customerEmail ?? "");
       setQuoteDate(draft.quoteDate || todayIso());
-      setRows(draft.rows && draft.rows.length ? draft.rows : [emptyRow()]);
     }
+
+    const handoff = loadDraft<QuoteHandoffOrder[]>(QUOTE_HANDOFF_KEY);
+    if (handoff?.length) {
+      const have = new Set(nextRows.map((r) => r.orderId).filter((id) => id !== null));
+      const toAdd = handoff.filter((o) => !have.has(o.id)).map(orderToRow);
+      nextRows = [...nextRows.filter((r) => r.label.trim() || r.diaChi.trim() || r.orderId), ...toAdd];
+      const names = new Set(handoff.map((o) => (o.recipient_name || "").trim()).filter(Boolean));
+      if (!nextName.trim() && names.size === 1) nextName = [...names][0];
+      clearDraft(QUOTE_HANDOFF_KEY);
+    }
+
+    setCustomerName(nextName);
+    setRows(nextRows);
     setDraftLoaded(true);
   }, []);
 
@@ -215,6 +241,29 @@ export default function DbnForm() {
       }
       setCreated({ id: json.id, dbnCode: json.dbnCode, customerName: customerName.trim() });
       clearDraft(DRAFT_KEY);
+
+      if (writeAmounts) {
+        const payable = validRows.filter((r) => r.orderId !== null && Number(r.thanhTien) > 0);
+        let ok = 0;
+        for (const r of payable) {
+          try {
+            const put = await fetch(`/api/admin/orders/${r.orderId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ amount: Number(r.thanhTien) }),
+            });
+            if (put.ok) ok++;
+          } catch {
+            // đếm là thất bại, báo ở thông báo kết quả
+          }
+        }
+        setAmountsResult(
+          payable.length === 0
+            ? "Không có dòng nào gắn với đơn hàng để ghi vào cột Thu."
+            : `Đã ghi Thu cho ${ok}/${payable.length} đơn.`
+        );
+        router.refresh();
+      }
     } finally {
       setSaving(false);
     }
@@ -246,6 +295,7 @@ export default function DbnForm() {
 
   function startNew() {
     setCreated(null);
+    setAmountsResult("");
     setCustomerName("");
     setCustomerPhone("");
     setCustomerEmail("");
@@ -262,6 +312,18 @@ export default function DbnForm() {
           <p className="text-sm font-semibold text-navy-900">
             Đã tạo DBN #{created.dbnCode} cho {created.customerName}
           </p>
+          {amountsResult && (
+            <p className="mt-1 text-xs text-ink/65">
+              {amountsResult}{" "}
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="font-medium text-flame-700 underline decoration-dotted"
+              >
+                Tải lại trang để thấy số mới
+              </button>
+            </p>
+          )}
           <div className="mt-3 flex gap-2">
             <button
               type="button"
@@ -571,6 +633,19 @@ export default function DbnForm() {
         <p className="mt-3 text-right text-sm font-semibold text-navy-900">TỔNG CỘNG: {money(total)}đ</p>
 
         {error && <p className="mt-3 text-xs font-medium text-flame-700">{error}</p>}
+
+        <label className="mt-4 flex cursor-pointer items-start gap-2 text-xs text-ink/70">
+          <input
+            type="checkbox"
+            checked={writeAmounts}
+            onChange={(e) => setWriteAmounts(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-line text-flame-600 focus:ring-flame-400"
+          />
+          <span>
+            Ghi &quot;Thành tiền&quot; từng dòng vào cột <b>Thu</b> của đơn tương ứng (Kế toán) — ghi đè Thu hiện tại,
+            hoàn tác được ở Lịch sử sửa đơn. Chỉ áp dụng cho dòng chọn từ đơn có sẵn.
+          </span>
+        </label>
 
         <div className="mt-4 flex gap-2">
           <button type="button" onClick={submit} disabled={saving} className="btn-primary !px-5 !py-2.5 text-sm disabled:opacity-50">
