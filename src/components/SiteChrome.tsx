@@ -12,9 +12,7 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const isBareLayout = pathname?.startsWith("/admin") || pathname?.startsWith("/ctv");
 
-  // Admin/CTV giữ nguyên giao diện cũ (font Be Vietnam Pro, nền/chữ cũ) — lớp
-  // admin-scope ánh xạ lại biến font và màu nền cho vùng này.
-  if (isBareLayout) return <div className="admin-scope min-h-screen bg-paper font-body text-ink">{children}</div>;
+  if (isBareLayout) return <>{children}</>;
 
   return (
     <>
