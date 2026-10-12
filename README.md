@@ -517,11 +517,11 @@ npx tsx scripts/resync-accounting-sheet.ts           # chạy thử, chỉ in k�
 npx tsx scripts/resync-accounting-sheet.ts --apply   # ghi lại tab Kế toán theo header mới (có sao lưu)
 ```
 
-## Cache trạng thái vận chuyển (cron mỗi ngày)
+## Cache trạng thái vận chuyển (cron mỗi giờ)
 
 Trang tra cứu công khai và cột "Vận chuyển" ở admin đọc trạng thái từ bảng
 `order_tracking_cache` thay vì gọi Kango mỗi lượt (Kango có lúc treo 20s+).
-Mỗi ngày 1 lần, cron gọi Kango cho các đơn **trong 30 ngày gần nhất chưa
+Mỗi giờ 1 lần, cron gọi Kango cho các đơn **trong 30 ngày gần nhất chưa
 giao/hoàn** rồi ghi vào bảng; đơn đã giao/hoàn không bị gọi lại. Đơn chưa có
 cache (mới tạo) vẫn tra được — trang tra cứu gọi live rồi tự ghi cache.
 
@@ -547,8 +547,9 @@ cron (chế độ "Node.js" của hPanel không dùng được vì thư mục tr
 curl -s -i -X POST -H "x-cron-secret: $(grep '^CRON_SECRET=' /home/<user>/domains/falcoexpress.com/hbuilds/config/.env | cut -d= -f2- | tr -d "\"'\r")" https://falcoexpress.com/api/cron/refresh-tracking
 ```
 
-Chỉ đơn có bản cache cũ hơn 20h mới được làm mới (mỗi đơn ~1 lượt gọi Kango/ngày),
-nên chạy mỗi giờ hầu hết các lượt không làm gì. Xem kết quả: nút "Xem đầu ra"
+Mỗi giờ, đơn chưa giao có bản cache cũ hơn 50 phút được làm mới (~20–40 lượt gọi
+Kango/giờ, mất 1–3 phút; đơn đã giao/hoàn không bị gọi lại). Kango lỗi liên tiếp 5
+lần thì lượt đó dừng, giờ sau thử lại. Xem kết quả: nút "Xem đầu ra"
 của job (dòng `HTTP/2 202` là thành công, `401` là sai secret).
 
 Route trả 202 ngay và chạy nền (tối đa ~8 phút, 3 luồng song song). Thêm

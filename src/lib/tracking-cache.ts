@@ -140,9 +140,10 @@ export async function refreshTrackingCache(opts?: {
   const windowDays = opts?.windowDays ?? 30;
   const concurrency = opts?.concurrency ?? 3;
   const budgetMs = opts?.budgetMs ?? 8 * 60 * 1000;
-  // Chỉ làm mới bản cache đã quá 20h — gọi lại endpoint nhiều lần trong ngày
-  // (hoặc lượt trước hết ngân sách giữa chừng) thì chỉ xử lý phần còn lại.
-  const staleAfterMs = opts?.staleAfterMs ?? 20 * 60 * 60 * 1000;
+  // Cron gọi mỗi giờ: chỉ làm mới bản cache đã quá 50 phút, nên mỗi đơn chưa
+  // giao được cập nhật khoảng mỗi giờ 1 lần, và gọi chồng/gọi thừa thì chỉ
+  // xử lý phần còn lại (hoặc không làm gì).
+  const staleAfterMs = opts?.staleAfterMs ?? 50 * 60 * 1000;
   const startedAt = Date.now();
 
   const candidates = await listOrdersNeedingTrackingRefresh(
@@ -153,16 +154,26 @@ export async function refreshTrackingCache(opts?: {
   let next = 0;
   let refreshed = 0;
   let failed = 0;
+  // Kango lỗi/treo liên tiếp (sự cố hoặc bị giới hạn tần suất) thì dừng cả
+  // lượt thay vì tiếp tục dồn request; lượt sau (1 giờ nữa) sẽ thử lại.
+  const MAX_CONSECUTIVE_FAILURES = 5;
+  let consecutiveFailures = 0;
 
   async function worker() {
-    while (next < candidates.length && Date.now() - startedAt < budgetMs) {
+    while (
+      next < candidates.length &&
+      Date.now() - startedAt < budgetMs &&
+      consecutiveFailures < MAX_CONSECUTIVE_FAILURES
+    ) {
       const order = candidates[next++];
       try {
         const kango = await fetchKangoTracking(order.awb);
         await saveKangoToCache(order, kango);
         refreshed++;
+        consecutiveFailures = 0;
       } catch (err) {
         failed++;
+        consecutiveFailures++;
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[tracking-cache] Lỗi làm mới đơn ${order.id} (${order.awb}):`, message);
         await markTrackingCacheError(order.id, message).catch(() => {});
