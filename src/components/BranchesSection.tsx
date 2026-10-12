@@ -4,36 +4,32 @@ import { ClockIcon, MapPinIcon, PhoneIcon } from "@/components/icons";
 
 export default function BranchesSection() {
   return (
-    <section className="section">
-      <div className="container-page">
+    <section className="lp-section">
+      <div className="lp-container">
         <Reveal>
-          <span className="eyebrow">Hệ thống chi nhánh</span>
-          <h2 className="mt-4 max-w-lg text-3xl font-extrabold leading-tight tracking-tight text-navy-900 sm:text-4xl">
-            Có mặt tại 3 khu vực trọng điểm
-          </h2>
+          <p className="lp-eyebrow">Hệ thống chi nhánh</p>
+          <h2 className="lp-h2 mt-2.5 max-w-lg">Có mặt tại 3 khu vực trọng điểm</h2>
         </Reveal>
 
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
+        <div className="mt-8 grid gap-4 sm:mt-10 md:grid-cols-3 md:gap-6">
           {BRANCHES.map((branch, i) => (
             <Reveal key={branch.code} delay={i * 0.08}>
-              <div className="card h-full p-6">
-                <span className="inline-flex items-center gap-2 rounded-full bg-navy-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-navy-700">
+              <div className="h-full border border-falco-border border-t-[3px] border-t-falco-accent bg-white p-6">
+                <span className="inline-block bg-falco-navy px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-white">
                   {branch.code}
                 </span>
-                <h3 className="mt-4 text-lg font-bold text-navy-900">
-                  {branch.name}
-                </h3>
-                <p className="mt-3 flex items-start gap-2.5 text-sm text-ink/60">
-                  <MapPinIcon className="mt-0.5 h-4 w-4 shrink-0 text-flame-500" />
+                <h3 className="mt-4 text-lg font-bold text-falco-navy">{branch.name}</h3>
+                <p className="mt-3 flex items-start gap-2.5 text-[15px] text-falco-muted">
+                  <MapPinIcon className="mt-0.5 h-4 w-4 shrink-0 text-falco-accent" />
                   {branch.address}
                 </p>
-                <p className="mt-2 flex items-start gap-2.5 text-sm text-ink/60">
-                  <ClockIcon className="mt-0.5 h-4 w-4 shrink-0 text-flame-500" />
+                <p className="mt-2 flex items-start gap-2.5 text-[15px] text-falco-muted">
+                  <ClockIcon className="mt-0.5 h-4 w-4 shrink-0 text-falco-accent" />
                   Thứ 2 – Thứ 7: 8:00 – 18:00
                 </p>
                 <a
                   href={SITE.hotlineHref}
-                  className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-flame-600 hover:text-flame-700"
+                  className="mt-4 inline-flex items-center gap-2 text-[15px] font-bold text-falco-accent hover:underline"
                 >
                   <PhoneIcon className="h-4 w-4" />
                   {SITE.hotline}

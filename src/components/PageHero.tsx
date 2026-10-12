@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Reveal from "@/components/Reveal";
 
 export default function PageHero({
@@ -10,26 +11,26 @@ export default function PageHero({
   description?: string;
 }) {
   return (
-    <section className="relative overflow-hidden bg-navy-gradient py-16 sm:py-20">
+    <section className="relative isolate overflow-hidden bg-falco-navy-dark text-white">
+      <Image
+        src="/images/landing/hero-port.webp"
+        alt=""
+        fill
+        sizes="100vw"
+        className="-z-20 object-cover"
+      />
       <div
-        className="absolute inset-0 opacity-[0.1]"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 1px)",
-          backgroundSize: "22px 22px",
-        }}
+        className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(11,18,32,0.92)_0%,rgba(11,18,32,0.72)_55%,rgba(11,18,32,0.4)_100%)]"
         aria-hidden
       />
-      <div className="container-page relative">
+      <div className="lp-container py-14 sm:py-[72px] lg:py-24">
         <Reveal>
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-flame-400">
-            {eyebrow}
-          </span>
-          <h1 className="mt-4 max-w-2xl text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl lg:text-5xl">
+          <p className="lp-eyebrow lp-eyebrow-soft lp-eyebrow-line">{eyebrow}</p>
+          <h1 className="mt-4 max-w-3xl text-[30px] font-extrabold leading-[1.12] tracking-[-0.02em] sm:text-5xl lg:text-[52px]">
             {title}
           </h1>
           {description && (
-            <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70 sm:text-base">
+            <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-[#dce2ec] sm:text-lg">
               {description}
             </p>
           )}

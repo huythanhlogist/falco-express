@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 
 import { ZALO_HREF } from "@/lib/landing-content";
 
@@ -44,12 +43,14 @@ export default function Hero() {
               <span className="sm:hidden">Nhắn Zalo báo giá</span>
               <span className="hidden sm:inline">Nhắn Zalo báo giá →</span>
             </a>
-            <Link
-              href="#tuyen-pho-bien"
+            <a
+              href={ZALO_HREF}
+              target="_blank"
+              rel="noopener noreferrer"
               className="lp-btn-white min-h-[52px] text-sm uppercase tracking-wide sm:px-7 sm:text-base sm:normal-case sm:tracking-normal"
             >
               Xem bảng giá
-            </Link>
+            </a>
           </div>
 
           <ul className="hidden flex-wrap gap-x-[26px] gap-y-2.5 text-[15px] text-[#e6eaf1] sm:flex">

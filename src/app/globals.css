@@ -102,6 +102,127 @@
   }
 }
 
+/* Vùng nội dung công khai (<main class="lp-theme">): các trang trong (dịch vụ,
+   giới thiệu, liên hệ, blog, tra cứu, trang tuyến) vẫn dùng class cũ (.btn*, .card,
+   .eyebrow, rounded-*, gradient cam) — ép sang concept mới: góc vuông, màu đặc,
+   accent đỏ. Admin/CTV không nằm trong SiteChrome nên không bị ảnh hưởng. */
+.lp-theme [class*="rounded"],
+.lp-theme .card,
+.lp-theme .btn,
+.lp-theme .btn-primary,
+.lp-theme .btn-outline,
+.lp-theme .btn-ghost-light,
+.lp-theme .eyebrow,
+.lp-theme input,
+.lp-theme textarea,
+.lp-theme select,
+.lp-theme button {
+  border-radius: 0 !important;
+}
+.lp-theme .bg-falco-gradient,
+.lp-theme .bg-falco-gradient-diag {
+  background-image: none;
+  background-color: #d92a0a;
+}
+.lp-theme .bg-navy-gradient {
+  background-image: none;
+  background-color: #132440;
+}
+.lp-theme .bg-clip-text {
+  background-image: none;
+  color: #d92a0a;
+  -webkit-text-fill-color: currentColor;
+}
+/* Bỏ lớp chấm trang trí (radial-gradient) trên các khối hero cũ */
+.lp-theme div[style*="radial-gradient"] {
+  display: none;
+}
+.lp-theme .shadow-brand,
+.lp-theme .shadow-card,
+.lp-theme .shadow-lg,
+.lp-theme .shadow-2xl {
+  box-shadow: none;
+}
+.lp-theme .btn {
+  min-height: 48px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 700;
+}
+.lp-theme .btn-primary {
+  background: #d92a0a;
+  color: #fff;
+  box-shadow: none;
+  filter: none;
+}
+.lp-theme .btn-primary:hover {
+  background: #b82208;
+  filter: none;
+  box-shadow: none;
+}
+.lp-theme .btn-outline {
+  border: 1px solid #132440;
+  background: #fff;
+  color: #132440;
+}
+.lp-theme .btn-outline:hover {
+  background: #f4f5f8;
+}
+.lp-theme .btn-ghost-light {
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: transparent;
+  backdrop-filter: none;
+}
+.lp-theme .card {
+  border: 1px solid #e8ebf0;
+  box-shadow: none;
+}
+.lp-theme .card:hover {
+  box-shadow: 0 20px 50px rgba(19, 36, 64, 0.14);
+}
+.lp-theme .eyebrow {
+  background: none;
+  padding: 0;
+  color: #d92a0a;
+  font-size: 0.8125rem;
+  letter-spacing: 0.12em;
+}
+.lp-theme .section {
+  padding-top: 3.5rem;
+  padding-bottom: 3.5rem;
+}
+@media (min-width: 1024px) {
+  .lp-theme .section {
+    padding-top: 6.25rem;
+    padding-bottom: 6.25rem;
+  }
+}
+.lp-theme .section.pt-0 {
+  padding-top: 0;
+}
+.lp-theme .bg-mist {
+  background-color: #f4f5f8;
+}
+.lp-theme .text-flame-400 {
+  color: #ff9a3d;
+}
+.lp-theme .text-flame-500,
+.lp-theme .text-flame-600,
+.lp-theme .text-flame-700 {
+  color: #d92a0a;
+}
+.lp-theme .bg-flame-50,
+.lp-theme .bg-flame-100 {
+  background-color: #fdecea;
+}
+.lp-theme .bg-flame-500,
+.lp-theme .bg-flame-600 {
+  background-color: #d92a0a;
+}
+.lp-theme .text-navy-900,
+.lp-theme .text-navy-800 {
+  color: #132440;
+}
+
 /* Mobile đã có thanh liên hệ dính đáy (Gọi ngay / Zalo báo giá) nên ẩn bong bóng
    chat Zalo OA tự gắn của SDK (nó cố định sát đáy, đè lên thanh). */
 @media (max-width: 767px) {

@@ -24,7 +24,7 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
       </a>
       <TopBar />
       <Header />
-      <main id="main" className="flex-1">
+      <main id="main" className="lp-theme flex-1">
         {children}
       </main>
       <Footer />
