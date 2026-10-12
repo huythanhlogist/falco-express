@@ -490,6 +490,36 @@ chạy 1 lần:
 npx tsx scripts/alter-orders-add-chi-source-invoice.ts
 ```
 
+## Cache trạng thái vận chuyển (cron mỗi ngày)
+
+Trang tra cứu công khai và cột "Vận chuyển" ở admin đọc trạng thái từ bảng
+`order_tracking_cache` thay vì gọi Kango mỗi lượt (Kango có lúc treo 20s+).
+Mỗi ngày 1 lần, cron gọi Kango cho các đơn **trong 30 ngày gần nhất chưa
+giao/hoàn** rồi ghi vào bảng; đơn đã giao/hoàn không bị gọi lại. Đơn chưa có
+cache (mới tạo) vẫn tra được — trang tra cứu gọi live rồi tự ghi cache.
+
+Trạng thái (`mapKangoStatus` trong `src/lib/shipment-status.ts`): Đã nhập,
+Đang vận chuyển, Thông quan, Đã giao, Hoàn trả — quy từ câu sự kiện mới nhất
+của Kango (Kango không có mã trạng thái chuẩn, `status_class` hay lỗi thời).
+Text gốc luôn lưu ở `current_status`.
+
+Cần chạy 1 lần để tạo bảng:
+
+```bash
+npx tsx scripts/setup-tracking-cache-table.ts
+```
+
+Biến môi trường `CRON_SECRET` (chuỗi ngẫu nhiên dài, chỉ đặt trên server, đừng
+commit): bảo vệ route `POST /api/cron/refresh-tracking`. Đặt lịch trong hPanel
+→ Nâng cao → Cron Jobs, mỗi ngày 1 lần (vd 02:00):
+
+```bash
+curl -s -X POST -H "x-cron-secret: <CRON_SECRET>" https://falcoexpress.com/api/cron/refresh-tracking
+```
+
+Route trả 202 ngay và chạy nền (tối đa ~8 phút, 3 luồng song song). Thêm
+`?wait=1` để chạy xong mới trả kết quả (dùng khi chạy tay/backfill lần đầu).
+
 ## Build production
 
 ```bash
@@ -527,7 +557,8 @@ Hostinger mà không cần cài lại `node_modules` đầy đủ trên server.
    `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` (xem mục "Tra cứu vận đơn:
    MySQL + API Kango"), `ADMIN_SESSION_SECRET` (xem mục "Trang quản trị
    (admin)"), `CTV_SESSION_SECRET` (xem mục "Tài khoản CTV"),
-   `KANGO_CREATE_BILL_API_URL`, `AGENT_API_KEY` (xem mục "Tạo bill").
+   `KANGO_CREATE_BILL_API_URL`, `AGENT_API_KEY` (xem mục "Tạo bill"),
+   `CRON_SECRET` (xem mục "Cache trạng thái vận chuyển").
 6. **Khởi động ứng dụng**: dùng nút Restart trong hPanel Node.js, hoặc trỏ
    startup file tới `server.js` dưới đây nếu Hostinger yêu cầu một entry
    point cố định:

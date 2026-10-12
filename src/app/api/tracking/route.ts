@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
-import { findOrderByFalcoCode } from "@/lib/db";
+import { findOrderByFalcoCode, getTrackingCache } from "@/lib/db";
 import { fetchKangoTracking } from "@/lib/kango";
+import {
+  buildTrackingData,
+  isTrackingCacheFresh,
+  parseCachedKango,
+  saveKangoToCache,
+} from "@/lib/tracking-cache";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -16,72 +22,44 @@ export async function GET(request: Request) {
       return NextResponse.json({ found: false, data: null });
     }
 
+    // Đọc từ DB trước — cron mỗi ngày đã làm mới trạng thái từ Kango, nên
+    // hầu hết lượt tra trả về tức thì thay vì chờ Kango (có lúc treo 20s+).
+    const cached = await getTrackingCache(order.id, order.awb).catch((err) => {
+      console.error("[tracking] Không đọc được cache:", err);
+      return null;
+    });
+    if (cached && isTrackingCacheFresh(cached)) {
+      return NextResponse.json({
+        found: true,
+        data: buildTrackingData(order, parseCachedKango(cached)),
+      });
+    }
+
     let kango;
     try {
       kango = await fetchKangoTracking(order.awb);
     } catch (kangoErr) {
       // Đơn có thật trong hệ thống Falco — nếu chỉ riêng đối tác Kango
       // đang chậm/lỗi (đã quan sát thực tế: Kango thỉnh thoảng treo
-      // request), vẫn nên trả về thông tin cơ bản thay vì báo lỗi trắng,
-      // để khách không hiểu nhầm là mã tra cứu sai.
-      console.error("[tracking] Kango lỗi, trả về thông tin cơ bản:", kangoErr);
-      kango = null;
-    }
-    if (!kango) {
-      // Đơn có trong hệ thống Falco nhưng Kango chưa có dữ liệu (đơn quá
-      // mới, chưa được quét lần đầu) — vẫn trả về thông tin cơ bản.
+      // request), vẫn nên trả về dữ liệu cũ trong cache (nếu có) hoặc thông
+      // tin cơ bản thay vì báo lỗi trắng, để khách không hiểu nhầm là mã
+      // tra cứu sai.
+      console.error("[tracking] Kango lỗi, dùng cache cũ/thông tin cơ bản:", kangoErr);
       return NextResponse.json({
         found: true,
-        data: {
-          falcoCode: order.falco_code,
-          awb: order.awb,
-          recipientName: order.recipient_name || "",
-          service: order.service || "",
-          destination: order.destination || "",
-          currentStatus: "Đã tiếp nhận, đang chờ cập nhật từ đối tác vận chuyển",
-          steps: [],
-          parcels: [],
-          lastMileCarrier: "",
-          lastMileWebsite: "",
-          contactInformation: "",
-          ksnPostUrl: `https://www.ksnpost.com/?code=${encodeURIComponent(order.awb)}`,
-        },
+        data: buildTrackingData(order, cached ? parseCachedKango(cached) : null),
       });
     }
 
-    const currentParcel =
-      kango.shipment_information.order_numbers.find((p) => p.is_current) ??
-      kango.shipment_information.order_numbers[0];
+    if (kango) {
+      // Ghi ngược vào cache để các lượt tra sau (và cột trạng thái ở admin)
+      // nhanh, kể cả với đơn mới chưa tới lượt cron.
+      await saveKangoToCache(order, kango).catch((err) =>
+        console.error("[tracking] Không ghi được cache:", err)
+      );
+    }
 
-    const data = {
-      falcoCode: order.falco_code,
-      awb: order.awb,
-      recipientName: order.recipient_name || "",
-      service: kango.additional_notes.service || order.service || "",
-      destination: kango.additional_notes.country || order.destination || "",
-      // Ưu tiên tiêu đề mốc thời gian mới nhất (trackings[0]) thay vì
-      // currentParcel.status — trường status của Kango có thể chưa đồng bộ
-      // kịp (vd vẫn ghi "In Transit" dù mốc mới nhất đã là "delivered"),
-      // trong khi trackings[0] luôn khớp với mốc đầu tiên hiển thị bên dưới.
-      currentStatus: kango.trackings[0]?.title || currentParcel?.status || "Chưa cập nhật",
-      steps: kango.trackings.map((t) => ({
-        title: t.title,
-        time: t.time,
-        location: t.location,
-      })),
-      parcels: kango.shipment_information.order_numbers.map((p) => ({
-        hawb: p.package_hawb_code,
-        trackingCode: p.package_tracking_code,
-        status: p.status,
-        trackingUrl: p.tracking_url,
-      })),
-      lastMileCarrier: kango.additional_notes.last_mile || "",
-      lastMileWebsite: kango.additional_notes.last_mile_website || "",
-      contactInformation: kango.additional_notes.contact_information || "",
-      ksnPostUrl: `https://www.ksnpost.com/?code=${encodeURIComponent(order.awb)}`,
-    };
-
-    return NextResponse.json({ found: true, data });
+    return NextResponse.json({ found: true, data: buildTrackingData(order, kango) });
   } catch (err) {
     console.error("[tracking] Lỗi tra cứu:", err);
     return NextResponse.json(

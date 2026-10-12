@@ -7,6 +7,7 @@ import CopyOrderInfoButton from "@/components/admin/CopyOrderInfoButton";
 import CtvOrderReviewActions from "@/components/admin/CtvOrderReviewActions";
 import { CopyIcon, CheckIcon } from "@/components/icons";
 import type { OrderListItem } from "@/lib/db";
+import { shipmentStatusClassName, shipmentStatusLabel } from "@/lib/shipment-status";
 
 async function copyText(text: string): Promise<void> {
   try {
@@ -89,7 +90,7 @@ export default function OrdersTable({ orders }: { orders: OrderListItem[] }) {
       )}
 
       <div className="overflow-x-auto rounded-xl border border-line bg-white">
-        <table className="w-full min-w-[1280px] text-sm">
+        <table className="w-full min-w-[1400px] text-sm">
           <thead>
             <tr className="border-b border-line bg-mist/60 text-left text-xs font-semibold uppercase tracking-wide text-ink/45">
               <th className="w-9 px-3 py-2">
@@ -108,6 +109,7 @@ export default function OrdersTable({ orders }: { orders: OrderListItem[] }) {
               <th className="px-3 py-2">Điểm đến</th>
               <th className="px-3 py-2">Kiện</th>
               <th className="px-3 py-2">Ngày nhận</th>
+              <th className="px-3 py-2">Vận chuyển</th>
               <th className="px-3 py-2">Nguồn</th>
               <th className="px-3 py-2">Trạng thái thu</th>
               <th className="px-3 py-2" />
@@ -145,6 +147,22 @@ export default function OrdersTable({ orders }: { orders: OrderListItem[] }) {
                       : "—"}
                   </td>
                   <td className="px-3 py-2">
+                    {o.shipment_status ? (
+                      <span
+                        title={`${o.shipment_current ?? ""}${
+                          o.shipment_fetched_at
+                            ? `\nCập nhật: ${new Date(o.shipment_fetched_at).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}`
+                            : ""
+                        }`}
+                        className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${shipmentStatusClassName(o.shipment_status)}`}
+                      >
+                        {shipmentStatusLabel(o.shipment_status)}
+                      </span>
+                    ) : (
+                      <span className="text-ink/30">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
                     <CtvOrderReviewActions orderId={o.id} reviewStatus={o.review_status} ctvCode={o.ctv_code} />
                   </td>
                   <td className="px-3 py-2">
@@ -161,7 +179,7 @@ export default function OrdersTable({ orders }: { orders: OrderListItem[] }) {
             })}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={12} className="px-5 py-10 text-center text-ink/45">
+                <td colSpan={13} className="px-5 py-10 text-center text-ink/45">
                   Không tìm thấy đơn hàng nào.
                 </td>
               </tr>

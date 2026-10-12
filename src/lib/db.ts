@@ -1,6 +1,7 @@
 import mysql from "mysql2/promise";
 import dns from "node:dns";
 import type { ParsedCategory } from "./price-quote-import";
+import type { ShipmentStatus } from "./shipment-status";
 
 // Máy dev nối DB_HOST dạng tên miền WAN (vd đang phát triển từ máy cá nhân)
 // có lúc bị resolve ra địa chỉ IPv6 không nằm trong danh sách IP được phép
@@ -972,6 +973,9 @@ export type OrderListItem = OrderRecord & {
   tracking_codes: string | null; // các mã tracking nối bằng dấu "," — dùng cho nút copy gửi khách
   ctv_code: string | null;
   ctv_full_name: string | null;
+  shipment_status: ShipmentStatus | null; // null = chưa có bản cache tracking
+  shipment_current: string | null;
+  shipment_fetched_at: number | null;
 };
 
 export async function listOrders(params: {
@@ -1029,10 +1033,13 @@ export async function listOrders(params: {
   const [rows] = await getPool().query(
     `SELECT o.*, COUNT(p.id) AS parcel_count,
        GROUP_CONCAT(p.tracking_code ORDER BY p.id SEPARATOR ',') AS tracking_codes,
-       c.ctv_code AS ctv_code, c.full_name AS ctv_full_name
+       c.ctv_code AS ctv_code, c.full_name AS ctv_full_name,
+       tc.shipment_status AS shipment_status, tc.current_status AS shipment_current,
+       tc.fetched_at AS shipment_fetched_at
      FROM orders o
      LEFT JOIN order_parcels p ON p.order_id = o.id
      LEFT JOIN ctv_users c ON c.id = o.ctv_id
+     LEFT JOIN order_tracking_cache tc ON tc.order_id = o.id AND tc.awb = o.awb
      ${where}
      GROUP BY o.id
      ORDER BY o.received_date DESC, o.id DESC
@@ -1096,6 +1103,82 @@ export async function listOrders(params: {
     unpaidCount,
     pendingReviewCount,
   };
+}
+
+// ---------- Cache trạng thái tracking (xem scripts/setup-tracking-cache-table.ts) ----------
+
+export type TrackingCacheRow = {
+  order_id: number;
+  awb: string;
+  shipment_status: ShipmentStatus;
+  current_status: string | null;
+  payload: string | null; // JSON gốc của Kango; null = Kango chưa có dữ liệu cho đơn này
+  fetched_at: number; // epoch ms
+  last_error: string | null;
+};
+
+export async function getTrackingCache(orderId: number, awb: string): Promise<TrackingCacheRow | null> {
+  const [rows] = await getPool().query(
+    "SELECT * FROM order_tracking_cache WHERE order_id = ? AND awb = ? LIMIT 1",
+    [orderId, awb]
+  );
+  return (rows as TrackingCacheRow[])[0] ?? null;
+}
+
+export async function upsertTrackingCache(entry: {
+  orderId: number;
+  awb: string;
+  status: ShipmentStatus;
+  currentStatus: string | null;
+  payload: string | null;
+}): Promise<void> {
+  await getPool().query(
+    `INSERT INTO order_tracking_cache (order_id, awb, shipment_status, current_status, payload, fetched_at, last_error)
+     VALUES (?, ?, ?, ?, ?, ?, NULL)
+     ON DUPLICATE KEY UPDATE awb = VALUES(awb), shipment_status = VALUES(shipment_status),
+       current_status = VALUES(current_status), payload = VALUES(payload),
+       fetched_at = VALUES(fetched_at), last_error = NULL`,
+    [
+      entry.orderId,
+      entry.awb,
+      entry.status,
+      entry.currentStatus ? entry.currentStatus.slice(0, 255) : null,
+      entry.payload,
+      Date.now(),
+    ]
+  );
+}
+
+// Lỗi gọi Kango: giữ nguyên bản cache cũ (kể cả fetched_at, để biết nó cũ cỡ nào), chỉ ghi lý do.
+export async function markTrackingCacheError(orderId: number, message: string): Promise<void> {
+  await getPool().query("UPDATE order_tracking_cache SET last_error = ? WHERE order_id = ?", [
+    message.slice(0, 255),
+    orderId,
+  ]);
+}
+
+/**
+ * Đơn cần làm mới tracking: đã duyệt, nằm trong cửa sổ `sinceDate` ngày gần
+ * nhất, và chưa có cache hoặc chưa ở trạng thái cuối (đã giao/hoàn). Đơn chưa
+ * từng có cache đi trước, sau đó tới bản cache cũ nhất — để lần chạy sau tiếp
+ * tục đúng chỗ nếu lần trước hết ngân sách thời gian.
+ */
+export async function listOrdersNeedingTrackingRefresh(
+  sinceDate: string, // "YYYY-MM-DD"
+  limit: number
+): Promise<{ id: number; awb: string }[]> {
+  const [rows] = await getPool().query(
+    `SELECT o.id, o.awb
+     FROM orders o
+     LEFT JOIN order_tracking_cache tc ON tc.order_id = o.id AND tc.awb = o.awb
+     WHERE o.review_status IN ('auto_approved', 'approved')
+       AND COALESCE(o.received_date, DATE(o.created_at)) >= ?
+       AND (tc.order_id IS NULL OR tc.shipment_status NOT IN ('delivered', 'returned'))
+     ORDER BY (tc.order_id IS NULL) DESC, tc.fetched_at ASC
+     LIMIT ?`,
+    [sinceDate, limit]
+  );
+  return rows as { id: number; awb: string }[];
 }
 
 export async function updatePaymentStatus(
