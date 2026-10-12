@@ -327,6 +327,100 @@ export const BLOG_POSTS: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "chuyen-do-ca-nhan-dinh-cu-chau-au-anh-ho-so-can-chuan-bi",
+    title:
+      "Chuyển đồ cá nhân sang châu Âu, Anh khi định cư dài hạn: khác gửi quà ngắn hạn thế nào, cần hồ sơ gì?",
+    metaTitle: "Chuyển đồ cá nhân khi định cư châu Âu, Anh | Falco Express",
+    metaDescription:
+      "Định cư dài hạn ở Đức, Pháp, Hà Lan, Séc, Ba Lan hoặc Anh có thể được miễn thuế nhập khẩu đồ dùng cá nhân mang theo, nhưng cần đúng điều kiện và hồ sơ. Xem checklist cụ thể trước khi đóng gói.",
+    excerpt:
+      "Khác với gửi quà hay gửi đồ ngắn hạn, chuyển đồ cá nhân khi định cư dài hạn có một loại miễn thuế riêng (Transfer of Residence) — nhưng chỉ áp dụng nếu đúng điều kiện và có đủ hồ sơ từ trước.",
+    publishedAt: "2026-10-12",
+    content: [
+      {
+        type: "p",
+        text: "Các bài viết trước của Falco Express chủ yếu nói về gửi quà, gửi đồ ăn, đồ dùng ngắn hạn cho người thân, du học sinh đang sống ở nước ngoài. Nhưng có một nhóm khách hàng khác hẳn: những người chuẩn bị định cư dài hạn — đoàn tụ gia đình, chuyển diện cư trú, ở lại làm việc lâu dài sau khi tốt nghiệp — cần chuyển cả một phần đồ đạc cá nhân, không chỉ vài món quà. Đây là nhóm hàng có quy định thuế quan khác hẳn, và nếu chuẩn bị đúng cách có thể được miễn phần lớn thuế nhập khẩu.",
+      },
+      {
+        type: "h2",
+        text: "Vì sao \"chuyển đồ định cư\" khác với \"gửi quà, gửi đồ ngắn hạn\"?",
+      },
+      {
+        type: "p",
+        text: "Gửi quà hay gửi đồ cho người đã ở sẵn nước ngoài áp dụng ngưỡng miễn thuế hàng cá nhân thông thường (đã nêu trong bài viết về DDP và từng trang tuyến riêng) — thường chỉ vài chục euro/bảng Anh mỗi lô hàng. Nhưng khi một người chuyển nơi cư trú thường xuyên từ Việt Nam sang EU hoặc Anh, pháp luật hải quan của cả khối EU và Anh có một chế độ riêng gọi là miễn thuế chuyển nơi cư trú (Transfer of Residence relief), cho phép mang theo đồ dùng cá nhân đã sở hữu từ trước mà không phải nộp thuế nhập khẩu — với điều kiện đúng quy định và có hồ sơ chứng minh.",
+      },
+      {
+        type: "h2",
+        text: "Điều kiện chung tại EU (áp dụng cho Đức, Pháp, Hà Lan, Séc, Ba Lan)",
+      },
+      {
+        type: "p",
+        text: "Theo Quy định (EC) số 1186/2009 của Liên minh châu Âu về miễn thuế hải quan, một người chuyển nơi cư trú thường xuyên từ nước ngoài EU (như Việt Nam) vào EU có thể được miễn thuế nhập khẩu cho đồ dùng cá nhân nếu đáp ứng các điều kiện sau:",
+      },
+      {
+        type: "list",
+        items: [
+          "Đã sở hữu và sử dụng các đồ vật không tiêu hao (đồ nội thất, vật dụng cá nhân...) tối thiểu 6 tháng trước khi rời Việt Nam",
+          "Đã cư trú liên tục ngoài EU tối thiểu 12 tháng trước khi chuyển sang",
+          "Phải khai báo nhập khẩu đồ đạc trong vòng 12 tháng kể từ khi bắt đầu cư trú tại EU — có thể nhập một lần hoặc chia làm nhiều đợt",
+          "Trong 12 tháng sau khi khai báo, không được bán, cho mượn, cho thuê hoặc chuyển nhượng đồ đã miễn thuế nếu chưa thông báo trước cho hải quan — nếu vi phạm sẽ bị truy thu thuế theo mức tại thời điểm đó",
+        ],
+      },
+      {
+        type: "note",
+        text: "Rượu, thuốc lá, phương tiện vận tải dùng cho mục đích thương mại không thuộc diện miễn thuế này. Dụng cụ, thiết bị cá nhân phục vụ nghề nghiệp (ví dụ máy tính, dụng cụ hành nghề) thường vẫn được tính vào diện miễn thuế.",
+      },
+      {
+        type: "h2",
+        text: "Điều kiện riêng tại Anh (UK) — hồ sơ ToR1",
+      },
+      {
+        type: "p",
+        text: "Tại Anh, người chuyển nơi cư trú cần nộp đơn xin miễn thuế chuyển cư trú (Transfer of Residence relief, mẫu ToR1) trực tuyến với Hải quan Anh (HMRC) trước khi hàng được thông quan — có thể nộp trước cả khi hàng được gửi đi. Hồ sơ cần chuẩn bị:",
+      },
+      {
+        type: "list",
+        items: [
+          "Danh sách đồ đạc: liệt kê theo nhóm (ví dụ: sách, bát đĩa, quần áo...), ước lượng số lượng — không cần ghi giá trị hay thương hiệu từng món, không cần chụp ảnh riêng từng món",
+          "Trang hộ chiếu có ảnh của người nộp đơn",
+          "Giấy tờ chứng minh địa chỉ tại Anh trong vòng 3 tháng gần nhất (sao kê ngân hàng, hoá đơn điện nước, hợp đồng thuê/mua nhà) — nếu chưa có địa chỉ cố định, có thể dùng giấy tờ của người sẽ ở cùng hoặc bằng chứng chỗ ở tạm thời",
+          "Giấy tờ chứng minh địa chỉ cũ ở Việt Nam trong vòng 6 tháng gần nhất",
+          "Nếu có mang theo thú cưng: giấy chứng nhận sức khoẻ hoặc hộ chiếu cho từng con vật",
+          "Nếu có mang theo xe: năm sản xuất, hãng, số khung (VIN), biển số, ngày đăng ký, ngày mua",
+        ],
+      },
+      {
+        type: "note",
+        text: "Sau khi đơn ToR1 được chấp thuận, mã thủ tục hải quan tương ứng cần được ghi trên tờ khai nhập khẩu khi hàng tới Anh — phần này đơn vị vận chuyển/khai hải quan sẽ hỗ trợ, người nhận không cần tự làm việc trực tiếp với hải quan nếu đã uỷ quyền.",
+      },
+      {
+        type: "h2",
+        text: "Checklist nên chuẩn bị trước khi liên hệ gửi đồ",
+      },
+      {
+        type: "list",
+        items: [
+          "Xác định chính xác ngày bắt đầu cư trú hợp pháp tại nước đến (ngày nhập cảnh theo diện định cư/đoàn tụ/lao động dài hạn, không phải ngày đi du lịch) — đây là mốc tính thời hạn 12 tháng được nhập đồ miễn thuế",
+          "Lập danh sách đồ đạc muốn chuyển theo nhóm, ước lượng số lượng mỗi nhóm",
+          "Chuẩn bị bản sao hộ chiếu, visa/giấy tờ cư trú, và giấy tờ chứng minh địa chỉ cũ tại Việt Nam, địa chỉ mới tại nước đến (nếu đã có)",
+          "Với đồ đã dùng dưới 6 tháng hoặc mua ngay trước khi chuyển, nên hỏi trước — nhóm này thường không đủ điều kiện miễn thuế theo diện chuyển cư trú",
+        ],
+      },
+      {
+        type: "h2",
+        text: "Falco Express hỗ trợ phần nào trong quy trình này?",
+      },
+      {
+        type: "p",
+        text: "Falco Express hỗ trợ đóng gói, vận chuyển và chuẩn bị chứng từ xuất khẩu phía Việt Nam cho đồ đạc cá nhân khi định cư dài hạn. Vì hồ sơ xin miễn thuế chuyển cư trú (như ToR1 tại Anh) do chính người định cư đứng tên nộp trực tiếp với hải quan nước đến, Falco sẽ tư vấn trước những giấy tờ cần chuẩn bị theo kinh nghiệm thực tế, nhưng không thay mặt khách làm thủ tục pháp lý về cư trú hoặc nộp đơn xin miễn thuế — phần này khách cần tự thực hiện hoặc nhờ đơn vị tư vấn di trú/hải quan chuyên trách.",
+      },
+      {
+        type: "note",
+        text: "Thông tin trong bài tổng hợp từ Quy định (EC) số 1186/2009 của Liên minh châu Âu về miễn thuế hải quan và hướng dẫn ToR1 của Chính phủ Anh (gov.uk, cập nhật 10/2026), mang tính tham khảo chung, không phải tư vấn pháp lý, thuế hay di trú chính thức. Điều kiện cụ thể có thể khác nhau theo từng trường hợp (diện cư trú, quốc gia thành viên EU tiếp nhận...) — hãy liên hệ cơ quan hải quan nước đến hoặc đơn vị tư vấn di trú để được xác nhận chính xác cho trường hợp của bạn trước khi đóng gói. Với phần vận chuyển, nhắn Zalo hoặc gọi hotline Falco Express để được tư vấn cụ thể.",
+      },
+    ],
+  },
 ];
 
 export function getBlogPost(slug: string) {
