@@ -11,7 +11,6 @@ import AccountingOrderList from "@/components/admin/AccountingOrderList";
 import ExpenseManager from "@/components/admin/ExpenseManager";
 import MonthFilterSelect from "@/components/admin/MonthFilterSelect";
 import UploadDbnInvoice from "@/components/admin/UploadDbnInvoice";
-import DbnForm from "@/components/admin/DbnForm";
 import OrderEditHistory from "@/components/admin/OrderEditHistory";
 import { WalletIcon, ClockIcon, PackageCheckIcon } from "@/components/icons";
 
@@ -192,18 +191,7 @@ export default async function KeToanPage({
         </div>
       )}
 
-      <div id="bao-gia" className="mt-8 scroll-mt-6">
-        <h2 className="font-display text-base font-bold text-navy-900">Báo giá thu tiền khách (Debit note)</h2>
-        <p className="mt-0.5 text-sm text-ink/55">
-          Chọn nhiều đơn ở trang Đơn hàng rồi bấm &quot;Tạo báo giá&quot; để điền sẵn vào đây, nhập giá, tạo ảnh gửi
-          khách và ghi tiền vào cột Thu. (Khác với mục &quot;Nhập CHI từ hoá đơn Kango&quot; bên dưới — đó là hoá đơn Kango tính cho Falco.)
-        </p>
-        <div className="mt-3">
-          <DbnForm />
-        </div>
-      </div>
-
-      <div className="mt-8">
+      <div className="mt-6">
         <h2 className="font-display text-base font-bold text-navy-900">Nhập CHI từ hoá đơn Kango (DBN)</h2>
         <p className="mt-0.5 text-sm text-ink/55">
           Upload file "Debit note" Kango gửi — hệ thống khớp theo AWB và điền CHI vào đúng đơn, không cần nhập tay từng ô.

@@ -490,15 +490,16 @@ chạy 1 lần:
 npx tsx scripts/alter-orders-add-chi-source-invoice.ts
 ```
 
-## Tạo báo giá từ nhiều đơn đã chọn
+## Tạo DBN từ nhiều đơn đã chọn
 
 Ở trang Đơn hàng, tick nhiều đơn (lựa chọn được giữ qua phân trang/đổi bộ lọc
-trong cùng tab trình duyệt) rồi bấm "Tạo báo giá (N)": các đơn được chuyển
-(qua sessionStorage, `src/lib/quote-handoff.ts`) sang mục "Báo giá thu tiền
-khách" ở trang Kế toán, nơi nhúng lại form `DbnForm` (cùng form với tab "Tạo
-DBN"). Nhập giá, tạo ảnh gửi khách; ô "Ghi Thành tiền vào cột Thu" (mặc định
-bật) ghi số tiền từng dòng vào `orders.amount` qua `PATCH /api/admin/orders/[id]`
-nên có lịch sử sửa đơn và hoàn tác được.
+trong cùng tab trình duyệt) rồi bấm "Tạo DBN (N)": các đơn được chuyển (qua
+sessionStorage, `src/lib/quote-handoff.ts`) sang tab "Tạo DBN" (`DbnForm`) và
+điền sẵn thành các dòng (tên người nhận, ngày đơn, điểm đến, cân nặng), gộp
+với nháp đang gõ dở (bỏ trùng theo đơn). Nhập giá rồi tạo ảnh gửi khách. Ô "Ghi
+Thành tiền vào cột Thu" (mặc định bật) ghi số tiền từng dòng vào
+`orders.amount` qua `PATCH /api/admin/orders/[id]` nên có lịch sử sửa đơn và
+hoàn tác được.
 
 ## Cột "Ngày thu" ở Kế toán
 

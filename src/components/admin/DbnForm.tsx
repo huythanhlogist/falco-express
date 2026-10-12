@@ -324,14 +324,7 @@ export default function DbnForm() {
           </p>
           {amountsResult && (
             <p className="mt-1 text-xs text-ink/65">
-              {amountsResult}{" "}
-              <button
-                type="button"
-                onClick={() => window.location.reload()}
-                className="font-medium text-flame-700 underline decoration-dotted"
-              >
-                Tải lại trang để thấy số mới
-              </button>
+              {amountsResult}
             </p>
           )}
           <div className="mt-3 flex gap-2">

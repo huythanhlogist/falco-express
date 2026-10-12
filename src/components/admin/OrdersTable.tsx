@@ -82,7 +82,7 @@ export default function OrdersTable({ orders }: { orders: OrderListItem[] }) {
     if (selected.size === 0) return;
     saveDraft(QUOTE_HANDOFF_KEY, [...selected.values()]);
     clearDraft(ORDERS_SELECTION_KEY);
-    router.push("/admin/ke-toan#bao-gia");
+    router.push("/admin/dbn");
   }
 
   async function copySelected() {
@@ -113,7 +113,7 @@ export default function OrdersTable({ orders }: { orders: OrderListItem[] }) {
               onClick={createQuote}
               className="inline-flex items-center gap-1.5 rounded-lg bg-flame-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-flame-700"
             >
-              Tạo báo giá ({selected.size})
+              Tạo DBN ({selected.size})
             </button>
             <button
               type="button"
