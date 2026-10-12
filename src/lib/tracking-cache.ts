@@ -6,6 +6,7 @@ import {
   type TrackingCacheRow,
 } from "./db";
 import { fetchKangoTracking, type KangoTrackingResponse } from "./kango";
+import { resolveLastMile } from "./last-mile";
 import { isFinalShipmentStatus, mapKangoStatus } from "./shipment-status";
 import { vnDateString } from "./vn-date";
 
@@ -39,7 +40,7 @@ export type PublicTrackingData = {
   destination: string;
   currentStatus: string;
   steps: { title: string; time: string; location: string | null }[];
-  parcels: { hawb: string; trackingCode: string; status: string; trackingUrl: string | null }[];
+  parcels: { hawb: string; trackingCode: string; status: string; trackingUrl: string | null; carrier: string }[];
   lastMileCarrier: string;
   lastMileWebsite: string;
   contactInformation: string;
@@ -75,11 +76,29 @@ export function buildTrackingData(
     kango.shipment_information.order_numbers.find((p) => p.is_current) ??
     kango.shipment_information.order_numbers[0];
 
+  const service = kango.additional_notes.service || order.service || "";
+  const parcels = kango.shipment_information.order_numbers
+    .filter((p) => p.package_tracking_code?.trim())
+    .map((p) => {
+      const lastMile = resolveLastMile(p.package_tracking_code, {
+        service,
+        carrier: kango.additional_notes.last_mile,
+        kangoUrl: p.tracking_url,
+      });
+      return {
+        package_hawb_code: p.package_hawb_code,
+        package_tracking_code: p.package_tracking_code.trim(),
+        status: p.status,
+        trackingUrl: lastMile.url,
+        carrier: lastMile.carrier,
+      };
+    });
+
   return {
     falcoCode: order.falco_code,
     awb: order.awb,
     recipientName: order.recipient_name || "",
-    service: kango.additional_notes.service || order.service || "",
+    service,
     destination: kango.additional_notes.country || order.destination || "",
     // Ưu tiên tiêu đề mốc thời gian mới nhất (trackings[0]) thay vì
     // currentParcel.status — trường status của Kango có thể chưa đồng bộ
@@ -91,13 +110,14 @@ export function buildTrackingData(
       time: t.time,
       location: t.location,
     })),
-    parcels: kango.shipment_information.order_numbers.map((p) => ({
+    parcels: parcels.map((p) => ({
       hawb: p.package_hawb_code,
       trackingCode: p.package_tracking_code,
       status: p.status,
-      trackingUrl: p.tracking_url,
+      trackingUrl: p.trackingUrl,
+      carrier: p.carrier,
     })),
-    lastMileCarrier: kango.additional_notes.last_mile || "",
+    lastMileCarrier: kango.additional_notes.last_mile || parcels[0]?.carrier || "",
     lastMileWebsite: kango.additional_notes.last_mile_website || "",
     contactInformation: kango.additional_notes.contact_information || "",
     ksnPostUrl,

@@ -133,6 +133,11 @@
   color: #d92a0a;
   -webkit-text-fill-color: currentColor;
 }
+/* Giữ hình tròn cho các chấm trạng thái (timeline tra cứu). */
+.lp-theme .keep-round {
+  border-radius: 9999px !important;
+}
+
 /* Bỏ lớp chấm trang trí (radial-gradient) trên các khối hero cũ */
 .lp-theme div[style*="radial-gradient"] {
   display: none;

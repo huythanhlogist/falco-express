@@ -23,6 +23,7 @@ type TrackingParcel = {
   trackingCode: string;
   status: string;
   trackingUrl: string | null;
+  carrier: string;
 };
 
 type TrackingResult = {
@@ -232,7 +233,7 @@ export default function TrackingLookup() {
                             />
                           )}
                           <span
-                            className={`z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                            className={`keep-round z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
                               isCurrent ? style.dotCurrent : style.dot
                             }`}
                           >
@@ -254,55 +255,42 @@ export default function TrackingLookup() {
                 </ol>
               )}
 
-              {result.parcels.length > 1 && (
+              {result.parcels.length > 0 && (
                 <div className="mt-7 border-t border-line pt-6">
                   <p className="text-xs font-semibold uppercase tracking-wider text-ink/45">
-                    Chi tiết {result.parcels.length} kiện hàng
+                    Mã vận đơn chặng cuối
+                    {result.parcels.length > 1 ? ` (${result.parcels.length} kiện)` : ""}
                   </p>
                   <div className="mt-3 space-y-2">
                     {result.parcels.map((p, i) => (
                       <div
                         key={p.trackingCode}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-mist px-4 py-2.5 text-sm"
+                        className="flex flex-wrap items-center justify-between gap-3 bg-mist px-4 py-3 text-sm"
                       >
-                        <span className="font-medium text-navy-900">
-                          Kiện {i + 1} · {p.trackingCode}
-                        </span>
-                        <span className="text-ink/60">{p.status}</span>
+                        <div className="min-w-0">
+                          <p className="break-all font-semibold text-navy-900">
+                            {result.parcels.length > 1 ? `Kiện ${i + 1} · ` : ""}
+                            {p.trackingCode}
+                          </p>
+                          <p className="mt-0.5 text-xs text-ink/55">
+                            {p.status}
+                            {p.carrier ? ` · ${p.carrier}` : ""}
+                          </p>
+                        </div>
+                        {p.trackingUrl && (
+                          <a
+                            href={p.trackingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-primary shrink-0"
+                          >
+                            {p.carrier ? `Tra cứu tại ${p.carrier}` : "Tra cứu chặng cuối"}
+                            <ArrowRightIcon className="h-4 w-4" />
+                          </a>
+                        )}
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {(result.ksnPostUrl || result.lastMileWebsite || result.parcels.length > 0) && (
-                <div className="mt-7 flex flex-wrap gap-3 border-t border-line pt-6">
-                  {result.ksnPostUrl && (
-                    <a
-                      href={result.ksnPostUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-primary"
-                    >
-                      Xem chi tiết hành trình vận chuyển
-                      <ArrowRightIcon className="h-4 w-4" />
-                    </a>
-                  )}
-                  {result.parcels
-                    .filter((p) => p.trackingUrl)
-                    .map((p, i) => (
-                      <a
-                        key={p.trackingCode}
-                        href={p.trackingUrl!}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn-outline"
-                      >
-                        {result.parcels.length > 1
-                          ? `${result.lastMileCarrier || "Đối tác"} · Kiện ${i + 1}`
-                          : `Tra cứu tại ${result.lastMileCarrier || "đối tác vận chuyển"}`}
-                      </a>
-                    ))}
                 </div>
               )}
 
