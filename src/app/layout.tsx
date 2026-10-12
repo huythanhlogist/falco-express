@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Be_Vietnam_Pro, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import SiteChrome from "@/components/SiteChrome";
 import { SITE, BRANCHES } from "@/lib/constants";
@@ -9,6 +9,16 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   weight: ["400", "500", "600", "700", "800"],
   variable: "--font-jakarta",
   display: "swap",
+});
+
+// Font cũ, chỉ còn dùng cho admin/CTV (giữ nguyên giao diện); preload tắt để
+// trang công khai không tải thêm font này.
+const beVietnamPro = Be_Vietnam_Pro({
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-be-vietnam",
+  display: "swap",
+  preload: false,
 });
 
 const SEO_DESCRIPTION =
@@ -71,7 +81,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi" className={plusJakartaSans.variable}>
+    <html lang="vi" className={`${plusJakartaSans.variable} ${beVietnamPro.variable}`}>
       <body className="flex min-h-screen flex-col font-body">
         <script
           type="application/ld+json"

@@ -223,6 +223,17 @@
   color: #132440;
 }
 
+/* Admin/CTV (không đổi theo redesign): dùng lại font Be Vietnam Pro và các thiết lập
+   cũ. Tailwind font-display/body đọc biến --font-jakarta nên chỉ cần ánh xạ lại nó. */
+.admin-scope {
+  --font-jakarta: var(--font-be-vietnam);
+  font-feature-settings: "cv11", "ss01";
+}
+.admin-scope :focus-visible {
+  outline-color: #ed1c24;
+  border-radius: 4px;
+}
+
 /* Mobile đã có thanh liên hệ dính đáy (Gọi ngay / Zalo báo giá) nên ẩn bong bóng
    chat Zalo OA tự gắn của SDK (nó cố định sát đáy, đè lên thanh). */
 @media (max-width: 767px) {
