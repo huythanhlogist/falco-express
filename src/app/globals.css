@@ -223,6 +223,14 @@
   color: #132440;
 }
 
+/* Admin/CTV: giữ bóng đổ của popup/modal/dropdown để còn nổi trên nền. */
+.lp-theme-admin .shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.12), 0 4px 6px -4px rgba(0, 0, 0, 0.12);
+}
+.lp-theme-admin .shadow-2xl {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+}
+
 /* Mobile đã có thanh liên hệ dính đáy (Gọi ngay / Zalo báo giá) nên ẩn bong bóng
    chat Zalo OA tự gắn của SDK (nó cố định sát đáy, đè lên thanh). */
 @media (max-width: 767px) {

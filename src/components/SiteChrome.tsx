@@ -12,7 +12,9 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const isBareLayout = pathname?.startsWith("/admin") || pathname?.startsWith("/ctv");
 
-  if (isBareLayout) return <>{children}</>;
+  // Admin/CTV cũng theo concept mới (đồng bộ với web công khai): dùng chung lớp
+  // .lp-theme (góc vuông, màu đặc), giữ bóng đổ cho popup/modal (lp-theme-admin).
+  if (isBareLayout) return <div className="lp-theme lp-theme-admin min-h-screen">{children}</div>;
 
   return (
     <>
