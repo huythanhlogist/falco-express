@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { Be_Vietnam_Pro } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import SiteChrome from "@/components/SiteChrome";
 import { SITE, BRANCHES } from "@/lib/constants";
 
-const beVietnamPro = Be_Vietnam_Pro({
+const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin", "vietnamese"],
   weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-be-vietnam",
+  variable: "--font-jakarta",
   display: "swap",
 });
 
@@ -71,7 +71,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi" className={beVietnamPro.variable}>
+    <html lang="vi" className={plusJakartaSans.variable}>
       <body className="flex min-h-screen flex-col font-body">
         <script
           type="application/ld+json"

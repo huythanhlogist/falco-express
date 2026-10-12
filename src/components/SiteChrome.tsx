@@ -1,9 +1,11 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import TopBar from "@/components/TopBar";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FloatingHotlineButton from "@/components/FloatingHotlineButton";
+import StickyContactBar from "@/components/StickyContactBar";
 import ZaloOAWidget from "@/components/ZaloOAWidget";
 
 export default function SiteChrome({ children }: { children: React.ReactNode }) {
@@ -14,10 +16,22 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
 
   return (
     <>
+      <a
+        href="#main"
+        className="sr-only z-[60] bg-falco-navy px-4 py-3 font-bold text-white focus:not-sr-only focus:fixed focus:left-2 focus:top-2"
+      >
+        Bỏ qua, đến nội dung chính
+      </a>
+      <TopBar />
       <Header />
-      <main className="flex-1">{children}</main>
+      <main id="main" className="flex-1">
+        {children}
+      </main>
       <Footer />
+      {/* chừa chỗ cho thanh liên hệ dính đáy trên mobile để không che chân trang */}
+      <div className="h-14 md:hidden" aria-hidden />
       <FloatingHotlineButton />
+      <StickyContactBar />
       <ZaloOAWidget />
     </>
   );

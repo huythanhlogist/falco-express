@@ -8,8 +8,7 @@
   }
 
   body {
-    @apply bg-paper text-ink antialiased;
-    font-feature-settings: "cv11", "ss01";
+    @apply bg-white text-falco-text antialiased;
   }
 
   ::selection {
@@ -17,9 +16,8 @@
   }
 
   :focus-visible {
-    outline: 2px solid #ed1c24;
+    outline: 2px solid #d92a0a;
     outline-offset: 2px;
-    border-radius: 4px;
   }
 }
 
@@ -54,6 +52,61 @@
 
   .card {
     @apply rounded-2xl border border-line bg-white shadow-card transition-shadow duration-300 hover:shadow-card-hover;
+  }
+}
+
+/* Landing mới (falco-redesign): góc vuông, màu đặc, không gradient/pill. Tiền tố
+   lp- để không đụng .btn/.card/.eyebrow đang dùng ở admin và các trang trong. */
+@layer components {
+  .lp-container {
+    @apply mx-auto w-full max-w-site px-4 sm:px-6;
+  }
+
+  .lp-btn {
+    @apply inline-flex min-h-[48px] items-center justify-center gap-2 px-6 py-3 text-[15px] font-bold transition-colors duration-150;
+  }
+
+  .lp-btn-accent {
+    @apply lp-btn bg-falco-accent text-white hover:bg-falco-accent-dark;
+  }
+
+  .lp-btn-navy {
+    @apply lp-btn bg-falco-navy text-white hover:bg-falco-navy-dark;
+  }
+
+  .lp-btn-white {
+    @apply lp-btn bg-white text-falco-navy hover:bg-falco-surface;
+  }
+
+  .lp-eyebrow {
+    @apply flex items-center gap-3 text-xs font-bold uppercase tracking-[0.12em] text-falco-accent sm:text-[13px];
+  }
+
+  .lp-eyebrow-soft {
+    @apply text-falco-accent-soft;
+  }
+
+  .lp-eyebrow-line::before {
+    content: "";
+    width: 28px;
+    height: 2px;
+    background: currentColor;
+  }
+
+  .lp-h2 {
+    @apply text-[26px] font-extrabold leading-[1.15] tracking-[-0.025em] text-falco-navy sm:text-[34px] lg:text-[42px];
+  }
+
+  .lp-section {
+    @apply py-14 sm:py-20 lg:py-[100px];
+  }
+}
+
+/* Mobile đã có thanh liên hệ dính đáy (Gọi ngay / Zalo báo giá) nên ẩn bong bóng
+   chat Zalo OA tự gắn của SDK (nó cố định sát đáy, đè lên thanh). */
+@media (max-width: 767px) {
+  .zalo-chat-widget {
+    display: none !important;
   }
 }
 

@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
-import Hero from "@/components/Hero";
-import WhyChooseUs from "@/components/WhyChooseUs";
-import ServicesGrid from "@/components/ServicesGrid";
-import BranchesSection from "@/components/BranchesSection";
-import FaqSection from "@/components/FaqSection";
-import CTABanner from "@/components/CTABanner";
+import Hero from "@/components/landing/Hero";
+import TrackingStats from "@/components/landing/TrackingStats";
+import ServicesSection from "@/components/landing/ServicesSection";
+import RoutesSection from "@/components/landing/RoutesSection";
+import TrustSection from "@/components/landing/TrustSection";
+import ProcessSection from "@/components/landing/ProcessSection";
+import BlogSection from "@/components/landing/BlogSection";
+import CtaBand from "@/components/landing/CtaBand";
+import FaqBranches from "@/components/landing/FaqBranches";
 import { SITE } from "@/lib/constants";
+import { LANDING_FAQS } from "@/lib/landing-content";
 import { resolveMetadataOverride } from "@/lib/seo";
 
 export const revalidate = 300;
@@ -21,15 +25,32 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: { absolute: title }, description, alternates };
 }
 
+const FAQ_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: LANDING_FAQS.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: { "@type": "Answer", text: faq.answer },
+  })),
+};
+
 export default function HomePage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSON_LD) }}
+      />
       <Hero />
-      <WhyChooseUs />
-      <ServicesGrid />
-      <BranchesSection />
-      <FaqSection />
-      <CTABanner />
+      <TrackingStats />
+      <ServicesSection />
+      <RoutesSection />
+      <TrustSection />
+      <ProcessSection />
+      <BlogSection />
+      <CtaBand />
+      <FaqBranches />
     </>
   );
 }

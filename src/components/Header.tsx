@@ -5,19 +5,11 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NAV_LINKS, SITE } from "@/lib/constants";
-import { MenuIcon, CloseIcon, PhoneIcon, SearchIcon } from "@/components/icons";
+import { MenuIcon, CloseIcon, PhoneIcon } from "@/components/icons";
 
 export default function Header() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   useEffect(() => {
     setOpen(false);
@@ -31,44 +23,28 @@ export default function Header() {
   }, [open]);
 
   return (
-    <header
-      className={`sticky top-0 z-50 w-full border-b transition-colors duration-300 ${
-        scrolled
-          ? "border-line bg-white/90 backdrop-blur-md"
-          : "border-transparent bg-white"
-      }`}
-    >
-      <div className="container-page flex h-[76px] items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5" aria-label={`${SITE.name} - Trang chủ`}>
+    <header className="sticky top-0 z-50 w-full border-b border-falco-border bg-white">
+      <div className="lp-container flex items-center justify-between gap-4 py-2 lg:gap-8 lg:py-3.5">
+        <Link href="/" className="flex shrink-0 items-center" aria-label={`${SITE.name} - Trang chủ`}>
           <Image
-            src="/falco-logo.png"
+            src="/images/landing/logo-falco.png"
             alt={`${SITE.fullName} logo`}
-            width={44}
-            height={44}
+            width={687}
+            height={522}
             priority
-            className="h-11 w-11 rounded-full object-cover ring-1 ring-line"
+            className="h-12 w-auto lg:h-16"
           />
-          <span className="flex flex-col leading-none">
-            <span className="font-display text-lg font-extrabold tracking-tight text-navy-800">
-              FALCO
-            </span>
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-flame-600">
-              Express Logistic
-            </span>
-          </span>
         </Link>
 
-        <nav className="hidden items-center gap-1 lg:flex" aria-label="Điều hướng chính">
+        <nav className="hidden items-center gap-1 text-[15px] font-semibold text-falco-navy lg:flex" aria-label="Điều hướng chính">
           {NAV_LINKS.map((link) => {
             const active = pathname === link.href;
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`rounded-full px-4 py-2 text-[15px] font-medium transition-colors duration-200 ${
-                  active
-                    ? "bg-navy-50 text-navy-800"
-                    : "text-ink/70 hover:bg-navy-50 hover:text-navy-800"
+                className={`px-3.5 py-2.5 transition-colors hover:bg-falco-surface ${
+                  active ? "bg-[#f1f3f7]" : ""
                 }`}
                 aria-current={active ? "page" : undefined}
               >
@@ -78,44 +54,50 @@ export default function Header() {
           })}
         </nav>
 
-        <div className="hidden items-center gap-3 lg:flex">
-          <a
-            href={SITE.hotlineHref}
-            className="flex items-center gap-2 text-sm font-semibold text-navy-800"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-navy-50 text-navy-700">
-              <PhoneIcon className="h-4 w-4" />
-            </span>
-            {SITE.hotline}
+        <div className="hidden items-center gap-3.5 lg:flex">
+          <a href={SITE.hotlineHref} className="flex flex-col text-right leading-tight">
+            <span className="text-xs text-[#6a7385]">Hotline / Zalo</span>
+            <span className="text-[17px] font-extrabold text-falco-navy">{SITE.hotline}</span>
           </a>
-          <Link href="/tra-cuu-van-don" className="btn-primary">
-            <SearchIcon className="h-4 w-4" />
-            Tra cứu vận đơn
-          </Link>
+          <a
+            href={SITE.zaloHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-falco-accent px-[22px] py-[13px] text-[15px] font-bold text-white transition-colors hover:bg-falco-accent-dark"
+          >
+            Nhận báo giá
+          </a>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="flex h-10 w-10 items-center justify-center rounded-full text-navy-800 hover:bg-navy-50 lg:hidden"
-          aria-label={open ? "Đóng menu" : "Mở menu"}
-          aria-expanded={open}
-        >
-          {open ? <CloseIcon className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
-        </button>
+        <div className="flex gap-2 lg:hidden">
+          <a
+            href={SITE.hotlineHref}
+            aria-label={`Gọi hotline ${SITE.hotline}`}
+            className="flex h-11 w-11 items-center justify-center bg-falco-accent text-white"
+          >
+            <PhoneIcon className="h-5 w-5" />
+          </a>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex h-11 w-11 items-center justify-center border border-[#cdd3de] text-falco-navy"
+            aria-label={open ? "Đóng menu" : "Mở menu"}
+            aria-expanded={open}
+          >
+            {open ? <CloseIcon className="h-[22px] w-[22px]" /> : <MenuIcon className="h-[22px] w-[22px]" />}
+          </button>
+        </div>
       </div>
 
       {open && (
-        <div className="border-t border-line bg-white px-5 pb-6 pt-2 lg:hidden">
+        <div className="border-t border-falco-border bg-white px-4 pb-6 pt-2 lg:hidden">
           <nav className="flex flex-col" aria-label="Điều hướng di động">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`rounded-xl px-3 py-3 text-base font-medium ${
-                  pathname === link.href
-                    ? "bg-navy-50 text-navy-800"
-                    : "text-ink/80 hover:bg-navy-50"
+                className={`px-3 py-3.5 text-base font-semibold text-falco-navy ${
+                  pathname === link.href ? "bg-falco-surface" : ""
                 }`}
               >
                 {link.label}
@@ -123,14 +105,13 @@ export default function Header() {
             ))}
           </nav>
           <div className="mt-4 flex flex-col gap-3">
-            <a href={SITE.hotlineHref} className="btn-outline w-full">
+            <a href={SITE.hotlineHref} className="lp-btn border border-falco-navy text-falco-navy">
               <PhoneIcon className="h-4 w-4" />
               Gọi {SITE.hotline}
             </a>
-            <Link href="/tra-cuu-van-don" className="btn-primary w-full">
-              <SearchIcon className="h-4 w-4" />
-              Tra cứu vận đơn
-            </Link>
+            <a href={SITE.zaloHref} target="_blank" rel="noopener noreferrer" className="lp-btn-accent">
+              Nhận báo giá qua Zalo
+            </a>
           </div>
         </div>
       )}

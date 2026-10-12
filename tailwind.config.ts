@@ -42,14 +42,28 @@ const config: Config = {
           900: "#832c13",
           950: "#471306",
         },
+        // Bảng màu landing mới (falco-redesign) — đặt tên riêng để không đụng
+        // navy/flame đang dùng ở admin và các trang trong.
+        falco: {
+          navy: "#132440",
+          "navy-dark": "#0c182c",
+          "navy-line": "#2a4066",
+          accent: "#d92a0a",
+          "accent-dark": "#b82208",
+          "accent-soft": "#ff9a3d",
+          text: "#1b2232",
+          muted: "#5a6478",
+          border: "#e8ebf0",
+          surface: "#f4f5f8",
+        },
         ink: "#131a24",
         paper: "#fbfbfa",
         mist: "#f3f5f9",
         line: "#e3e8f0",
       },
       fontFamily: {
-        display: ["var(--font-be-vietnam)", "sans-serif"],
-        body: ["var(--font-be-vietnam)", "sans-serif"],
+        display: ["var(--font-jakarta)", "sans-serif"],
+        body: ["var(--font-jakarta)", "sans-serif"],
       },
       backgroundImage: {
         "falco-gradient": "linear-gradient(90deg, #f7941d 0%, #ed1c24 100%)",
@@ -57,12 +71,15 @@ const config: Config = {
         "navy-gradient": "linear-gradient(180deg, #183456 0%, #0c1c31 100%)",
       },
       boxShadow: {
+        float: "0 20px 50px rgba(19,36,64,0.14)",
+        "float-sm": "0 10px 28px rgba(11,18,32,0.18)",
         card: "0 1px 2px rgba(12,28,49,0.04), 0 8px 24px -8px rgba(12,28,49,0.12)",
         "card-hover": "0 4px 8px rgba(12,28,49,0.06), 0 16px 40px -12px rgba(12,28,49,0.18)",
         brand: "0 10px 30px -8px rgba(237,28,36,0.35)",
       },
       maxWidth: {
         content: "1280px",
+        site: "1240px",
       },
       keyframes: {
         marquee: {
