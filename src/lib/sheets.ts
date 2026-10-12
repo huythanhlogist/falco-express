@@ -126,7 +126,7 @@ function getAuthClient() {
   });
 }
 
-async function getSheetsClient() {
+export async function getSheetsClient() {
   const auth = getAuthClient();
   const authClient = await auth.getClient();
   return google.sheets({ version: "v4", auth: authClient as never });
@@ -299,13 +299,14 @@ export async function removeOrderRowsByFalcoCodes(
 // ---------- Tab "Kế toán" — mirror Thu/Chi từ admin, đồng bộ ngay lập tức ----------
 
 const ACCOUNTING_SHEET_TITLE = "Kế toán";
-const ACCOUNTING_HEADER = [
+export const ACCOUNTING_HEADER = [
   "Mã Falco",
   "AWB",
   "Người nhận",
   "Điểm đến",
   "Ngày nhận",
   "Trạng thái thu",
+  "Ngày thu",
   "Thu",
   "Chi",
   "Lãi/lỗ",
@@ -319,6 +320,7 @@ export type AccountingRow = {
   destination: string;
   receivedDate: string; // dd/mm/yyyy
   paymentStatusLabel: string;
+  collectedDate: string; // dd/mm/yyyy, rỗng nếu chưa thu
   amount: number;
   cost: number;
 };
@@ -346,7 +348,7 @@ async function ensureAccountingSheet(
   });
   await sheets.spreadsheets.values.update({
     spreadsheetId: sheetId,
-    range: `'${ACCOUNTING_SHEET_TITLE}'!A1:J1`,
+    range: `'${ACCOUNTING_SHEET_TITLE}'!A1:K1`,
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [ACCOUNTING_HEADER] },
   });
@@ -383,6 +385,7 @@ export async function upsertAccountingRow(row: AccountingRow): Promise<void> {
       row.destination,
       row.receivedDate,
       row.paymentStatusLabel,
+      row.collectedDate,
       row.amount,
       row.cost,
       row.amount - row.cost,
@@ -394,14 +397,14 @@ export async function upsertAccountingRow(row: AccountingRow): Promise<void> {
     const sheetRow = rowIndex + 2; // range bắt đầu từ A2
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: `'${ACCOUNTING_SHEET_TITLE}'!A${sheetRow}:J${sheetRow}`,
+      range: `'${ACCOUNTING_SHEET_TITLE}'!A${sheetRow}:K${sheetRow}`,
       valueInputOption: "USER_ENTERED",
       requestBody: { values },
     });
   } else {
     await sheets.spreadsheets.values.append({
       spreadsheetId: sheetId,
-      range: `'${ACCOUNTING_SHEET_TITLE}'!A2:J5000`,
+      range: `'${ACCOUNTING_SHEET_TITLE}'!A2:K5000`,
       valueInputOption: "USER_ENTERED",
       insertDataOption: "INSERT_ROWS",
       requestBody: { values },

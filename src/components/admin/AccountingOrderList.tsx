@@ -14,11 +14,18 @@ type Row = {
   parcel_count: number;
   received_date: string | null;
   payment_status: PaymentStatus;
+  collected_date: string | null;
   amount: string | null;
   cost: string | null;
 };
 
 type SaveState = "idle" | "saving" | "saved" | "error";
+
+// Giá trị cho <input type="date"> (YYYY-MM-DD) theo giờ Việt Nam.
+function toDateInputValue(value: string | null): string {
+  if (!value) return "";
+  return new Date(value).toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
+}
 
 export default function AccountingOrderList({ initialRows }: { initialRows: Row[] }) {
   const router = useRouter();
@@ -55,9 +62,27 @@ export default function AccountingOrderList({ initialRows }: { initialRows: Row[
     }
   }
 
+  async function saveCollectedDate(row: Row, value: string) {
+    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, collected_date: value || null } : r)));
+    setSaveState((s) => ({ ...s, [row.id]: "saving" }));
+    try {
+      const res = await fetch(`/api/admin/orders/${row.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collectedDate: value || null }),
+        keepalive: true,
+      });
+      if (!res.ok) throw new Error();
+      setSaveState((s) => ({ ...s, [row.id]: "saved" }));
+      setTimeout(() => setSaveState((s) => (s[row.id] === "saved" ? { ...s, [row.id]: "idle" } : s)), 2000);
+    } catch {
+      setSaveState((s) => ({ ...s, [row.id]: "error" }));
+    }
+  }
+
   return (
     <div className="overflow-x-auto rounded-xl border border-line bg-white">
-      <table className="w-full min-w-[1100px] text-sm">
+      <table className="w-full min-w-[1250px] text-sm">
         <thead>
           <tr className="border-b border-line bg-mist/60 text-left text-xs font-semibold uppercase tracking-wide text-ink/45">
             <th className="px-3 py-2">Mã Falco</th>
@@ -68,6 +93,7 @@ export default function AccountingOrderList({ initialRows }: { initialRows: Row[
             <th className="px-3 py-2">Kiện</th>
             <th className="px-3 py-2">Ngày nhận</th>
             <th className="px-3 py-2">Trạng thái</th>
+            <th className="px-3 py-2">Ngày thu</th>
             <th className="px-3 py-2">Thu</th>
             <th className="px-3 py-2">Chi</th>
             <th className="px-3 py-2">Lãi/lỗ</th>
@@ -96,6 +122,15 @@ export default function AccountingOrderList({ initialRows }: { initialRows: Row[
                   >
                     {statusLabel(r.payment_status)}
                   </span>
+                </td>
+                <td className="px-3 py-2">
+                  <input
+                    type="date"
+                    value={toDateInputValue(r.collected_date)}
+                    onChange={(e) => saveCollectedDate(r, e.target.value)}
+                    aria-label={`Ngày thu đơn ${r.falco_code}`}
+                    className="w-36 rounded-lg border border-line bg-white px-2 py-1.5 text-sm text-ink focus:border-flame-400 focus:outline-none focus:ring-2 focus:ring-flame-100"
+                  />
                 </td>
                 <td className="px-3 py-2">
                   <input
@@ -144,7 +179,7 @@ export default function AccountingOrderList({ initialRows }: { initialRows: Row[
           })}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={11} className="px-5 py-8 text-center text-ink/45">
+              <td colSpan={12} className="px-5 py-8 text-center text-ink/45">
                 Không có đơn nào.
               </td>
             </tr>

@@ -7,6 +7,7 @@ import {
 } from "./db";
 import { fetchKangoTracking, type KangoTrackingResponse } from "./kango";
 import { isFinalShipmentStatus, mapKangoStatus } from "./shipment-status";
+import { vnDateString } from "./vn-date";
 
 // Đơn đã giao/hoàn: dữ liệu không đổi nữa nên cache dùng mãi. Đơn đang đi: cron
 // làm mới mỗi ngày, quá 36h tức cron đã lỡ nên trang tra cứu thử gọi live lại.
@@ -114,14 +115,6 @@ export async function saveKangoToCache(
     currentStatus: kango?.trackings?.[0]?.title ?? null,
     payload: kango ? JSON.stringify(kango) : null,
   });
-}
-
-// Ngày (YYYY-MM-DD) theo giờ Việt Nam, lùi `daysAgo` ngày — không phụ thuộc
-// múi giờ của tiến trình Node hay đồng hồ MySQL.
-function vnDateString(daysAgo: number): string {
-  const vnNow = new Date(Date.now() + 7 * 60 * 60 * 1000);
-  vnNow.setUTCDate(vnNow.getUTCDate() - daysAgo);
-  return vnNow.toISOString().slice(0, 10);
 }
 
 export type RefreshSummary = {

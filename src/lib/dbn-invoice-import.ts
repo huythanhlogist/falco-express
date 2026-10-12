@@ -23,8 +23,7 @@ import {
   updateOrder,
   type OrderRecord,
 } from "./db";
-import { upsertAccountingRow } from "./sheets";
-import { statusLabel } from "./payment-status";
+import { syncAccountingRow } from "./accounting-sync";
 
 function cellToString(value: unknown): string {
   if (value === undefined || value === null) return "";
@@ -207,25 +206,9 @@ export type DbnInvoiceApplyResult = {
   lines?: DbnLineResult[];
 };
 
-function formatDateVN(value: string | Date | null): string {
-  if (!value) return "";
-  const d = value instanceof Date ? value : new Date(value);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
-}
-
 async function syncSheet(order: OrderRecord) {
   try {
-    await upsertAccountingRow({
-      falcoCode: order.falco_code,
-      awb: order.awb,
-      recipientName: order.recipient_name ?? "",
-      destination: order.destination ?? "",
-      receivedDate: formatDateVN(order.received_date),
-      paymentStatusLabel: statusLabel(order.payment_status),
-      amount: Number(order.amount ?? 0),
-      cost: Number(order.cost ?? 0),
-    });
+    await syncAccountingRow(order);
   } catch {
     // Sheet chỉ là bản mirror để xem — không chặn ghi CHI vì lỗi đồng bộ Sheet.
   }

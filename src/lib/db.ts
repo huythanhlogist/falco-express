@@ -2,6 +2,7 @@ import mysql from "mysql2/promise";
 import dns from "node:dns";
 import type { ParsedCategory } from "./price-quote-import";
 import type { ShipmentStatus } from "./shipment-status";
+import { vnDateString } from "./vn-date";
 
 // Máy dev nối DB_HOST dạng tên miền WAN (vd đang phát triển từ máy cá nhân)
 // có lúc bị resolve ra địa chỉ IPv6 không nằm trong danh sách IP được phép
@@ -53,6 +54,7 @@ export type OrderRecord = {
   destination: string | null;
   received_date: string | null;
   payment_status: PaymentStatus;
+  collected_date: string | null; // ngày thu tiền khách (DATE) — xem updateOrder
   amount: string | null;
   cost: string | null;
   chi_source_invoice: string | null;
@@ -180,6 +182,7 @@ export type OrderEditableFields = Partial<{
   destination: string;
   receivedDate: string | null;
   paymentStatus: PaymentStatus;
+  collectedDate: string | null;
   amount: number | null;
   cost: number | null;
   chiSourceInvoice: string | null;
@@ -194,6 +197,7 @@ const ORDER_FIELD_COLUMNS: Record<keyof OrderEditableFields, string> = {
   destination: "destination",
   receivedDate: "received_date",
   paymentStatus: "payment_status",
+  collectedDate: "collected_date",
   amount: "amount",
   cost: "cost",
   chiSourceInvoice: "chi_source_invoice",
@@ -206,8 +210,20 @@ export async function updateOrder(
 ): Promise<boolean> {
   const entries = Object.entries(fields) as [keyof OrderEditableFields, unknown][];
   if (entries.length === 0) return false;
-  const setClause = entries.map(([key]) => `${ORDER_FIELD_COLUMNS[key]} = ?`).join(", ");
+  const assignments = entries.map(([key]) => `${ORDER_FIELD_COLUMNS[key]} = ?`);
   const values = entries.map(([, value]) => value);
+  // Đổi trạng thái thu mà không chỉ định ngày thu: sang "chưa thu" thì xoá
+  // ngày thu; sang các trạng thái đã thu thì điền hôm nay (giờ VN, tính ở
+  // Node) nếu chưa có — giữ ngày thu ĐẦU TIÊN khi chuyển Thu hộ → Đã thu.
+  if (fields.paymentStatus !== undefined && !("collectedDate" in fields)) {
+    if (fields.paymentStatus === "unpaid") {
+      assignments.push("collected_date = NULL");
+    } else {
+      assignments.push("collected_date = COALESCE(collected_date, ?)");
+      values.push(vnDateString());
+    }
+  }
+  const setClause = assignments.join(", ");
   const [result] = await getPool().query(
     `UPDATE orders SET ${setClause} WHERE id = ?`,
     [...values, id]

@@ -8,16 +8,8 @@ import {
   insertOrderEditHistory,
   type PaymentStatus,
 } from "@/lib/db";
-import { upsertAccountingRow } from "@/lib/sheets";
-import { statusLabel } from "@/lib/payment-status";
+import { syncAccountingRow } from "@/lib/accounting-sync";
 import { getCurrentAdminSession } from "@/lib/auth";
-
-function formatDateVN(value: string | Date | null): string {
-  if (!value) return "";
-  const d = value instanceof Date ? value : new Date(value);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
-}
 
 const VALID_STATUSES: PaymentStatus[] = ["unpaid", "collected_by_staff", "collected_by_ctv", "paid"];
 
@@ -67,6 +59,7 @@ export async function PATCH(
     service,
     destination,
     receivedDate,
+    collectedDate,
     trackingCodes,
   } = body ?? {};
 
@@ -75,6 +68,15 @@ export async function PATCH(
       { error: "Trạng thái thu tiền không hợp lệ" },
       { status: 400 }
     );
+  }
+
+  if (
+    collectedDate !== undefined &&
+    collectedDate !== null &&
+    collectedDate !== "" &&
+    !/^\d{4}-\d{2}-\d{2}$/.test(String(collectedDate))
+  ) {
+    return NextResponse.json({ error: "Ngày thu không hợp lệ" }, { status: 400 });
   }
 
   const fields: Parameters<typeof updateOrder>[1] = {};
@@ -95,6 +97,7 @@ export async function PATCH(
   if (service !== undefined) fields.service = String(service).trim();
   if (destination !== undefined) fields.destination = String(destination).trim();
   if (receivedDate !== undefined) fields.receivedDate = receivedDate || null;
+  if (collectedDate !== undefined) fields.collectedDate = collectedDate || null;
 
   const willChangeFields = Object.keys(fields).length > 0;
   const willChangeParcels = Array.isArray(trackingCodes);
@@ -129,20 +132,16 @@ export async function PATCH(
   // Sheet luôn khớp dữ liệu với DB, không có độ trễ. Đọc lại đơn mới nhất
   // vì có thể chỉ 1 trong 2 trường Thu/Chi được sửa ở lần PATCH này.
   let sheetSyncError: string | undefined;
-  if (fields.amount !== undefined || fields.cost !== undefined || fields.paymentStatus !== undefined) {
+  if (
+    fields.amount !== undefined ||
+    fields.cost !== undefined ||
+    fields.paymentStatus !== undefined ||
+    fields.collectedDate !== undefined
+  ) {
     const fresh = await findOrderById(orderId);
     if (fresh) {
       try {
-        await upsertAccountingRow({
-          falcoCode: fresh.falco_code,
-          awb: fresh.awb,
-          recipientName: fresh.recipient_name ?? "",
-          destination: fresh.destination ?? "",
-          receivedDate: formatDateVN(fresh.received_date),
-          paymentStatusLabel: statusLabel(fresh.payment_status),
-          amount: Number(fresh.amount ?? 0),
-          cost: Number(fresh.cost ?? 0),
-        });
+        await syncAccountingRow(fresh);
       } catch (err) {
         // Sheet chỉ là bản mirror để xem — DB vẫn là nguồn thật đã lưu
         // đúng, không chặn phản hồi thành công vì lỗi đồng bộ Sheet.

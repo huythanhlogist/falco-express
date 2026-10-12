@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentAdminSession } from "@/lib/auth";
 import { findOrderById, insertCtvRemittance, updateOrder } from "@/lib/db";
+import { syncAccountingRow } from "@/lib/accounting-sync";
 
 export async function POST(request: Request) {
   const session = await getCurrentAdminSession();
@@ -27,6 +28,13 @@ export async function POST(request: Request) {
 
   // Đã xác nhận CTV nộp lại tiền — đơn coi như đã thu xong.
   await updateOrder(orderIdNum, { paymentStatus: "paid" });
+
+  try {
+    const fresh = await findOrderById(orderIdNum);
+    if (fresh) await syncAccountingRow(fresh);
+  } catch {
+    // Sheet chỉ là bản mirror để xem — không chặn xác nhận nộp tiền vì lỗi đồng bộ.
+  }
 
   return NextResponse.json({ ok: true, id });
 }

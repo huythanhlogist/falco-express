@@ -490,6 +490,22 @@ chạy 1 lần:
 npx tsx scripts/alter-orders-add-chi-source-invoice.ts
 ```
 
+## Cột "Ngày thu" ở Kế toán
+
+`orders.collected_date` (DATE, NULL) = ngày thu tiền khách của đơn. Tự điền
+(hôm nay, giờ VN) khi trạng thái thu chuyển sang Thu hộ / Thu hộ (CTV) / Đã thu
+mà chưa có ngày; chuyển về "Chưa thu" thì xoá; sửa tay được ở trang Kế toán.
+Đơn cũ để trống. Tab "Kế toán" trên Google Sheet có thêm cột "Ngày thu" (sau
+"Trạng thái thu").
+
+Cần chạy 1 lần:
+
+```bash
+npx tsx scripts/alter-orders-add-collected-date.ts
+npx tsx scripts/resync-accounting-sheet.ts           # chạy thử, chỉ in kế hoạch
+npx tsx scripts/resync-accounting-sheet.ts --apply   # ghi lại tab Kế toán theo header mới (có sao lưu)
+```
+
 ## Cache trạng thái vận chuyển (cron mỗi ngày)
 
 Trang tra cứu công khai và cột "Vận chuyển" ở admin đọc trạng thái từ bảng
