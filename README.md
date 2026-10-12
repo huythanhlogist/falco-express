@@ -548,11 +548,11 @@ curl -s -i -X POST -H "x-cron-secret: $(grep '^CRON_SECRET=' /home/<user>/domain
 ```
 
 Mỗi giờ, đơn chưa giao có bản cache cũ hơn 50 phút được làm mới (~20–40 lượt gọi
-Kango/giờ, mất 1–3 phút; đơn đã giao/hoàn không bị gọi lại). Kango lỗi liên tiếp 5
+Kango/giờ, tuần tự, mất 2–5 phút; đơn đã giao/hoàn không bị gọi lại). Kango lỗi liên tiếp 5
 lần thì lượt đó dừng, giờ sau thử lại. Xem kết quả: nút "Xem đầu ra"
 của job (dòng `HTTP/2 202` là thành công, `401` là sai secret).
 
-Route trả 202 ngay và chạy nền (tối đa ~8 phút, 3 luồng song song). Thêm
+Route trả 202 ngay và chạy nền (tối đa ~20 phút, gọi tuần tự từng đơn). Thêm
 `?wait=1` để chạy xong mới trả kết quả (dùng khi chạy tay/backfill lần đầu).
 
 ## Build production

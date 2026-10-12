@@ -138,8 +138,10 @@ export async function refreshTrackingCache(opts?: {
   staleAfterMs?: number;
 }): Promise<RefreshSummary> {
   const windowDays = opts?.windowDays ?? 30;
-  const concurrency = opts?.concurrency ?? 3;
-  const budgetMs = opts?.budgetMs ?? 8 * 60 * 1000;
+  // Tuần tự từng đơn: API Kango vốn chậm (6-7s/lượt) và dùng chung hạ tầng với web
+  // của họ, nên không dồn nhiều request song song.
+  const concurrency = opts?.concurrency ?? 1;
+  const budgetMs = opts?.budgetMs ?? 20 * 60 * 1000;
   // Cron gọi mỗi giờ: chỉ làm mới bản cache đã quá 50 phút, nên mỗi đơn chưa
   // giao được cập nhật khoảng mỗi giờ 1 lần, và gọi chồng/gọi thừa thì chỉ
   // xử lý phần còn lại (hoặc không làm gì).
