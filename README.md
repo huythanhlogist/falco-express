@@ -525,10 +525,14 @@ Mỗi giờ 1 lần, cron gọi Kango cho các đơn **trong 30 ngày gần nh�
 giao/hoàn** rồi ghi vào bảng; đơn đã giao/hoàn không bị gọi lại. Đơn chưa có
 cache (mới tạo) vẫn tra được — trang tra cứu gọi live rồi tự ghi cache.
 
-Trạng thái (`mapKangoStatus` trong `src/lib/shipment-status.ts`): Đã nhập,
-Đang vận chuyển, Thông quan, Đã giao, Hoàn trả — quy từ câu sự kiện mới nhất
-của Kango (Kango không có mã trạng thái chuẩn, `status_class` hay lỗi thời).
-Text gốc luôn lưu ở `current_status`.
+Trạng thái (`mapKangoStatus` trong `src/lib/shipment-status.ts`) theo các mốc: Chờ nhận →
+Đã nhận → Đã xuất → Đang thông quan → Đã thông quan → Đang giao → Đã giao (+ Hoàn trả).
+Kango không có mã trạng thái chuẩn (`status_class` hay lỗi thời, sự kiện là câu tự do của hãng
+chặng cuối) nên mốc được suy từ TOÀN BỘ lịch sử sự kiện (mốc xa nhất đã đạt); sau khi đã
+thông quan, sự kiện mới hơn không thuộc nhóm bay/hải quan được coi là đã nối last mile. Đơn gửi
+nhiều phần chỉ tính "Đã giao" khi không còn phần nào đang bay/thông quan. Đổi logic xong chạy
+`npx tsx scripts/recompute-shipment-status.ts --apply` để tính lại từ payload đã lưu (không gọi
+Kango); lần đầu cần `npx tsx scripts/alter-tracking-cache-statuses.ts` mở rộng ENUM. Text gốc luôn lưu ở `current_status`.
 
 Cần chạy 1 lần để tạo bảng:
 
