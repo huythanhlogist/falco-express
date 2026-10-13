@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import ThuStatusSelect from "@/components/admin/ThuStatusSelect";
 import OrderRowActions from "@/components/admin/OrderRowActions";
 import CopyOrderInfoButton from "@/components/admin/CopyOrderInfoButton";
 import CtvOrderReviewActions from "@/components/admin/CtvOrderReviewActions";
@@ -160,7 +159,7 @@ export default function OrdersTable({ orders }: { orders: OrderListItem[] }) {
               <th className="px-3 py-2">Ngày nhận</th>
               <th className="px-3 py-2">Vận chuyển</th>
               <th className="px-3 py-2">Nguồn</th>
-              <th className="px-3 py-2">Trạng thái thu</th>
+              <th className="px-3 py-2">Dịch vụ</th>
               <th className="px-3 py-2" />
               <th className="px-3 py-2">Gửi khách</th>
             </tr>
@@ -215,7 +214,13 @@ export default function OrdersTable({ orders }: { orders: OrderListItem[] }) {
                     <CtvOrderReviewActions orderId={o.id} reviewStatus={o.review_status} ctvCode={o.ctv_code} />
                   </td>
                   <td className="px-3 py-2">
-                    <ThuStatusSelect orderId={o.id} initialStatus={o.payment_status} />
+                    {o.service ? (
+                      <span className="inline-flex items-center whitespace-nowrap rounded-full bg-mist px-2.5 py-1 text-xs font-bold text-navy-800">
+                        {o.service}
+                      </span>
+                    ) : (
+                      <span className="text-ink/30">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     <OrderRowActions orderId={o.id} falcoCode={o.falco_code} />
