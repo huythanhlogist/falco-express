@@ -2,8 +2,9 @@ import type { KangoTrackingResponse } from "./kango";
 
 /**
  * Các mốc chính của một đơn Falco → châu Âu/Anh (nhãn ngắn, cùng kiểu, để hiện ở cột trạng thái):
- *   Chờ nhận → Đã nhận → Đã xuất → Đang thông quan → Đã thông quan → Đang giao → Đã giao (+ Hoàn trả)
- *   imported → received → exported → customs_processing → customs_released → last_mile → delivered. `in_transit` và `customs` là giá trị CŨ còn trong enum DB (bản cache
+ *   Đã nhận → Đã xuất (sau hải quan VN) → Đang thông quan → Đã thông quan → Đang giao → Đã giao (+ Hoàn trả)
+ *   received → exported → customs_processing → customs_released → last_mile → delivered.
+ * `imported` là giá trị cũ (đơn chưa có sự kiện) — nay cũng hiển thị là "Đã nhận". `in_transit` và `customs` là giá trị CŨ còn trong enum DB (bản cache
  * trước đây), không còn được sinh ra nữa.
  */
 export type ShipmentStatus =
@@ -19,7 +20,7 @@ export type ShipmentStatus =
   | "customs";
 
 export const SHIPMENT_STATUS_OPTIONS: { value: ShipmentStatus; label: string; className: string }[] = [
-  { value: "imported", label: "Chờ nhận", className: "bg-slate-100 text-slate-600" },
+  { value: "imported", label: "Đã nhận", className: "bg-sky-50 text-sky-700" },
   { value: "received", label: "Đã nhận", className: "bg-sky-50 text-sky-700" },
   { value: "exported", label: "Đã xuất", className: "bg-cyan-50 text-cyan-700" },
   { value: "customs_processing", label: "Đang thông quan", className: "bg-amber-50 text-amber-700" },
@@ -53,16 +54,16 @@ function stageOfTitle(title: string): number {
   if (/destination customs released/.test(s)) return 4;
   if (/destination customs|arrived destination airport/.test(s)) return 3;
 
-  // Đã xuất đi (2): quét xuất kho, hải quan đi, ra sân bay, bay, transit
-  if (/export scan|origin customs|departed|arrived transit airport|waiting for|offload|in transit noi bai|transit to/.test(s)) {
-    return 2;
-  }
+  // Đã xuất (2): chỉ tính SAU khi qua hải quan Việt Nam — tức từ lúc máy bay cất cánh
+  // (departed) trở đi: transit, chờ chuyến nối, đổi chuyến.
+  if (/departed|arrived transit airport|waiting for|offload|transit to/.test(s)) return 2;
 
-  // Giao dịch sớm / thông báo trước (1): nhận hàng, tạo nhãn, hãng nhận dữ liệu điện tử
+  // Đã nhận (1): nhận hàng, tạo nhãn, quét xuất kho, đang làm hải quan Việt Nam, ra sân bay Nội Bài,
+  // cùng các thông báo trước của hãng (chưa bay).
   if (
     s === "we have your parcel" ||
     s.startsWith("label created") ||
-    /instruction data|order information has been transmitted|pickup ordered|not yet received your parcel/.test(s)
+    /export scan|origin customs|in transit noi bai|instruction data|order information has been transmitted|pickup ordered|not yet received your parcel/.test(s)
   ) {
     return 1;
   }
@@ -92,7 +93,8 @@ const NOT_LAST_MILE = /customs|airport|flight|departed|arrived|offload|transit/;
  */
 export function mapKangoStatus(kango: KangoTrackingResponse | null): ShipmentStatus {
   const events = kango?.trackings ?? [];
-  if (!kango || events.length === 0) return "imported";
+  // Đơn đã lên hệ thống thì coi là đã nhận hàng, kể cả khi Kango chưa có sự kiện nào.
+  if (!kango || events.length === 0) return "received";
 
   const parcels = kango.shipment_information?.order_numbers ?? [];
   const titles = events.map((e) => (e.title ?? "").toLowerCase());

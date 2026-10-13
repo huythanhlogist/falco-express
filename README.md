@@ -525,8 +525,8 @@ Mỗi giờ 1 lần, cron gọi Kango cho các đơn **trong 30 ngày gần nh�
 giao/hoàn** rồi ghi vào bảng; đơn đã giao/hoàn không bị gọi lại. Đơn chưa có
 cache (mới tạo) vẫn tra được — trang tra cứu gọi live rồi tự ghi cache.
 
-Trạng thái (`mapKangoStatus` trong `src/lib/shipment-status.ts`) theo các mốc: Chờ nhận →
-Đã nhận → Đã xuất → Đang thông quan → Đã thông quan → Đang giao → Đã giao (+ Hoàn trả).
+Trạng thái (`mapKangoStatus` trong `src/lib/shipment-status.ts`) theo các mốc: Đã nhận →
+Đã xuất (sau hải quan Việt Nam, từ lúc bay) → Đang thông quan → Đã thông quan → Đang giao → Đã giao (+ Hoàn trả).
 Kango không có mã trạng thái chuẩn (`status_class` hay lỗi thời, sự kiện là câu tự do của hãng
 chặng cuối) nên mốc được suy từ TOÀN BỘ lịch sử sự kiện (mốc xa nhất đã đạt); sau khi đã
 thông quan, sự kiện mới hơn không thuộc nhóm bay/hải quan được coi là đã nối last mile. Đơn gửi
