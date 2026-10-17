@@ -1,9 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { LANDING_ROUTES, ROUTE_PRICING, ZALO_HREF } from "@/lib/landing-content";
+import { getRouteEtas } from "@/lib/route-eta";
+import RouteMap from "./RouteMap";
 import SectionHeading from "./SectionHeading";
 
-export default function RoutesSection() {
+export default async function RoutesSection() {
+  const etas = await getRouteEtas();
   return (
     <section id="tuyen-pho-bien" className="lp-container pt-10 scroll-mt-24">
       <div className="bg-falco-navy px-5 py-10 text-white sm:px-8 sm:py-12 lg:px-12 lg:py-[52px]">
@@ -23,12 +26,17 @@ export default function RoutesSection() {
           }
         />
 
+        <RouteMap etas={etas} />
+
         <div className="mt-6 grid grid-cols-2 gap-2.5 sm:mt-[34px] sm:gap-3.5 md:grid-cols-3 lg:grid-cols-4">
           {LANDING_ROUTES.map((route) => {
             const pricing = ROUTE_PRICING[route.slug];
+            const eta = etas[route.slug];
+            // Thời gian nhập tay ở ROUTE_PRICING được ưu tiên; nếu trống thì dùng số thực tế từ đơn đã giao.
+            const transit = pricing?.transit || (eta ? `${eta.fromDays}–${eta.toDays} ngày` : "");
             const detail =
-              pricing?.priceFrom || pricing?.transit
-                ? [pricing.priceFrom && `Từ ${pricing.priceFrom}/kg`, pricing.transit].filter(Boolean).join(" · ")
+              pricing?.priceFrom || transit
+                ? [pricing?.priceFrom && `Từ ${pricing.priceFrom}/kg`, transit].filter(Boolean).join(" · ")
                 : "Báo giá qua Zalo";
             return (
               <Link

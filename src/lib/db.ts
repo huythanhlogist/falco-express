@@ -59,6 +59,9 @@ export type OrderRecord = {
   cost: string | null;
   chi_source_invoice: string | null;
   weight_kg: string | null;
+  /** Mã bưu chính người nhận — dùng để khách mở khoá thông tin đầy đủ trên trang tra cứu.
+   *  Cột thêm bằng scripts/alter-orders-add-recipient-postcode.ts; undefined nếu chưa chạy. */
+  recipient_postcode?: string | null;
   source: OrderSource;
   ctv_id: number | null;
   review_status: OrderReviewStatus;
@@ -187,6 +190,7 @@ export type OrderEditableFields = Partial<{
   cost: number | null;
   chiSourceInvoice: string | null;
   weightKg: number | null;
+  recipientPostcode: string | null;
 }>;
 
 const ORDER_FIELD_COLUMNS: Record<keyof OrderEditableFields, string> = {
@@ -202,6 +206,7 @@ const ORDER_FIELD_COLUMNS: Record<keyof OrderEditableFields, string> = {
   cost: "cost",
   chiSourceInvoice: "chi_source_invoice",
   weightKg: "weight_kg",
+  recipientPostcode: "recipient_postcode",
 };
 
 export async function updateOrder(
@@ -1858,4 +1863,48 @@ export async function findDbnQuoteImageById(id: number): Promise<Buffer | null> 
 export async function deleteDbnQuote(id: number): Promise<boolean> {
   const [result] = await getPool().query("DELETE FROM dbn_quotes WHERE id = ?", [id]);
   return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
+// ───────────────────────── Tra cứu công khai: postcode & thời gian giao ─────────────────────────
+
+/**
+ * Postcode của các bill Kango đã gửi khớp với đơn này — nguồn dự phòng khi đơn
+ * chưa được nhập `recipient_postcode`. Khớp theo mã bill Kango = AWB, hoặc
+ * HAWB của 1 kiện nằm trong danh sách HAWB Kango trả về lúc tạo bill.
+ */
+export async function findSentBillPostcodes(awb: string, hawbs: string[]): Promise<string[]> {
+  const conditions = ["kango_bill_id = ?"];
+  const values: string[] = [awb];
+  for (const hawb of hawbs.filter((h) => h && h.trim()).slice(0, 20)) {
+    conditions.push("kango_hawbs_json LIKE ?");
+    values.push(`%"${hawb.trim().replace(/[%_"\\]/g, "")}"%`);
+  }
+  const [rows] = await getPool().query(
+    `SELECT receiver_postal_code FROM kango_bills
+     WHERE status = 'sent' AND receiver_postal_code IS NOT NULL AND (${conditions.join(" OR ")})
+     LIMIT 10`,
+    values
+  );
+  return (rows as { receiver_postal_code: string }[]).map((r) => r.receiver_postal_code);
+}
+
+export type DeliveredOrderForEta = {
+  destination: string | null;
+  received_date: string | Date | null;
+  payload: string | null;
+};
+
+/** Các đơn đã giao gần đây (kèm hành trình Kango) — để tính thời gian giao thực tế theo tuyến. */
+export async function listDeliveredOrdersForEta(limit = 1500): Promise<DeliveredOrderForEta[]> {
+  const [rows] = await getPool().query(
+    `SELECT o.destination, o.received_date, tc.payload
+     FROM orders o
+     JOIN order_tracking_cache tc ON tc.order_id = o.id AND tc.awb = o.awb
+     WHERE tc.shipment_status = 'delivered' AND o.received_date IS NOT NULL
+       AND o.received_date >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)
+     ORDER BY o.received_date DESC
+     LIMIT ?`,
+    [limit]
+  );
+  return rows as DeliveredOrderForEta[];
 }

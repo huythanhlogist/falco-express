@@ -64,6 +64,8 @@ export async function POST(
         amount: o.amount === null ? null : Number(o.amount),
         cost: o.cost === null ? null : Number(o.cost),
         chiSourceInvoice: o.chi_source_invoice,
+        // Chỉ khôi phục postcode khi bản lưu có cột này (đơn sửa sau khi đã chạy migration).
+        ...(o.recipient_postcode !== undefined ? { recipientPostcode: o.recipient_postcode } : {}),
       });
       await replaceOrderParcels(entry.order_id, before.trackingCodes);
       restoredOrderId = entry.order_id;
@@ -86,6 +88,7 @@ export async function POST(
         amount: o.amount === null ? null : Number(o.amount),
         cost: o.cost === null ? null : Number(o.cost),
         chiSourceInvoice: o.chi_source_invoice,
+        ...(o.recipient_postcode !== undefined ? { recipientPostcode: o.recipient_postcode } : {}),
       });
       if (before.trackingCodes.length > 0) {
         await insertParcels(

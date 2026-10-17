@@ -61,6 +61,7 @@ export async function PATCH(
     receivedDate,
     collectedDate,
     trackingCodes,
+    recipientPostcode,
   } = body ?? {};
 
   if (paymentStatus !== undefined && !VALID_STATUSES.includes(paymentStatus)) {
@@ -98,6 +99,13 @@ export async function PATCH(
   if (destination !== undefined) fields.destination = String(destination).trim();
   if (receivedDate !== undefined) fields.receivedDate = receivedDate || null;
   if (collectedDate !== undefined) fields.collectedDate = collectedDate || null;
+  if (recipientPostcode !== undefined) {
+    const pc = String(recipientPostcode ?? "").trim().toUpperCase();
+    if (pc.length > 20) {
+      return NextResponse.json({ error: "Mã bưu chính quá dài" }, { status: 400 });
+    }
+    fields.recipientPostcode = pc || null;
+  }
 
   const willChangeFields = Object.keys(fields).length > 0;
   const willChangeParcels = Array.isArray(trackingCodes);

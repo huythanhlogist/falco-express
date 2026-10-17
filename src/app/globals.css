@@ -252,3 +252,38 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Bản đồ tuyến trang chủ (RouteMap.tsx) */
+.route-map-arc {
+  stroke-dasharray: 6 8;
+  animation: route-map-dash 1.6s linear infinite;
+}
+@keyframes route-map-dash {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+.route-map-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: route-map-pulse 2.4s ease-out infinite;
+}
+@keyframes route-map-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .route-map-arc,
+  .route-map-pulse {
+    animation: none;
+  }
+  .route-map-plane {
+    display: none;
+  }
+}

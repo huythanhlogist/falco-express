@@ -12,6 +12,7 @@ type OrderDetail = {
   destination: string | null;
   received_date: string | null;
   weight_kg: string | null;
+  recipient_postcode: string;
 };
 
 /**
@@ -41,6 +42,9 @@ export default function OrderRowActions({
   const [error, setError] = useState("");
   const [form, setForm] = useState<OrderDetail | null>(null);
   const [trackingCodes, setTrackingCodes] = useState("");
+  // Postcode lúc mở form — chỉ gửi lên khi có thay đổi, để form vẫn lưu được
+  // trên DB chưa chạy migration thêm cột recipient_postcode.
+  const [initialPostcode, setInitialPostcode] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -58,7 +62,9 @@ export default function OrderRowActions({
           destination: o.destination || "",
           received_date: o.received_date ? toDateInputValue(o.received_date) : "",
           weight_kg: o.weight_kg ?? "",
+          recipient_postcode: o.recipient_postcode ?? "",
         });
+        setInitialPostcode(o.recipient_postcode ?? "");
         setTrackingCodes(
           (data.parcels as { tracking_code: string }[]).map((p) => p.tracking_code).join("\n")
         );
@@ -84,6 +90,9 @@ export default function OrderRowActions({
           receivedDate: form.received_date || null,
           weightKg: form.weight_kg === "" ? null : Number(form.weight_kg),
           trackingCodes: trackingCodes.split("\n"),
+          ...(form.recipient_postcode.trim() !== initialPostcode.trim()
+            ? { recipientPostcode: form.recipient_postcode }
+            : {}),
         }),
       });
       if (!res.ok) {
@@ -162,6 +171,11 @@ export default function OrderRowActions({
                   label="Điện thoại"
                   value={form.recipient_phone || ""}
                   onChange={(v) => setForm({ ...form, recipient_phone: v })}
+                />
+                <Field
+                  label="Mã bưu chính người nhận (để khách mở khoá thông tin khi tra cứu)"
+                  value={form.recipient_postcode}
+                  onChange={(v) => setForm({ ...form, recipient_postcode: v })}
                 />
                 <Field
                   label="Dịch vụ"

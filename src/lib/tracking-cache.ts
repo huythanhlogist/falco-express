@@ -7,7 +7,14 @@ import {
 } from "./db";
 import { fetchKangoTracking, type KangoTrackingResponse } from "./kango";
 import { resolveLastMile } from "./last-mile";
-import { isFinalShipmentStatus, mapKangoStatus } from "./shipment-status";
+import {
+  isFinalShipmentStatus,
+  mapKangoStatus,
+  milestoneIndexOf,
+  milestoneTimesOf,
+  type ShipmentStatus,
+} from "./shipment-status";
+import type { RouteEta } from "./route-eta";
 import { vnDateString } from "./vn-date";
 
 // Đơn đã giao/hoàn: dữ liệu không đổi nữa nên cache dùng mãi. Đơn đang đi: cron
@@ -45,13 +52,46 @@ export type PublicTrackingData = {
   lastMileWebsite: string;
   contactInformation: string;
   ksnPostUrl: string;
+  /** Trạng thái chuẩn hoá + vị trí trên timeline 6 mốc (-1 = hoàn trả). */
+  shipmentStatus: ShipmentStatus;
+  milestoneIndex: number;
+  milestoneTimes: string[];
+  /** Ngày Falco nhận hàng (YYYY-MM-DD) — mốc tính thời gian giao dự kiến. */
+  receivedDate: string | null;
+  /** Tên người nhận đã che, trừ khi khách đã xác minh đúng postcode. */
+  recipientVerified: boolean;
+  /** Đơn có postcode để đối chiếu không (không có thì ẩn ô nhập postcode). */
+  canVerifyRecipient: boolean;
+  /** Thời gian giao thực tế của tuyến này (null khi chưa đủ dữ liệu). */
+  routeEta: RouteEta | null;
 };
 
+function receivedDateOf(value: OrderRecord["received_date"] | Date): string | null {
+  if (!value) return null;
+  if (value instanceof Date) {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+  }
+  const m = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : null;
+}
+
 export function buildTrackingData(
-  order: Pick<OrderRecord, "falco_code" | "awb" | "recipient_name" | "service" | "destination">,
+  order: Pick<OrderRecord, "falco_code" | "awb" | "recipient_name" | "service" | "destination" | "received_date">,
   kango: KangoTrackingResponse | null
 ): PublicTrackingData {
   const ksnPostUrl = `https://www.ksnpost.com/?code=${encodeURIComponent(order.awb)}`;
+  const shipmentStatus = mapKangoStatus(kango);
+  const common = {
+    shipmentStatus,
+    milestoneIndex: milestoneIndexOf(shipmentStatus),
+    milestoneTimes: milestoneTimesOf(kango),
+    receivedDate: receivedDateOf(order.received_date),
+    // 3 trường dưới do API route điền lại sau khi che tên / đối chiếu postcode / tính ETA.
+    recipientVerified: true,
+    canVerifyRecipient: false,
+    routeEta: null,
+  };
 
   if (!kango) {
     // Đơn có trong hệ thống Falco nhưng Kango chưa có dữ liệu (đơn quá mới,
@@ -69,6 +109,7 @@ export function buildTrackingData(
       lastMileWebsite: "",
       contactInformation: "",
       ksnPostUrl,
+      ...common,
     };
   }
 
@@ -121,6 +162,7 @@ export function buildTrackingData(
     lastMileWebsite: kango.additional_notes.last_mile_website || "",
     contactInformation: kango.additional_notes.contact_information || "",
     ksnPostUrl,
+    ...common,
   };
 }
 

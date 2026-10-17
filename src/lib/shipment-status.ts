@@ -148,3 +148,60 @@ export function mapKangoStatus(kango: KangoTrackingResponse | null): ShipmentSta
       return "received";
   }
 }
+
+/** Thời điểm giao thành công gần nhất trong hành trình Kango ("" nếu chưa giao). */
+export function deliveredTimeOf(kango: KangoTrackingResponse | null): string {
+  let deliveredTime = "";
+  for (const e of kango?.trackings ?? []) {
+    const t = (e.title ?? "").toLowerCase();
+    if (DELIVERED.test(t) && !NEGATIVE_DELIVERED.test(t) && (e.time ?? "") > deliveredTime) {
+      deliveredTime = e.time ?? "";
+    }
+  }
+  return deliveredTime;
+}
+
+/** 6 mốc hiển thị trên timeline trang tra cứu, theo đúng thứ tự hành trình. */
+export const TRACKING_MILESTONES = [
+  { key: "received", label: "Đã nhận hàng" },
+  { key: "exported", label: "Đã bay" },
+  { key: "customs_processing", label: "Đang thông quan" },
+  { key: "customs_released", label: "Đã thông quan" },
+  { key: "last_mile", label: "Đang giao" },
+  { key: "delivered", label: "Đã giao" },
+] as const;
+
+const MILESTONE_INDEX: Partial<Record<ShipmentStatus, number>> = {
+  imported: 0,
+  received: 0,
+  exported: 1,
+  in_transit: 1,
+  customs_processing: 2,
+  customs: 2,
+  customs_released: 3,
+  last_mile: 4,
+  delivered: 5,
+};
+
+/** Vị trí mốc hiện tại trên timeline (0–5); hoàn trả trả về -1. */
+export function milestoneIndexOf(status: ShipmentStatus): number {
+  return MILESTONE_INDEX[status] ?? -1;
+}
+
+/**
+ * Thời điểm (chuỗi thời gian Kango) đạt từng mốc — lấy sự kiện SỚM NHẤT thuộc
+ * mốc đó hoặc mốc sau. Mốc không có sự kiện tương ứng (vd Kango bỏ qua "đang
+ * thông quan") để trống, giao diện vẫn tô đã qua theo trạng thái tổng.
+ */
+export function milestoneTimesOf(kango: KangoTrackingResponse | null): string[] {
+  const times = ["", "", "", "", "", ""];
+  for (const e of kango?.trackings ?? []) {
+    const st = stageOfTitle(e.title ?? "");
+    if (st === 0) continue;
+    const idx = st - 1; // stage 1..5 → mốc 0..4
+    const time = e.time ?? "";
+    if (time && (!times[idx] || time < times[idx])) times[idx] = time;
+  }
+  times[5] = deliveredTimeOf(kango);
+  return times;
+}
