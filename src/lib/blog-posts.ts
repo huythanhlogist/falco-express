@@ -421,6 +421,80 @@ export const BLOG_POSTS: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "gui-do-gia-dung-vat-dung-cong-kenh-di-chau-au",
+    title:
+      "Gửi đồ gia dụng, vật dụng cồng kềnh (nồi cơm điện, máy xay, máy ép...) đi châu Âu: đóng gói sao cho an toàn, có phải đóng thuế không?",
+    metaTitle: "Gửi đồ gia dụng, vật dụng cồng kềnh đi châu Âu | Falco Express",
+    metaDescription:
+      "Nồi cơm điện, máy xay, máy ép trái cây gửi đi Anh, Đức, Pháp có phải đóng thuế không, điện Việt Nam có dùng được bên châu Âu không, đóng gói sao để không vỡ, không bị giữ vì pin. Hướng dẫn thực tế từ Falco Express.",
+    excerpt:
+      "Khác với gửi quà nhỏ, một món đồ gia dụng thường vượt ngưỡng miễn thuế và bị tính thuế trên toàn bộ giá trị, không phải phần vượt. Đây là những gì cần biết trước khi gửi nồi cơm điện, máy xay, máy ép trái cây... sang châu Âu.",
+    publishedAt: "2026-10-19",
+    content: [
+      {
+        type: "p",
+        text: "Không ít khách hỏi Falco có gửi được nồi cơm điện, máy xay sinh tố, máy ép trái cây hay bàn ủi hơi nước cho người thân ở nước ngoài không — thường là đồ dùng quen tay, khó mua loại tương tự ở châu Âu, hoặc đơn giản là muốn người thân có đúng món đồ quen dùng ở nhà. Đây là nhóm hàng khác hẳn với quà tặng nhỏ (thực phẩm, đồ lặt vặt) đã nói ở các bài trước: giá trị cao hơn, có pin hoặc động cơ, và dễ vỡ nếu đóng gói không đúng cách. Dưới đây là 3 điều cần biết trước khi gửi.",
+      },
+      {
+        type: "h2",
+        text: "1. Có phải đóng thuế không? Khác gì so với gửi quà nhỏ",
+      },
+      {
+        type: "p",
+        text: "Hàng gửi cho cá nhân ở EU được miễn thuế nhập khẩu và VAT nếu tổng giá trị không quá 45 euro mỗi lô, với điều kiện là quà tặng phi thương mại giữa cá nhân với cá nhân (đã nêu ở bài viết về DDP). Nhưng có một điểm quan trọng hay bị hiểu nhầm: nếu một món đồ đơn lẻ (ví dụ 1 máy ép trái cây) có giá trị vượt 45 euro, theo quy định hải quan Đức (zoll.de), món đồ đó được tính là \"không thể chia nhỏ\" — nghĩa là thuế tính trên toàn bộ giá trị món hàng, không chỉ phần vượt 45 euro. Khác với trường hợp một lô nhiều món nhỏ cộng lại vượt ngưỡng, khi đó chỉ phần vượt mới bị tính thuế.",
+      },
+      {
+        type: "note",
+        text: "Ví dụ: một máy ép trái cây trị giá 80 euro gửi dạng quà cho cá nhân sẽ bị tính thuế trên toàn bộ 80 euro (vì là 1 món không chia nhỏ được), không phải chỉ phần 35 euro vượt ngưỡng. Mức thuế cụ thể tuỳ loại hàng và nước nhận — Falco sẽ báo trước nếu lô hàng có khả năng phát sinh thuế để khách chủ động quyết định.",
+      },
+      {
+        type: "h2",
+        text: "2. Điện Việt Nam có dùng được ở châu Âu không? Có cần đổi phích cắm?",
+      },
+      {
+        type: "p",
+        text: "Việt Nam dùng điện 220V, tần số 50Hz. Châu Âu lục địa (Đức, Pháp, Hà Lan, Séc, Ba Lan) dùng 230V/50Hz, còn Anh dùng khoảng 230V/50Hz nhưng ổ cắm khác hẳn. Vì mức điện áp khá gần nhau (220V và 230V), phần lớn đồ gia dụng hiện nay (có ghi trên nhãn máy dải điện áp \"220-240V~50/60Hz\") dùng được bình thường ở châu Âu mà không cần bộ đổi điện (converter) — chỉ cần đổi đầu phích cắm (adapter). Tuy nhiên luôn kiểm tra nhãn thông số kỹ thuật dưới đáy máy trước khi gửi: nếu máy chỉ ghi đúng 220V (không có dải 220-240V) hoặc là hàng xách tay từ nước dùng điện 110-120V, nên hỏi Falco trước khi gửi để tránh rủi ro khi dùng.",
+      },
+      {
+        type: "list",
+        items: [
+          "Đức, Hà Lan: ổ cắm Type F (2 chân tròn, có tiếp đất 2 bên) — phích Việt Nam (Type A/C) cắm được vào ổ Type F nếu là phích tròn 2 chân, nhưng nên dùng adapter để chắc chắn và an toàn",
+          "Pháp, Séc, Ba Lan: ổ cắm Type E (2 chân tròn, có chấu tiếp đất nhô ra) — cần adapter phù hợp, không phải loại adapter dùng cho Đức/Hà Lan luôn vừa khít",
+          "Anh: ổ cắm Type G (3 chân vuông) — khác hẳn Việt Nam và toàn bộ châu Âu lục địa, bắt buộc phải có adapter riêng cho Anh",
+        ],
+      },
+      {
+        type: "h2",
+        text: "3. Đóng gói đồ có pin hoặc động cơ sao cho an toàn, không bị giữ ở hải quan",
+      },
+      {
+        type: "p",
+        text: "Đồ gia dụng có động cơ (máy xay, máy ép) hoặc pin sạc (một số bàn ủi, máy hút bụi cầm tay) cần đóng gói kỹ hơn đồ thường — vừa để hàng không vỡ khi vận chuyển, vừa để không bị giữ lại kiểm tra vì khai báo không rõ ràng.",
+      },
+      {
+        type: "list",
+        items: [
+          "Giữ nguyên hộp gốc của máy nếu còn — hộp gốc đã được thiết kế vừa khít, chống va đập tốt hơn hộp tự đóng",
+          "Nếu không còn hộp gốc, bọc riêng phần lưỡi dao, cối thuỷ tinh/nhựa bằng xốp hơi, chèn kín khoảng trống trong thùng để máy không xê dịch khi vận chuyển",
+          "Pin rời (không gắn liền máy) cần được bảo vệ cực pin (dán băng keo lên 2 đầu cực hoặc để trong vỏ gốc), không để pin rời lẫn trong hành lý — pin lắp sẵn trong máy thường ít bị hạn chế hơn pin rời",
+          "Khai báo đúng tên hàng và số lượng thực tế khi gửi — khai sai hoặc khai chung chung (ví dụ chỉ ghi \"đồ gia dụng\") dễ khiến hải quan nước nhận mở kiểm tra, làm chậm thời gian giao hàng",
+        ],
+      },
+      {
+        type: "h2",
+        text: "Falco Express hỗ trợ gì cho nhóm hàng này?",
+      },
+      {
+        type: "p",
+        text: "Falco tư vấn trước cho khách nếu món hàng có khả năng phát sinh thuế theo giá trị khai báo thực tế, hỗ trợ đóng gói đồ có động cơ/pin đúng tiêu chuẩn vận chuyển quốc tế, và khai báo hải quan đúng với giá trị và tên hàng thực tế — Falco không khai thấp hơn giá trị thật để né thuế, vì đây là rủi ro pháp lý cho cả người gửi và người nhận nếu bị phát hiện.",
+      },
+      {
+        type: "note",
+        text: "Thông tin về ngưỡng miễn thuế quà tặng cá nhân tham khảo từ trang hải quan Đức (zoll.de, mục Gifts, cập nhật 2026); thông tin điện áp/ổ cắm tổng hợp từ các nguồn tham khảo quốc tế về tiêu chuẩn điện lưới (worldstandards.eu và các nguồn du lịch uy tín). Mức thuế, ngưỡng miễn thuế cụ thể có thể thay đổi theo từng nước và từng thời điểm — đây là thông tin tham khảo chung, không phải tư vấn thuế chính thức. Nhắn Zalo hoặc gọi hotline Falco Express để được báo giá và tư vấn cụ thể cho từng món hàng.",
+      },
+    ],
+  },
 ];
 
 export function getBlogPost(slug: string) {

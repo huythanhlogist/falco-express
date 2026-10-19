@@ -49,6 +49,19 @@ export default async function BlogPostPage({
   const post = getBlogPost(slug);
   if (!post) notFound();
 
+  // Liên kết nội bộ dạng vòng tròn cố định (không phải "mới nhất"): mỗi
+  // bài trỏ tới 3 bài kế tiếp theo thứ tự publishedAt, nên với N bài mỗi
+  // bài luôn nhận đúng 3 link trỏ vào từ 3 bài liền trước trong vòng —
+  // tránh tình trạng 2 bài cũ nhất không được bài nào khác trỏ tới.
+  const orderedPosts = [...BLOG_POSTS].sort(
+    (a, b) => new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime()
+  );
+  const currentIndex = orderedPosts.findIndex((p) => p.slug === post.slug);
+  const relatedPosts =
+    currentIndex === -1
+      ? []
+      : [1, 2, 3].map((offset) => orderedPosts[(currentIndex + offset) % orderedPosts.length]);
+
   return (
     <>
       <PageHero eyebrow="Blog Falco Express" title={post.title} description={post.excerpt} />
@@ -120,7 +133,24 @@ export default async function BlogPostPage({
             </div>
           </Reveal>
 
-          <div className="mt-14 border-t border-line pt-8">
+          {relatedPosts.length > 0 && (
+            <div className="mt-14 border-t border-line pt-8">
+              <span className="eyebrow">Bài viết liên quan</span>
+              <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                {relatedPosts.map((p) => (
+                  <Link
+                    key={p.slug}
+                    href={`/blog/${p.slug}`}
+                    className="card block h-full p-4 text-sm font-semibold leading-snug text-navy-800 transition hover:border-flame-400"
+                  >
+                    {p.title}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-8 border-t border-line pt-8">
             <span className="eyebrow">Các tuyến gửi hàng</span>
             <div className="mt-4 flex flex-wrap gap-3">
               {COUNTRY_ROUTES.map((c) => (
