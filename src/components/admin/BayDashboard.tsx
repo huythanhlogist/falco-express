@@ -21,14 +21,21 @@ async function bayGet<T>(path: string, query?: Record<string, string | number>):
 const fmt = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
 
+// Ảnh hiển thị qua tên miền Falco (route /api/admin/bay/img/<uuid>), không lộ link Bay.
+const UUID_AT_END = /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
+const proxied = (u: string) => {
+  const m = u.match(UUID_AT_END);
+  return m ? `/api/admin/bay/img/${m[1].toLowerCase()}` : u;
+};
+
 function Images({ urls }: { urls: string[] }) {
   if (!urls.length) return null;
   return (
     <div className="mt-2 flex flex-wrap gap-2">
       {urls.map((u) => (
-        <a key={u} href={u} target="_blank" rel="noopener noreferrer" title="Mở ảnh gốc">
+        <a key={u} href={proxied(u)} target="_blank" rel="noopener noreferrer" title="Mở ảnh gốc">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={u} alt="Ảnh vận đơn" loading="lazy" className="h-20 w-20 rounded-lg border border-line object-cover" />
+          <img src={proxied(u)} alt="Ảnh vận đơn" loading="lazy" className="h-20 w-20 rounded-lg border border-line object-cover" />
         </a>
       ))}
     </div>
@@ -38,6 +45,29 @@ function Images({ urls }: { urls: string[] }) {
 function TrackingPanel({ reference, onClose }: { reference: string; onClose: () => void }) {
   const [data, setData] = useState<BayTracking | null>(null);
   const [error, setError] = useState("");
+  const [saveMsg, setSaveMsg] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function saveImages() {
+    if (!data) return;
+    const urls = [...data.receiveItems.flatMap((r) => r.images), ...data.events.flatMap((e) => e.images)];
+    setSaving(true);
+    setSaveMsg("");
+    try {
+      const res = await fetch("/api/admin/bay/save-images", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? `Lỗi HTTP ${res.status}`);
+      setSaveMsg(`Đã lưu ${j.saved} ảnh mới, ${j.exists} ảnh đã có từ trước${j.failed ? `, ${j.failed} ảnh lỗi` : ""}.`);
+    } catch (e) {
+      setSaveMsg((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -63,10 +93,18 @@ function TrackingPanel({ reference, onClose }: { reference: string; onClose: () 
             </p>
           )}
         </div>
-        <button type="button" onClick={onClose} className="text-sm text-ink/50 hover:text-ink/80">
-          Đóng
-        </button>
+        <div className="flex items-center gap-3">
+          {data && (
+            <button type="button" onClick={saveImages} disabled={saving} className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-mist/60 disabled:opacity-50">
+              {saving ? "Đang lưu…" : "Lưu ảnh về server"}
+            </button>
+          )}
+          <button type="button" onClick={onClose} className="text-sm text-ink/50 hover:text-ink/80">
+            Đóng
+          </button>
+        </div>
       </div>
+      {saveMsg && <p className="mt-2 text-sm text-ink/70">{saveMsg}</p>}
 
       {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
       {!data && !error && <p className="mt-3 text-sm text-ink/50">Đang tải…</p>}
