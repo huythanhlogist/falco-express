@@ -14,3 +14,16 @@ export const BAY_STATUS_LABELS: Record<string, string> = {
   cancelled: "Đã hủy",
   held_at_destination_warehouse: "Giữ tại kho",
 };
+
+/** Loại hàng/dịch vụ của vận đơn Bay (serviceType): khô, đông lạnh, đường biển. */
+export const BAY_SERVICE_LABELS: Record<string, string> = {
+  air: "Hàng khô",
+  cold: "Đông lạnh",
+  sea: "Đường biển",
+};
+
+export const BAY_SERVICE_CLASSES: Record<string, string> = {
+  air: "bg-amber-50 text-amber-700",
+  cold: "bg-cyan-50 text-cyan-700",
+  sea: "bg-indigo-50 text-indigo-700",
+};

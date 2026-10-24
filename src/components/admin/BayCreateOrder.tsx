@@ -224,11 +224,11 @@ export default function BayCreateOrder({ onChanged }: { onChanged: () => void })
               <input className={input} value={f.partnerReference} onChange={(e) => set("partnerReference", e.target.value)} placeholder="vd FL261024001" />
             </div>
             <div>
-              <label className={label}>Dịch vụ</label>
+              <label className={label}>Loại hàng</label>
               <select className={input} value={f.serviceType} onChange={(e) => set("serviceType", e.target.value)}>
-                <option value="air">Hàng không</option>
+                <option value="air">Hàng khô</option>
                 <option value="sea">Đường biển</option>
-                <option value="cold">Hàng lạnh</option>
+                <option value="cold">Đông lạnh</option>
               </select>
             </div>
             <div>

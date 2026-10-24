@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BAY_STATUS_LABELS } from "@/lib/bay-labels";
+import { BAY_SERVICE_CLASSES, BAY_SERVICE_LABELS, BAY_STATUS_LABELS } from "@/lib/bay-labels";
 import BayCreateOrder from "@/components/admin/BayCreateOrder";
 import type { BayMe, BayShipment, BayShipmentList, BayTracking } from "@/lib/bay-api";
 
@@ -163,6 +163,7 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("");
   const [ref, setRef] = useState("");
+  const [service, setService] = useState("");
   const [open, setOpen] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -227,6 +228,20 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
             </option>
           ))}
         </select>
+        <select
+          value={service}
+          onChange={(e) => setService(e.target.value)}
+          className="rounded-lg border border-line bg-white px-3 py-2 text-sm"
+          aria-label="Lọc loại hàng"
+          title="Lọc theo loại trong trang đang xem"
+        >
+          <option value="">Tất cả loại</option>
+          {Object.entries(BAY_SERVICE_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
+        </select>
         <input
           value={ref}
           onChange={(e) => {
@@ -245,11 +260,12 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
       {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
 
       <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-white">
-        <table className="w-full min-w-[900px] text-sm">
+        <table className="w-full min-w-[980px] text-sm">
           <thead>
             <tr className="border-b border-line bg-mist/60 text-left text-xs font-semibold uppercase tracking-wide text-ink/45">
               <th className="px-3 py-2">Mã Bay</th>
               <th className="px-3 py-2">Mã của bạn</th>
+              <th className="px-3 py-2">Loại</th>
               <th className="px-3 py-2">Người nhận</th>
               <th className="px-3 py-2">Điểm đến</th>
               <th className="px-3 py-2">Cân (kg)</th>
@@ -259,7 +275,7 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
             </tr>
           </thead>
           <tbody>
-            {(list?.data ?? []).map((s: BayShipment) => (
+            {(list?.data ?? []).filter((s) => !service || s.serviceType === service).map((s: BayShipment) => (
               <tr
                 key={s.reference}
                 onClick={() => setOpen(s.reference)}
@@ -267,6 +283,11 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
               >
                 <td className="px-3 py-2 font-semibold text-navy-900">{s.reference}</td>
                 <td className="px-3 py-2 text-ink/70">{s.partnerReference ?? "—"}</td>
+                <td className="px-3 py-2">
+                  <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${BAY_SERVICE_CLASSES[s.serviceType] ?? "bg-mist text-ink/60"}`}>
+                    {BAY_SERVICE_LABELS[s.serviceType] ?? s.serviceType}
+                  </span>
+                </td>
                 <td className="px-3 py-2 text-ink/70">{s.recipient.name ?? "—"}</td>
                 <td className="px-3 py-2 text-ink/70">
                   {[s.recipient.address.city, s.recipient.address.countryCode].filter(Boolean).join(", ") || "—"}
@@ -286,7 +307,7 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
             ))}
             {list && list.data.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-5 py-10 text-center text-ink/45">
+                <td colSpan={9} className="px-5 py-10 text-center text-ink/45">
                   Chưa có vận đơn nào.
                 </td>
               </tr>
