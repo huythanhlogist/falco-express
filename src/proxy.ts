@@ -42,7 +42,10 @@ export async function proxy(request: NextRequest) {
   if (hostSlug !== null) {
     if (pathname.startsWith("/api/t/")) return NextResponse.next();
     const url = request.nextUrl.clone();
-    url.pathname = `/t/${hostSlug || "_"}`;
+    // Tên miền gốc: link kiểu <tên-miền>/<slug> -> /t/<slug>. Subdomain: <slug>.<tên-miền> -> /t/<slug>.
+    const first = pathname.split("/").filter(Boolean)[0] ?? "";
+    const slug = hostSlug || (/^[a-z0-9-]{1,63}$/.test(first) ? first : "");
+    url.pathname = `/t/${slug || "_"}`;
     return NextResponse.rewrite(url);
   }
 

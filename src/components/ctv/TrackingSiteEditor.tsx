@@ -204,8 +204,8 @@ export default function TrackingSiteEditor({
   const logoUrl = logo && logo !== "remove" ? logo.url : logo === "remove" ? null : savedLogo;
   const bannerUrl = banner && banner !== "remove" ? banner.url : banner === "remove" ? null : savedBanner;
   const theme: SiteTheme = { ...form, slug: form.slug || "xem-truoc", has_logo: !!logoUrl, has_banner: !!bannerUrl };
-  const host = baseDomain ? `${form.slug || "ten-cua-ban"}.${baseDomain}` : `${origin.replace(/^https?:\/\//, "") || "…"}/t/${form.slug || "ten-cua-ban"}`;
-  const publicUrl = saved ? (baseDomain ? `https://${saved.slug}.${baseDomain}` : `${origin}/t/${saved.slug}`) : "";
+  const host = baseDomain ? `${baseDomain}/${form.slug || "ten-cua-ban"}` : `${origin.replace(/^https?:\/\//, "") || "…"}/t/${form.slug || "ten-cua-ban"}`;
+  const publicUrl = saved ? (baseDomain ? `https://${baseDomain}/${saved.slug}` : `${origin}/t/${saved.slug}`) : "";
 
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -213,9 +213,8 @@ export default function TrackingSiteEditor({
         <div className={card}>
           <h2 className="font-semibold text-navy-900">Đường dẫn trang</h2>
           <div className="mt-3 flex items-center gap-2">
-            {!baseDomain && <span className="text-sm text-ink/50">/t/</span>}
+            <span className="shrink-0 text-sm text-ink/50">{baseDomain ? `${baseDomain}/` : "/t/"}</span>
             <input className={input} placeholder="ten-cua-ban" value={form.slug} onChange={(e) => set("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} />
-            {baseDomain && <span className="shrink-0 text-sm text-ink/50">.{baseDomain}</span>}
           </div>
           {saved && (
             <p className="mt-2 text-xs text-ink/55">
