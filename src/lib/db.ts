@@ -270,7 +270,14 @@ export async function rejectOrder(id: number, adminEmail: string): Promise<boole
 }
 
 /** Danh sách các tháng (YYYY-MM) có đơn, mới nhất trước — dùng cho bộ lọc tháng. */
+let monthsCache: { at: number; v: string[] } | null = null;
 export async function listOrderMonths(): Promise<string[]> {
+  if (monthsCache && Date.now() - monthsCache.at < 60_000) return monthsCache.v;
+  const v = await queryOrderMonths();
+  monthsCache = { at: Date.now(), v };
+  return v;
+}
+async function queryOrderMonths(): Promise<string[]> {
   const [rows] = await getPool().query(
     `SELECT DISTINCT DATE_FORMAT(received_date, '%Y-%m') AS month
      FROM orders WHERE received_date IS NOT NULL
@@ -1064,7 +1071,7 @@ export async function listOrders(params: {
   if (hasCtv === false) conditions.push("o.ctv_id IS NULL");
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  const [rows] = await getPool().query(
+  const rowsP = getPool().query(
     `SELECT o.*, COUNT(p.id) AS parcel_count,
        GROUP_CONCAT(p.tracking_code ORDER BY p.id SEPARATOR ',') AS tracking_codes,
        c.ctv_code AS ctv_code, c.full_name AS ctv_full_name,
@@ -1081,11 +1088,10 @@ export async function listOrders(params: {
     [...whereArgs, limit, offset]
   );
 
-  const [countRows] = await getPool().query(
+  const countP = getPool().query(
     `SELECT COUNT(*) AS total FROM orders o ${where}`,
     whereArgs
   );
-  const total = (countRows as { total: number }[])[0]?.total ?? 0;
 
   // Đếm riêng theo trạng thái thu tiền + số đơn CTV đang chờ duyệt (không áp
   // bộ lọc status/source/reviewStatus, chỉ áp tìm kiếm + tháng) để hiển thị
@@ -1106,10 +1112,18 @@ export async function listOrders(params: {
   const searchOnlyWhere = searchMonthConditions.length
     ? `WHERE ${searchMonthConditions.join(" AND ")}`
     : "";
-  const [statusRows] = await getPool().query(
+  const statusP = getPool().query(
     `SELECT payment_status, COUNT(*) AS c FROM orders o ${searchOnlyWhere} GROUP BY payment_status`,
     searchMonthArgs
   );
+
+  const pendingConditions = [...searchMonthConditions, "o.source = 'ctv'", "o.review_status = 'pending'"];
+  const pendingP = getPool().query(
+    `SELECT COUNT(*) AS c FROM orders o WHERE ${pendingConditions.join(" AND ")}`,
+    searchMonthArgs
+  );
+  const [[rows], [countRows], [statusRows], [pendingRows]] = await Promise.all([rowsP, countP, statusP, pendingP]);
+  const total = (countRows as { total: number }[])[0]?.total ?? 0;
   let paidCount = 0;
   let collectedByStaffCount = 0;
   let collectedByCtvCount = 0;
@@ -1120,12 +1134,6 @@ export async function listOrders(params: {
     else if (r.payment_status === "collected_by_ctv") collectedByCtvCount = r.c;
     else unpaidCount = r.c;
   }
-
-  const pendingConditions = [...searchMonthConditions, "o.source = 'ctv'", "o.review_status = 'pending'"];
-  const [pendingRows] = await getPool().query(
-    `SELECT COUNT(*) AS c FROM orders o WHERE ${pendingConditions.join(" AND ")}`,
-    searchMonthArgs
-  );
   const pendingReviewCount = Number((pendingRows as { c: number }[])[0]?.c ?? 0);
 
   return {

@@ -34,9 +34,12 @@ export default function CtvOrderReviewActions({
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1.5">
         {ctvCode && <span className="text-xs font-bold text-navy-800">{ctvCode}</span>}
-        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${reviewStatusClassName(reviewStatus)}`}>
-          {reviewStatusLabel(reviewStatus)}
-        </span>
+        {/* Đơn nhân viên được gán cho CTV: chỉ hiện mã CTV, không kèm nhãn "Đơn của mình". */}
+        {!(ctvCode && reviewStatus === "auto_approved") && (
+          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${reviewStatusClassName(reviewStatus)}`}>
+            {reviewStatusLabel(reviewStatus)}
+          </span>
+        )}
       </div>
       {reviewStatus === "pending" && (
         <div className="flex items-center gap-2">

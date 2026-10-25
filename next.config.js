@@ -2,7 +2,7 @@
 const nextConfig = {
   output: "standalone",
   images: {
-    formats: ["image/avif", "image/webp"],
+    formats: ["image/webp"],
   },
   // Không cần next tự sinh AGENTS.md/CLAUDE.md mỗi lần chạy `next dev`.
   agentRules: false,
