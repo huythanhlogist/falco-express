@@ -137,6 +137,15 @@ export async function insertOrder(order: NewOrder): Promise<number> {
   return (result as mysql.ResultSetHeader).insertId;
 }
 
+/** Thêm mã tracking cho đơn nếu chưa có (dùng khi đồng bộ vận đơn BayOnline gán nhãn muộn). */
+export async function syncOrderParcel(orderId: number, hawb: string, trackingCode: string): Promise<void> {
+  const [rows] = await getPool().query(
+    "SELECT id FROM order_parcels WHERE order_id = ? AND tracking_code = ? LIMIT 1",
+    [orderId, trackingCode]
+  );
+  if ((rows as unknown[]).length === 0) await insertParcels(orderId, [{ hawb, trackingCode }]);
+}
+
 export async function insertParcels(
   orderId: number,
   parcels: { hawb: string; trackingCode: string }[]
@@ -1183,9 +1192,9 @@ export async function listOrdersNeedingTrackingRefresh(
   sinceDate: string, // "YYYY-MM-DD"
   limit: number,
   staleBeforeMs: number // chỉ lấy bản cache cũ hơn mốc này (epoch ms); đơn chưa có cache luôn được lấy
-): Promise<{ id: number; awb: string }[]> {
+): Promise<{ id: number; awb: string; falco_code: string }[]> {
   const [rows] = await getPool().query(
-    `SELECT o.id, o.awb
+    `SELECT o.id, o.awb, o.falco_code
      FROM orders o
      LEFT JOIN order_tracking_cache tc ON tc.order_id = o.id AND tc.awb = o.awb
      WHERE o.review_status IN ('auto_approved', 'approved')
@@ -1196,7 +1205,7 @@ export async function listOrdersNeedingTrackingRefresh(
      LIMIT ?`,
     [sinceDate, staleBeforeMs, limit]
   );
-  return rows as { id: number; awb: string }[];
+  return rows as { id: number; awb: string; falco_code: string }[];
 }
 
 export async function updatePaymentStatus(

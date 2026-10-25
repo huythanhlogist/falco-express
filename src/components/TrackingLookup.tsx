@@ -149,7 +149,7 @@ export default function TrackingLookup() {
           id="tracking-code"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="Nhập mã vận đơn, VD: FL250906001"
+          placeholder="Nhập mã đơn, VD: FL250906001 hoặc FEB261025001"
           className="w-full rounded-full border border-line bg-white px-5 py-3.5 text-sm text-ink placeholder:text-ink/35 focus:border-flame-400"
         />
         <button type="submit" disabled={status === "loading"} className="btn-primary shrink-0">

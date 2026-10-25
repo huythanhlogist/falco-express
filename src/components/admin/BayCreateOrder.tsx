@@ -156,6 +156,8 @@ export default function BayCreateOrder({ onChanged }: { onChanged: () => void })
         { warehouseCode: warehouse }
       );
       setConfirmed(j.shipments.map((s) => s.reference));
+      // Đồng bộ ngay để vận đơn vừa sinh có mã FEB… và khách tra cứu được trên web.
+      await fetch("/api/admin/bay/sync", { method: "POST" }).catch(() => undefined);
       onChanged();
     } catch (e) {
       setError((e as Error).message);
@@ -196,7 +198,7 @@ export default function BayCreateOrder({ onChanged }: { onChanged: () => void })
           </p>
           {confirmed ? (
             <p className="text-emerald-700">
-              Đã xác nhận. Vận đơn: <b>{confirmed.join(", ")}</b> (chờ kho nhận hàng).
+              Đã xác nhận. Vận đơn: <b>{confirmed.join(", ")}</b> (chờ kho nhận hàng). Mã đơn FEB… hiện ở bảng vận đơn sau khi làm mới.
             </p>
           ) : (
             <div className="flex flex-wrap items-center gap-2">

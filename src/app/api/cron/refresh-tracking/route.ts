@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createHash, timingSafeEqual } from "node:crypto";
+import { isBayConfigured } from "@/lib/bay-api";
+import { syncBayShipments } from "@/lib/bay-sync";
 import { refreshTrackingCache } from "@/lib/tracking-cache";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +18,18 @@ function isValidCronSecret(request: Request): boolean {
 }
 
 let running = false;
+
+// Đồng bộ vận đơn BayOnline → đơn FEB… trước khi làm mới tracking, để đơn mới của Bay có mã ngay.
+// Lỗi phía Bay không được chặn việc làm mới tracking Kango.
+async function syncBaySafely() {
+  if (!isBayConfigured()) return null;
+  try {
+    return await syncBayShipments();
+  } catch (err) {
+    console.error("[cron/refresh-tracking] Đồng bộ BayOnline lỗi:", err);
+    return null;
+  }
+}
 
 /**
  * POST /api/cron/refresh-tracking
@@ -35,8 +49,9 @@ export async function POST(request: Request) {
 
   if (wait) {
     try {
+      const bayResult = await syncBaySafely();
       const summary = await refreshTrackingCache();
-      return NextResponse.json({ ok: true, ...summary });
+      return NextResponse.json({ ok: true, ...summary, bayCreated: bayResult?.created.length ?? null });
     } catch (err) {
       console.error("[cron/refresh-tracking] Lỗi:", err);
       return NextResponse.json({ error: "Làm mới thất bại" }, { status: 500 });
@@ -45,7 +60,8 @@ export async function POST(request: Request) {
     }
   }
 
-  void refreshTrackingCache()
+  void syncBaySafely()
+    .then(() => refreshTrackingCache())
     .then((summary) => console.log("[cron/refresh-tracking] Xong:", summary))
     .catch((err) => console.error("[cron/refresh-tracking] Lỗi:", err))
     .finally(() => {

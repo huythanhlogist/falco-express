@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { findOrderByFalcoCode, getTrackingCache } from "@/lib/db";
-import { fetchKangoTracking } from "@/lib/kango";
 import {
   buildTrackingData,
+  fetchTrackingFor,
   isTrackingCacheFresh,
   parseCachedKango,
   saveKangoToCache,
@@ -36,8 +36,9 @@ export async function GET(request: Request) {
     }
 
     let kango;
+    let bayStatus;
     try {
-      kango = await fetchKangoTracking(order.awb);
+      ({ kango, status: bayStatus } = await fetchTrackingFor(order));
     } catch (kangoErr) {
       // Đơn có thật trong hệ thống Falco — nếu chỉ riêng đối tác Kango
       // đang chậm/lỗi (đã quan sát thực tế: Kango thỉnh thoảng treo
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
     if (kango) {
       // Ghi ngược vào cache để các lượt tra sau (và cột trạng thái ở admin)
       // nhanh, kể cả với đơn mới chưa tới lượt cron.
-      await saveKangoToCache(order, kango).catch((err) =>
+      await saveKangoToCache(order, kango, bayStatus).catch((err) =>
         console.error("[tracking] Không ghi được cache:", err)
       );
     }

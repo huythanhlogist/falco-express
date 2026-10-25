@@ -5,9 +5,10 @@ import {
   type OrderRecord,
   type TrackingCacheRow,
 } from "./db";
+import { fetchBayTrackingAsKango } from "./bay-tracking";
 import { fetchKangoTracking, type KangoTrackingResponse } from "./kango";
 import { resolveLastMile } from "./last-mile";
-import { isFinalShipmentStatus, mapKangoStatus } from "./shipment-status";
+import { isFinalShipmentStatus, mapKangoStatus, type ShipmentStatus } from "./shipment-status";
 import { vnDateString } from "./vn-date";
 
 // Đơn đã giao/hoàn: dữ liệu không đổi nữa nên cache dùng mãi. Đơn đang đi: cron
@@ -124,14 +125,29 @@ export function buildTrackingData(
   };
 }
 
+/**
+ * Lấy hành trình của 1 đơn từ đúng nguồn: đơn mã FEB… là vận đơn BayOnline (orders.awb là mã Bay),
+ * còn lại là Kango. Cả hai trả về cùng dạng Kango; đơn Bay kèm sẵn trạng thái đã quy đổi.
+ */
+export async function fetchTrackingFor(
+  order: Pick<OrderRecord, "falco_code" | "awb">
+): Promise<{ kango: KangoTrackingResponse | null; status?: ShipmentStatus }> {
+  if (order.falco_code.toUpperCase().startsWith("FEB")) {
+    const r = await fetchBayTrackingAsKango(order.awb);
+    return r ? { kango: r.kango, status: r.status } : { kango: null };
+  }
+  return { kango: await fetchKangoTracking(order.awb) };
+}
+
 export async function saveKangoToCache(
   order: Pick<OrderRecord, "id" | "awb">,
-  kango: KangoTrackingResponse | null
+  kango: KangoTrackingResponse | null,
+  statusOverride?: ShipmentStatus
 ): Promise<void> {
   await upsertTrackingCache({
     orderId: order.id,
     awb: order.awb,
-    status: mapKangoStatus(kango),
+    status: statusOverride ?? mapKangoStatus(kango),
     currentStatus: kango?.trackings?.[0]?.title ?? null,
     payload: kango ? JSON.stringify(kango) : null,
   });
@@ -189,8 +205,8 @@ export async function refreshTrackingCache(opts?: {
     ) {
       const order = candidates[next++];
       try {
-        const kango = await fetchKangoTracking(order.awb);
-        await saveKangoToCache(order, kango);
+        const { kango, status } = await fetchTrackingFor(order);
+        await saveKangoToCache(order, kango, status);
         refreshed++;
         consecutiveFailures = 0;
       } catch (err) {

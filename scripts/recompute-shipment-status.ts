@@ -15,7 +15,7 @@ import { mapKangoStatus } from "../src/lib/shipment-status";
 async function main() {
   const apply = process.argv.includes("--apply");
   const [rows] = (await getPool().query(
-    "SELECT order_id, shipment_status, payload FROM order_tracking_cache WHERE payload IS NOT NULL"
+    "SELECT c.order_id, c.shipment_status, c.payload FROM order_tracking_cache c JOIN orders o ON o.id = c.order_id WHERE c.payload IS NOT NULL AND o.falco_code NOT LIKE 'FEB%'"
   )) as any;
   const dist = new Map<string, number>();
   let changed = 0;

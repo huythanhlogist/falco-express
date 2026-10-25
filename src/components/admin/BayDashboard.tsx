@@ -165,6 +165,29 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
   const [ref, setRef] = useState("");
   const [service, setService] = useState("");
   const [open, setOpen] = useState<string | null>(null);
+  const [febCodes, setFebCodes] = useState<Record<string, string>>({});
+  const [syncMsg, setSyncMsg] = useState("");
+  const [syncing, setSyncing] = useState(false);
+
+  async function syncOrders() {
+    setSyncing(true);
+    setSyncMsg("");
+    try {
+      const res = await fetch("/api/admin/bay/sync", { method: "POST" });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? `Lỗi HTTP ${res.status}`);
+      setSyncMsg(
+        j.created.length
+          ? `Đã tạo ${j.created.length} đơn mới: ${j.created.map((c: { reference: string; falcoCode: string }) => `${c.falcoCode} (${c.reference})`).join(", ")}. ${j.alreadySynced} đơn đã có từ trước.`
+          : `Không có đơn mới — cả ${j.alreadySynced} vận đơn đã có mã FEB.`
+      );
+      void load();
+    } catch (e) {
+      setSyncMsg((e as Error).message);
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -173,7 +196,15 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
       const q: Record<string, string | number> = { page, limit: 20 };
       if (status) q.status = status;
       if (ref.trim()) q.partnerReference = ref.trim();
-      setList(await bayGet<BayShipmentList>("shipments", q));
+      const data = await bayGet<BayShipmentList>("shipments", q);
+      setList(data);
+      const refs = data.data.map((s) => s.reference).join(",");
+      if (refs) {
+        fetch(`/api/admin/bay/sync?refs=${encodeURIComponent(refs)}`)
+          .then((r) => (r.ok ? r.json() : {}))
+          .then(setFebCodes)
+          .catch(() => undefined);
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -254,15 +285,20 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
         <button type="button" onClick={() => void load()} className="btn-primary !px-4 !py-2 text-sm" disabled={loading}>
           {loading ? "Đang tải…" : "Làm mới"}
         </button>
+        <button type="button" onClick={syncOrders} disabled={syncing} className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-mist/60 disabled:opacity-50" title="Tạo đơn Falco mã FEB… cho mọi vận đơn Bay chưa có mã, để khách tra cứu được trên web">
+          {syncing ? "Đang đồng bộ…" : "Đồng bộ mã đơn FEB"}
+        </button>
         <BayCreateOrder onChanged={() => void load()} />
       </div>
+      {syncMsg && <p className="mt-2 text-sm text-ink/70">{syncMsg}</p>}
 
       {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
 
       <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-white">
-        <table className="w-full min-w-[980px] text-sm">
+        <table className="w-full min-w-[1080px] text-sm">
           <thead>
             <tr className="border-b border-line bg-mist/60 text-left text-xs font-semibold uppercase tracking-wide text-ink/45">
+              <th className="px-3 py-2">Mã đơn Falco</th>
               <th className="px-3 py-2">Mã Bay</th>
               <th className="px-3 py-2">Mã của bạn</th>
               <th className="px-3 py-2">Loại</th>
@@ -281,7 +317,10 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
                 onClick={() => setOpen(s.reference)}
                 className="cursor-pointer border-b border-line last:border-0 hover:bg-mist/40"
               >
-                <td className="px-3 py-2 font-semibold text-navy-900">{s.reference}</td>
+                <td className="px-3 py-2 font-semibold text-navy-900">
+                  {febCodes[s.reference] ?? <span className="font-normal text-ink/35">chưa đồng bộ</span>}
+                </td>
+                <td className="px-3 py-2 text-ink/70">{s.reference}</td>
                 <td className="px-3 py-2 text-ink/70">{s.partnerReference ?? "—"}</td>
                 <td className="px-3 py-2">
                   <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${BAY_SERVICE_CLASSES[s.serviceType] ?? "bg-mist text-ink/60"}`}>
@@ -307,7 +346,7 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
             ))}
             {list && list.data.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-5 py-10 text-center text-ink/45">
+                <td colSpan={10} className="px-5 py-10 text-center text-ink/45">
                   Chưa có vận đơn nào.
                 </td>
               </tr>
