@@ -37,13 +37,38 @@ function pickOrder(o: OrderListItem): QuoteHandoffOrder {
   };
 }
 
-export default function OrdersTable({ orders }: { orders: OrderListItem[] }) {
+type CtvOption = { id: number; ctv_code: string; full_name: string };
+
+export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListItem[]; ctvs?: CtvOption[] }) {
   const router = useRouter();
   // Giữ cả thông tin đơn đã chọn (không chỉ id) để lựa chọn sống qua phân
   // trang/đổi bộ lọc — các link đó tải lại trang nên state thường bị mất.
   const [selected, setSelected] = useState<Map<number, QuoteHandoffOrder>>(new Map());
   const [selectionRestored, setSelectionRestored] = useState(false);
   const [copiedBulk, setCopiedBulk] = useState(false);
+  const [assignCtv, setAssignCtv] = useState("");
+  const [assignMsg, setAssignMsg] = useState("");
+  const [assigning, setAssigning] = useState(false);
+
+  async function assign(ctvId: number | null) {
+    setAssigning(true);
+    setAssignMsg("");
+    try {
+      const res = await fetch("/api/admin/orders/assign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderIds: [...selected.keys()], ctvId }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Lỗi gán CTV");
+      setAssignMsg(ctvId ? `Đã gán ${j.changed} đơn` : `Đã bỏ gán ${j.changed} đơn`);
+      router.refresh();
+    } catch (e) {
+      setAssignMsg((e as Error).message);
+    } finally {
+      setAssigning(false);
+    }
+  }
 
   useEffect(() => {
     const saved = loadDraft<QuoteHandoffOrder[]>(ORDERS_SELECTION_KEY);
@@ -107,6 +132,40 @@ export default function OrdersTable({ orders }: { orders: OrderListItem[] }) {
             >
               Bỏ chọn
             </button>
+            {ctvs.length > 0 && (
+              <span className="flex items-center gap-1.5">
+                <select
+                  value={assignCtv}
+                  onChange={(e) => setAssignCtv(e.target.value)}
+                  aria-label="Chọn CTV để gán"
+                  className="rounded-lg border border-line bg-white px-2 py-1.5 text-xs"
+                >
+                  <option value="">Chọn CTV…</option>
+                  {ctvs.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.ctv_code} · {c.full_name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={!assignCtv || assigning}
+                  onClick={() => assign(Number(assignCtv))}
+                  className="rounded-lg bg-navy-800 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                >
+                  Gán CTV
+                </button>
+                <button
+                  type="button"
+                  disabled={assigning}
+                  onClick={() => assign(null)}
+                  className="text-xs font-medium text-ink/50 hover:text-ink/80"
+                >
+                  Bỏ gán
+                </button>
+                {assignMsg && <span className="text-xs text-ink/60">{assignMsg}</span>}
+              </span>
+            )}
             <button
               type="button"
               onClick={createQuote}

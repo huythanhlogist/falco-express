@@ -1017,6 +1017,8 @@ export async function listOrders(params: {
   source?: "all" | OrderSource;
   reviewStatus?: "all" | OrderReviewStatus;
   ctvId?: number;
+  /** true: chỉ đơn đã gắn CTV (ctv_id không rỗng); false: chỉ đơn không gắn CTV. */
+  hasCtv?: boolean;
 }): Promise<{
   orders: OrderListItem[];
   total: number;
@@ -1026,7 +1028,7 @@ export async function listOrders(params: {
   unpaidCount: number;
   pendingReviewCount: number;
 }> {
-  const { search, limit, offset, status = "all", month, source = "all", reviewStatus = "all", ctvId } = params;
+  const { search, limit, offset, status = "all", month, source = "all", reviewStatus = "all", ctvId, hasCtv } = params;
   const like = `%${search.trim()}%`;
 
   const conditions: string[] = [];
@@ -1058,6 +1060,8 @@ export async function listOrders(params: {
     conditions.push("o.ctv_id = ?");
     whereArgs.push(ctvId);
   }
+  if (hasCtv === true) conditions.push("o.ctv_id IS NOT NULL");
+  if (hasCtv === false) conditions.push("o.ctv_id IS NULL");
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const [rows] = await getPool().query(

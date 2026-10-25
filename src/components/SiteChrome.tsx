@@ -7,9 +7,14 @@ import Footer from "@/components/Footer";
 import FloatingHotlineButton from "@/components/FloatingHotlineButton";
 import StickyContactBar from "@/components/StickyContactBar";
 import ZaloOAWidget from "@/components/ZaloOAWidget";
+import OrganizationJsonLd from "@/components/OrganizationJsonLd";
 
 export default function SiteChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  // /t/<slug>: trang tra cứu mang thương hiệu CTV — không được có header/footer/logo Falco.
+  const isWhiteLabel = pathname?.startsWith("/t/");
+  if (isWhiteLabel) return <div className="min-h-screen">{children}</div>;
+  const jsonLd = <OrganizationJsonLd />;
   const isBareLayout = pathname?.startsWith("/admin") || pathname?.startsWith("/ctv");
 
   // Admin/CTV cũng theo concept mới (đồng bộ với web công khai): dùng chung lớp
@@ -18,6 +23,7 @@ export default function SiteChrome({ children }: { children: React.ReactNode }) 
 
   return (
     <>
+      {jsonLd}
       <a
         href="#main"
         className="sr-only z-[60] bg-falco-navy px-4 py-3 font-bold text-white focus:not-sr-only focus:fixed focus:left-2 focus:top-2"

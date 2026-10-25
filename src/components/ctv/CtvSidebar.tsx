@@ -11,20 +11,16 @@ import {
   CloseIcon,
   RefreshIcon,
   CargoIcon,
-  TagIcon,
-  ShieldIcon,
   GlobeIcon,
-  HandshakeIcon,
+  LayoutGridIcon,
   WalletIcon,
 } from "@/components/icons";
 
 const LINKS = [
-  { href: "/ctv/tao-don", label: "Tạo đơn", icon: CargoIcon },
-  { href: "/ctv/bao-gia", label: "Bảng giá", icon: TagIcon },
-  { href: "/ctv/chinh-sach", label: "Chính sách", icon: ShieldIcon },
-  { href: "/ctv/thong-ke", label: "Thống kê", icon: WalletIcon },
-  { href: "/ctv/huong-dan", label: "Hướng dẫn", icon: GlobeIcon },
-  { href: "/ctv/kenh", label: "Nhóm & kênh", icon: HandshakeIcon },
+  { href: "/ctv/don-hang", label: "Đơn hàng", icon: CargoIcon },
+  { href: "/ctv/thong-ke", label: "Thống kê", icon: LayoutGridIcon },
+  { href: "/ctv/tracking-site", label: "Tracking Site", icon: GlobeIcon },
+  { href: "/ctv/tai-chinh", label: "Tài chính", icon: WalletIcon },
   { href: "/ctv/tai-khoan", label: "Tài khoản", icon: UsersIcon },
 ];
 
@@ -42,7 +38,7 @@ export default function CtvSidebar({ ctvCode, fullName }: { ctvCode: string; ful
   const nav = (
     <nav className="flex flex-1 flex-col gap-0.5 px-2.5">
       {LINKS.map((link) => {
-        const active = pathname === link.href;
+        const active = pathname === link.href || (link.href === "/ctv/don-hang" && pathname === "/ctv/tao-don");
         const Icon = link.icon;
         return (
           <Link

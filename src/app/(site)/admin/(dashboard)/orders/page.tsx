@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { listOrders, listOrderMonths } from "@/lib/db";
+import { listOrders, listOrderMonths, listCtvUsers } from "@/lib/db";
 import MonthFilterSelect from "@/components/admin/MonthFilterSelect";
 import OrdersTable from "@/components/admin/OrdersTable";
+import CtvFilterSelect from "@/components/admin/CtvFilterSelect";
 import OrderEditHistory from "@/components/admin/OrderEditHistory";
 import CreateOrderButton from "@/components/admin/CreateOrderButton";
 import { PackageCheckIcon, ClockIcon, CargoIcon } from "@/components/icons";
@@ -21,13 +22,13 @@ const STATUS_TABS: { value: "all" | "unpaid" | "collected_by_staff" | "collected
 const SOURCE_TABS: { value: "all" | "staff" | "ctv"; label: string }[] = [
   { value: "all", label: "Tất cả nguồn" },
   { value: "staff", label: "Của mình" },
-  { value: "ctv", label: "Của CTV" },
+  { value: "ctv", label: "CTV" },
 ];
 
 export default async function AdminOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string; status?: string; month?: string; source?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; status?: string; month?: string; source?: string; ctv?: string }>;
 }) {
   const params = await searchParams;
   const search = params.q || "";
@@ -42,20 +43,25 @@ export default async function AdminOrdersPage({
   const source: "all" | "staff" | "ctv" =
     params.source === "staff" || params.source === "ctv" ? params.source : "all";
   const month = params.month || "";
+  const ctvFilter = source === "ctv" && Number(params.ctv) > 0 ? Number(params.ctv) : undefined;
 
   const [
     { orders, total, paidCount, collectedByStaffCount, collectedByCtvCount, unpaidCount, pendingReviewCount },
     months,
+    ctvs,
   ] = await Promise.all([
     listOrders({
       search,
       status,
-      source,
+      // "Của mình" = đơn chưa gắn CTV; "CTV" = đơn đã gắn CTV (do CTV tạo hoặc admin gán), lọc được từng CTV.
+      hasCtv: source === "staff" ? false : source === "ctv" ? true : undefined,
+      ctvId: ctvFilter,
       month: month || undefined,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     }),
     listOrderMonths(),
+    listCtvUsers(),
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const tabCounts: Record<"all" | "unpaid" | "collected_by_staff" | "collected_by_ctv" | "paid", number> = {
@@ -79,6 +85,7 @@ export default async function AdminOrdersPage({
           <form className="flex gap-2">
             {status !== "all" && <input type="hidden" name="status" value={status} />}
             {source !== "all" && <input type="hidden" name="source" value={source} />}
+            {ctvFilter && <input type="hidden" name="ctv" value={ctvFilter} />}
             {month && <input type="hidden" name="month" value={month} />}
             <input
               type="text"
@@ -150,6 +157,7 @@ export default async function AdminOrdersPage({
             )}
           </Link>
         ))}
+        {source === "ctv" && <CtvFilterSelect ctvs={ctvs.filter((c) => c.status === "active")} />}
       </div>
 
       <div className="mt-2 flex gap-2 overflow-x-auto">
@@ -160,6 +168,7 @@ export default async function AdminOrdersPage({
               ...(search ? { q: search } : {}),
               ...(month ? { month } : {}),
               ...(source !== "all" ? { source } : {}),
+              ...(ctvFilter ? { ctv: String(ctvFilter) } : {}),
               ...(tab.value !== "all" ? { status: tab.value } : {}),
             })}`}
             className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
@@ -180,7 +189,7 @@ export default async function AdminOrdersPage({
         ))}
       </div>
 
-      <OrdersTable orders={orders} />
+      <OrdersTable orders={orders} ctvs={ctvs.filter((c) => c.status === "active").map((c) => ({ id: c.id, ctv_code: c.ctv_code, full_name: c.full_name }))} />
 
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-center gap-2">
@@ -192,6 +201,7 @@ export default async function AdminOrdersPage({
                 ...(month ? { month } : {}),
                 ...(status !== "all" ? { status } : {}),
                 ...(source !== "all" ? { source } : {}),
+                ...(ctvFilter ? { ctv: String(ctvFilter) } : {}),
                 page: String(p),
               })}`}
               className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium ${

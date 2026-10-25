@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
-import "./globals.css";
+import "../globals.css";
 import SiteChrome from "@/components/SiteChrome";
-import { SITE, BRANCHES } from "@/lib/constants";
+import { SITE } from "@/lib/constants";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin", "vietnamese"],
@@ -48,23 +48,6 @@ export const metadata: Metadata = {
   },
 };
 
-const ORGANIZATION_JSON_LD = {
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  name: SITE.name,
-  legalName: SITE.fullName,
-  url: "https://falcoexpress.com",
-  logo: "https://falcoexpress.com/falco-logo.png",
-  description: SITE.description,
-  telephone: SITE.hotline,
-  location: BRANCHES.map((b) => ({
-    "@type": "PostalAddress",
-    streetAddress: b.address,
-    addressLocality: b.city,
-    addressCountry: "VN",
-  })),
-};
-
 export default function RootLayout({
   children,
 }: {
@@ -73,10 +56,6 @@ export default function RootLayout({
   return (
     <html lang="vi" className={plusJakartaSans.variable}>
       <body className="flex min-h-screen flex-col font-body">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_JSON_LD) }}
-        />
         <SiteChrome>{children}</SiteChrome>
       </body>
     </html>
