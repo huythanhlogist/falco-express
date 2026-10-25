@@ -57,6 +57,14 @@ const link = (v: string | null, kind: "zalo" | "whatsapp" | "facebook" | "email"
   return `https://facebook.com/${s.replace(/^@/, "")}`;
 };
 
+function Ico({ d, small }: { d: string; small?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width={small ? 22 : 28} height={small ? 22 : 28} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={d} />
+    </svg>
+  );
+}
+
 function Results({ result, hex, slug, preview }: { result: SiteResult; hex: string; slug: string; preview: boolean }) {
   const [showPhotos, setShowPhotos] = useState(false);
   return (
@@ -162,6 +170,7 @@ export default function TrackingSiteView({
   bannerUrl?: string | null;
 }) {
   const hex = themeHex(theme);
+  const tint = `${hex}1c`; // nền nhạt cùng tông màu chủ đạo
   const [code, setCode] = useState(initialCode);
   const [state, setState] = useState<"idle" | "loading" | "done">("idle");
   const [result, setResult] = useState<SiteResult | null>(null);
@@ -212,7 +221,7 @@ export default function TrackingSiteView({
   );
 
   const form = (
-    <form onSubmit={search} className="flex w-full max-w-xl gap-2">
+    <form onSubmit={search} className="flex w-full max-w-3xl gap-2">
       <input
         value={code}
         onChange={(e) => setCode(e.target.value)}
@@ -237,19 +246,70 @@ export default function TrackingSiteView({
       {!preview && error && <p className="mt-6 text-center text-sm text-rose-600">{error}</p>}
       {!shown && !notFound && !error && (
         <div className="mt-10 text-center">
-          <h1 className="text-2xl font-extrabold text-black/85 sm:text-3xl">Tra cứu đơn hàng cùng {theme.display_name || "chúng tôi"}</h1>
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: tint, color: hex }}>
+            <Ico d="M21 8.5V16a2 2 0 0 1-1 1.7l-7 4a2 2 0 0 1-2 0l-7-4A2 2 0 0 1 3 16V8.5a2 2 0 0 1 1-1.7l7-4a2 2 0 0 1 2 0l7 4a2 2 0 0 1 1 1.7ZM3.3 7.5 12 12.5l8.7-5M12 22.5v-10" />
+          </span>
+          <h1 className="mt-5 text-2xl font-extrabold text-black/85 sm:text-3xl">Tra cứu đơn hàng cùng {theme.display_name || "chúng tôi"}</h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-black/55">Nhập mã tra cứu để xem trạng thái và hành trình vận chuyển đơn hàng của bạn.</p>
+
+          <div className="mt-8 grid gap-3 text-left sm:grid-cols-3">
+            {[
+              ["Nhập mã", "Điền mã tra cứu vào ô tìm kiếm phía trên.", "M4 6h16M4 12h16M4 18h10"],
+              ["Xem hành trình", "Theo dõi từng mốc vận chuyển của đơn hàng.", "M12 21s-7-5.3-7-11a7 7 0 0 1 14 0c0 5.7-7 11-7 11Zm0-8.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"],
+              ["Nhận hàng", "Nắm tình trạng để chủ động nhận hàng.", "M20 7 9 18l-5-5"],
+            ].map(([t, d, ic], i) => (
+              <div key={t} className="rounded-2xl border border-black/[0.06] bg-white p-4 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold text-white" style={{ background: hex }}>{i + 1}</span>
+                  <span style={{ color: hex }}><Ico d={ic} small /></span>
+                </div>
+                <p className="mt-3 font-bold text-black/80">{t}</p>
+                <p className="mt-1 text-sm text-black/55">{d}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 grid gap-3 text-left sm:grid-cols-3">
+            {[
+              ["Bản đồ hành trình", "Tuyến vận chuyển hiển thị trực quan trên bản đồ.", "M9 4 3 6.5v13L9 17l6 2.5 6-2.5v-13L15 7 9 4Zm0 0v13m6-10v12.5"],
+              ["Trạng thái cập nhật", "Biết đơn đang ở bước nào, cập nhật theo thời gian thực.", "M6 9a6 6 0 1 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9Zm4.5 11a1.8 1.8 0 0 0 3 0"],
+              ["Hình ảnh xử lý", "Xem ảnh kiện hàng ở các bước nhận, cân và đóng gói.", "M4 5h16v14H4V5Zm0 11 4.5-4.5L13 16l3-3 4 4M9 9.5h.01"],
+            ].map(([t, d, ic]) => (
+              <div key={t} className="rounded-2xl p-4" style={{ background: tint }}>
+                <span style={{ color: hex }}><Ico d={ic} small /></span>
+                <p className="mt-3 font-bold text-black/80">{t}</p>
+                <p className="mt-1 text-sm text-black/55">{d}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-6 text-xs text-black/45">Chưa có mã tra cứu? Liên hệ {theme.display_name || "nơi bạn gửi hàng"} qua các kênh ở đầu và cuối trang để được hỗ trợ.</p>
         </div>
       )}
     </>
   );
 
   const footer = (theme.email || theme.phone || theme.address) && (
-    <footer className="mt-10 border-t border-black/10 py-6 text-center text-xs text-black/55">
-      <div className="flex flex-wrap justify-center gap-x-5 gap-y-1">
-        {theme.phone && <a href={link(theme.phone, "phone")!}>{theme.phone}</a>}
-        {theme.email && <a href={link(theme.email, "email")!}>{theme.email}</a>}
-        {theme.address && <span>{theme.address}</span>}
+    <footer className="mt-10 rounded-2xl px-5 py-5" style={{ background: tint }}>
+      <div className="flex flex-wrap gap-x-8 gap-y-4">
+        {[
+          theme.address && ["Địa chỉ", theme.address, null, "M12 21s-7-5.3-7-11a7 7 0 0 1 14 0c0 5.7-7 11-7 11Zm0-8.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"],
+          theme.phone && ["Số điện thoại", theme.phone, link(theme.phone, "phone"), "M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"],
+          theme.email && ["Email", theme.email, link(theme.email, "email"), "M4 6h16v12H4V6Zm0 1 8 6 8-6"],
+        ]
+          .filter(Boolean)
+          .map((x) => {
+            const [k, v, href, ic] = x as [string, string, string | null, string];
+            return (
+              <div key={k} className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white" style={{ color: hex }}>
+                  <Ico d={ic} small />
+                </span>
+                <div className="text-left">
+                  <p className="text-xs text-black/45">{k}</p>
+                  {href ? <a href={href} className="font-semibold text-black/80">{v}</a> : <p className="font-semibold text-black/80">{v}</p>}
+                </div>
+              </div>
+            );
+          })}
       </div>
     </footer>
   );
@@ -344,21 +404,26 @@ export default function TrackingSiteView({
     );
   }
 
-  // classic
+  // classic — dải màu nhạt: tên bên trái, nhãn bên phải, ô tra cứu ngay trong dải (giống mẫu BayOnline)
   return (
-    <div className="min-h-screen bg-[#f6f7f9]">
-      <header className="border-b border-black/10 bg-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-4" style={{ color: hex }}>
-          {brand}
-          <span className="text-black/70">{socialLinks}</span>
-        </div>
-      </header>
-      {bannerEl}
-      <main className="mx-auto max-w-3xl px-5 py-8 text-center">
-        <div className="flex justify-center">{form}</div>
-        {body}
-        {footer}
-      </main>
+    <div className="min-h-screen bg-white">
+      <div className="mx-auto max-w-5xl">
+        <header className="rounded-b-2xl px-5 pb-5 pt-5 sm:px-8" style={{ background: tint }}>
+          <div className="flex items-center justify-between" style={{ color: "#111" }}>
+            {brand}
+            <span className="flex items-center gap-4 text-sm text-black/50">
+              {socialLinks}
+              <span className="hidden sm:inline">Tra cứu đơn hàng</span>
+            </span>
+          </div>
+          <div className="mt-4">{form}</div>
+        </header>
+        {bannerEl}
+        <main className="px-5 pb-10 text-center sm:px-8">
+          {body}
+          {footer}
+        </main>
+      </div>
     </div>
   );
 }
