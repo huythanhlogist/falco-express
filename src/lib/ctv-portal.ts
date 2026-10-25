@@ -118,19 +118,37 @@ async function totals(ctvId: number, from: string, to: string) {
 
 export async function getCtvStats(ctvId: number, period: StatsPeriod, ref: string): Promise<CtvStats> {
   const { from, to, prevFrom, label } = periodRange(period, ref);
-  const cur = await totals(ctvId, from, to);
-  const prev = await totals(ctvId, prevFrom, from);
-
   // Xu hướng: 12 tháng kết thúc ở tháng cuối của kỳ đang xem.
   const end = new Date(`${to}T00:00:00Z`);
   const start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - 12, 1));
-  const [t] = await getPool().query<RowDataPacket[]>(
-    `SELECT DATE_FORMAT(o.received_date, '%Y-%m') AS ym, COUNT(*) AS orders,
-            COALESCE(SUM(o.weight_kg),0) AS kg, COALESCE(SUM(o.amount),0) AS revenue
-     FROM orders o WHERE o.ctv_id = ? AND ${COUNTED} AND o.received_date >= ? AND o.received_date < ?
-     GROUP BY ym`,
-    [ctvId, start.toISOString().slice(0, 10), to]
-  );
+  const pool = getPool();
+
+  // 5 truy vấn độc lập → chạy song song (trước đây tuần tự nên mỗi lần mở trang chờ cộng dồn).
+  const [cur, prev, [t], [cust], [dest]] = await Promise.all([
+    totals(ctvId, from, to),
+    totals(ctvId, prevFrom, from),
+    pool.query<RowDataPacket[]>(
+      `SELECT DATE_FORMAT(o.received_date, '%Y-%m') AS ym, COUNT(*) AS orders,
+              COALESCE(SUM(o.weight_kg),0) AS kg, COALESCE(SUM(o.amount),0) AS revenue
+       FROM orders o WHERE o.ctv_id = ? AND ${COUNTED} AND o.received_date >= ? AND o.received_date < ?
+       GROUP BY ym`,
+      [ctvId, start.toISOString().slice(0, 10), to]
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT COALESCE(NULLIF(TRIM(o.recipient_name),''),'(không tên)') AS name, COUNT(*) AS orders,
+              COALESCE(SUM(o.weight_kg),0) AS kg, COALESCE(SUM(o.amount),0) AS revenue
+       FROM orders o WHERE o.ctv_id = ? AND ${COUNTED} AND o.received_date >= ? AND o.received_date < ?
+       GROUP BY name ORDER BY kg DESC, orders DESC LIMIT 10`,
+      [ctvId, from, to]
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT o.destination, COUNT(*) AS orders, COALESCE(SUM(o.weight_kg),0) AS kg, COALESCE(SUM(o.amount),0) AS revenue
+       FROM orders o WHERE o.ctv_id = ? AND ${COUNTED} AND o.received_date >= ? AND o.received_date < ?
+       GROUP BY o.destination`,
+      [ctvId, from, to]
+    ),
+  ]);
+
   const byYm = new Map(t.map((r) => [String(r.ym), r]));
   const trend: CtvStats["trend"] = [];
   for (let i = 0; i < 12; i++) {
@@ -140,19 +158,6 @@ export async function getCtvStats(ctvId: number, period: StatsPeriod, ref: strin
     trend.push({ month: key, orders: Number(r?.orders ?? 0), weightKg: Number(r?.kg ?? 0), revenue: Number(r?.revenue ?? 0) });
   }
 
-  const [cust] = await getPool().query<RowDataPacket[]>(
-    `SELECT COALESCE(NULLIF(TRIM(o.recipient_name),''),'(không tên)') AS name, COUNT(*) AS orders,
-            COALESCE(SUM(o.weight_kg),0) AS kg, COALESCE(SUM(o.amount),0) AS revenue
-     FROM orders o WHERE o.ctv_id = ? AND ${COUNTED} AND o.received_date >= ? AND o.received_date < ?
-     GROUP BY name ORDER BY kg DESC, orders DESC LIMIT 10`,
-    [ctvId, from, to]
-  );
-  const [dest] = await getPool().query<RowDataPacket[]>(
-    `SELECT o.destination, COUNT(*) AS orders, COALESCE(SUM(o.weight_kg),0) AS kg, COALESCE(SUM(o.amount),0) AS revenue
-     FROM orders o WHERE o.ctv_id = ? AND ${COUNTED} AND o.received_date >= ? AND o.received_date < ?
-     GROUP BY o.destination`,
-    [ctvId, from, to]
-  );
   // Quốc gia = phần sau dấu phẩy cuối của "Thành phố, Quốc gia".
   const countries = new Map<string, { orders: number; weightKg: number; revenue: number }>();
   for (const r of dest) {
@@ -206,7 +211,9 @@ export async function getCtvFinance(ctvId: number, month: string): Promise<CtvFi
   const m = /^\d{4}-\d{2}$/.test(month) ? month : new Date().toISOString().slice(0, 7);
   const { from, to } = periodRange("month", m);
 
-  const [tot] = await getPool().query<RowDataPacket[]>(
+  const pool = getPool();
+  const [[tot], [stmt], [rem]] = await Promise.all([
+    pool.query<RowDataPacket[]>(
     `SELECT COALESCE(SUM(o.amount),0) AS revenue,
             COALESCE(SUM(CASE WHEN o.payment_status IN ('collected_by_ctv','paid') AND EXISTS
               (SELECT 1 FROM ctv_remittances r WHERE r.order_id = o.id) THEN o.amount ELSE 0 END),0) AS remitted,
@@ -214,19 +221,20 @@ export async function getCtvFinance(ctvId: number, month: string): Promise<CtvFi
               (SELECT 1 FROM ctv_remittances r WHERE r.order_id = o.id) THEN o.amount ELSE 0 END),0) AS outstanding
      FROM orders o WHERE o.ctv_id = ? AND ${COUNTED}`,
     [ctvId]
-  );
-  const [stmt] = await getPool().query<RowDataPacket[]>(
+    ),
+    pool.query<RowDataPacket[]>(
     `SELECT o.falco_code, o.received_date, o.recipient_name, o.destination, o.weight_kg, o.amount,
             o.payment_status, o.collected_date
      FROM orders o WHERE o.ctv_id = ? AND ${COUNTED} AND o.received_date >= ? AND o.received_date < ?
      ORDER BY o.received_date, o.id`,
     [ctvId, from, to]
-  );
-  const [rem] = await getPool().query<RowDataPacket[]>(
+    ),
+    pool.query<RowDataPacket[]>(
     `SELECT o.falco_code, r.amount, r.note, r.remitted_at FROM ctv_remittances r
      JOIN orders o ON o.id = r.order_id WHERE r.ctv_id = ? ORDER BY r.remitted_at DESC LIMIT 50`,
     [ctvId]
-  );
+    ),
+  ]);
   const remitted = Number(tot[0].remitted);
   const outstanding = Number(tot[0].outstanding);
   return {

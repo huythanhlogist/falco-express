@@ -150,11 +150,16 @@ export default function TrackingSiteView({
   preview = false,
   previewMode = "home",
   initialCode = "",
+  logoUrl,
+  bannerUrl,
 }: {
   theme: SiteTheme;
   preview?: boolean;
   previewMode?: "home" | "result";
   initialCode?: string;
+  /** Ghi đè địa chỉ logo/banner (khung xem trước hiện ảnh vừa chọn trước khi lưu). null = không có ảnh. */
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
 }) {
   const hex = themeHex(theme);
   const [code, setCode] = useState(initialCode);
@@ -163,8 +168,8 @@ export default function TrackingSiteView({
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState("");
   const name = theme.display_name || "Tra cứu đơn hàng";
-  const logo = theme.has_logo ? `/api/t/${theme.slug}/asset/logo` : null;
-  const banner = theme.has_banner ? `/api/t/${theme.slug}/asset/banner` : null;
+  const logo = logoUrl !== undefined ? logoUrl : theme.has_logo ? `/api/t/${theme.slug}/asset/logo` : null;
+  const banner = bannerUrl !== undefined ? bannerUrl : theme.has_banner ? `/api/t/${theme.slug}/asset/banner` : null;
 
   async function search(e?: React.FormEvent) {
     e?.preventDefault();
