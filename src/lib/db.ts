@@ -137,6 +137,11 @@ export async function insertOrder(order: NewOrder): Promise<number> {
   return (result as mysql.ResultSetHeader).insertId;
 }
 
+/** Cập nhật tên dịch vụ của đơn (đồng bộ vận đơn đối tác chuẩn hoá lại tên). */
+export async function setOrderService(orderId: number, service: string): Promise<void> {
+  await getPool().query("UPDATE orders SET service = ? WHERE id = ? AND (service IS NULL OR service <> ?)", [service, orderId, service]);
+}
+
 /** Thêm mã tracking cho đơn nếu chưa có (dùng khi đồng bộ vận đơn BayOnline gán nhãn muộn). */
 export async function syncOrderParcel(orderId: number, hawb: string, trackingCode: string): Promise<void> {
   const [rows] = await getPool().query(

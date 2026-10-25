@@ -28,7 +28,10 @@ export async function GET(request: Request) {
       console.error("[tracking] Không đọc được cache:", err);
       return null;
     });
-    if (cached && isTrackingCacheFresh(cached)) {
+    // Bản cache của đơn FEB… tạo bởi phiên bản cũ (chưa có danh sách ảnh/tên chuẩn hoá) thì làm mới ngay.
+    const cachedKango = cached ? parseCachedKango(cached) : null;
+    const staleFormat = order.falco_code.toUpperCase().startsWith("FEB") && !!cachedKango && !cachedKango.falco_photos;
+    if (cached && isTrackingCacheFresh(cached) && !staleFormat) {
       return NextResponse.json({
         found: true,
         data: buildTrackingData(order, parseCachedKango(cached)),

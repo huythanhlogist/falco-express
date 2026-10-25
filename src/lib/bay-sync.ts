@@ -1,4 +1,4 @@
-import { findOrderByAwb, insertOrder, insertParcels, listFalcoCodeSet, syncOrderParcel } from "./db";
+import { findOrderByAwb, insertOrder, insertParcels, listFalcoCodeSet, setOrderService, syncOrderParcel } from "./db";
 import { bay, isBayConfigured, type BayShipment } from "./bay-api";
 import { BAY_COUNTRY_VI, BAY_SERVICE_NAME_VI } from "./bay-tracking";
 
@@ -64,6 +64,7 @@ export async function syncBayShipments(maxPages = 20): Promise<BaySyncResult> {
     const order = await findOrderByAwb(s.reference);
     if (order) {
       alreadySynced++;
+      await setOrderService(order.id, BAY_SERVICE_NAME_VI[s.serviceType] ?? "Hàng hoá");
       if (trackingNumber) await syncOrderParcel(order.id, s.reference, trackingNumber);
       continue;
     }
@@ -75,7 +76,7 @@ export async function syncBayShipments(maxPages = 20): Promise<BaySyncResult> {
       awb: s.reference,
       recipientName: s.recipient.name ?? "",
       recipientPhone: s.recipient.phone ?? "",
-      service: BAY_SERVICE_NAME_VI[s.serviceType] ?? "BayOnline",
+      service: BAY_SERVICE_NAME_VI[s.serviceType] ?? "Hàng hoá",
       destination: destinationOf(s),
       receivedDate: vnDateParts(s.createdAt).ymd,
       weightKg: s.parcel.weightKg.total ?? null,
