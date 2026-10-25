@@ -1,4 +1,5 @@
 import { bay, BayApiError, type BayShipment, type BayTracking } from "./bay-api";
+import { bayImageUuid } from "./bay-images";
 import type { KangoTrackingResponse } from "./kango";
 import type { ShipmentStatus } from "./shipment-status";
 
@@ -49,9 +50,9 @@ export const BAY_COUNTRY_VI: Record<string, string> = {
 };
 
 export const BAY_SERVICE_NAME_VI: Record<string, string> = {
-  air: "BayOnline - Hàng khô",
-  cold: "BayOnline - Đông lạnh",
-  sea: "BayOnline - Đường biển",
+  air: "Hàng khô",
+  cold: "Đông lạnh",
+  sea: "Đường biển",
 };
 
 const CARRIER_NAMES: Record<string, string> = { dhl: "DHL", dpd: "DPD", ups: "UPS", fedex: "FedEx" };
@@ -110,7 +111,7 @@ export function bayTrackingToKango(
       location: e.location ? `${e.location}${e.countryCode ? `, ${e.countryCode}` : ""}` : null,
       title:
         e.source === "bay"
-          ? (BAY_EVENT_VI[e.code] ?? e.description ?? e.code) + (e.code === "package_received" && e.packageCode ? ` (${e.packageCode})` : "")
+          ? (BAY_EVENT_VI[e.code] ?? "Đang xử lý")
           : (e.description ?? e.code),
     }));
 
@@ -124,6 +125,26 @@ export function bayTrackingToKango(
     });
   }
 
+  // Ảnh hàng theo từng mốc (cũ → mới), bỏ trùng.
+  const PHOTO_LABEL: Record<string, string> = {
+    created_by_agency: "Ảnh khi tạo đơn",
+    created_by_bay: "Ảnh khi tạo đơn",
+    package_received: "Ảnh nhận kiện tại kho",
+    checked: "Ảnh kiểm hàng",
+    weighed: "Ảnh cân hàng",
+    to_airport: "Ảnh khi ra sân bay",
+  };
+  const seen = new Set<string>();
+  const photos: { id: string; label: string; time: string }[] = [];
+  for (const e of t.events) {
+    for (const url of e.images ?? []) {
+      const id = bayImageUuid(url);
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      photos.push({ id, label: PHOTO_LABEL[e.code] ?? "Ảnh hàng", time: toVnTime(e.occurredAt) });
+    }
+  }
+
   const trackingNumber = t.carrier.trackingNumber ?? "";
   return {
     status,
@@ -135,11 +156,12 @@ export function bayTrackingToKango(
       carrier_code: t.carrier.code ?? "",
       tracking_url: t.carrier.trackingUrl,
       trackings,
+      falco_photos: photos,
       shipment_information: {
         country: cc ? `VN -> ${cc}` : "",
         order_numbers: [
           {
-            package_hawb_code: t.reference,
+            package_hawb_code: "",
             package_tracking_code: trackingNumber,
             is_current: true,
             status_class: String(t.shipmentStatus),
@@ -150,7 +172,7 @@ export function bayTrackingToKango(
         ],
       },
       additional_notes: {
-        service: BAY_SERVICE_NAME_VI[shipment?.serviceType ?? "air"] ?? "BayOnline",
+        service: BAY_SERVICE_NAME_VI[shipment?.serviceType ?? "air"] ?? "Hàng hoá",
         country: BAY_COUNTRY_VI[cc] ?? cc,
         total_package: 1,
         last_mile: carrierName,

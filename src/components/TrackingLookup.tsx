@@ -39,6 +39,7 @@ type TrackingResult = {
   lastMileWebsite: string;
   contactInformation: string;
   ksnPostUrl: string;
+  photos?: { label: string; time: string }[];
 };
 
 type StepStage = "early" | "final" | "delivered";
@@ -52,11 +53,11 @@ type StepStage = "early" | "final" | "delivered";
  * thông quan".
  */
 function findDestinationCustomsReleasedIndex(steps: TrackingStep[]): number {
-  return steps.findIndex((s) => s.title.toLowerCase().includes("destination customs released"));
+  return steps.findIndex((s) => /destination customs released|đã thông quan nước đến/.test(s.title.toLowerCase()));
 }
 
 function isDeliveredStep(step: TrackingStep): boolean {
-  return step.title.toLowerCase().includes("delivered");
+  return /delivered|^hoàn thành$/.test(step.title.toLowerCase());
 }
 
 function stageOf(step: TrackingStep, index: number, customsIndex: number): StepStage {
@@ -101,6 +102,7 @@ export default function TrackingLookup() {
   const [status, setStatus] = useState<Status>("idle");
   const [result, setResult] = useState<TrackingResult | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [showPhotos, setShowPhotos] = useState(false);
 
   async function lookup(raw: string) {
     const code = raw.trim();
@@ -119,6 +121,7 @@ export default function TrackingLookup() {
         err instanceof Error ? err.message : "Không thể tra cứu lúc này"
       );
       setResult(null);
+      setShowPhotos(false);
     } finally {
       setStatus("done");
     }
@@ -253,6 +256,32 @@ export default function TrackingLookup() {
                     });
                   })()}
                 </ol>
+              )}
+
+              {result.photos && result.photos.length > 0 && (
+                <div className="mt-7 border-t border-line pt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowPhotos((v) => !v)}
+                    className="rounded-full border border-line px-5 py-2.5 text-sm font-semibold text-navy-800 hover:bg-mist/60"
+                  >
+                    {showPhotos ? "Ẩn hình ảnh hàng" : `Xem hình ảnh hàng (${result.photos.length})`}
+                  </button>
+                  {showPhotos && (
+                    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {result.photos.map((p, i) => {
+                        const src = `/api/tracking/photo?code=${encodeURIComponent(result.falcoCode)}&n=${i}`;
+                        return (
+                          <a key={i} href={src} target="_blank" rel="noopener noreferrer" className="block">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={src} alt={p.label} loading="lazy" className="aspect-square w-full rounded-xl border border-line object-cover" />
+                            <span className="mt-1 block text-xs text-ink/55">{p.label}</span>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               )}
 
               {result.parcels.length > 0 && (

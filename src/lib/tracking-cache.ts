@@ -46,20 +46,25 @@ export type PublicTrackingData = {
   lastMileWebsite: string;
   contactInformation: string;
   ksnPostUrl: string;
+  /** Ảnh hàng (chỉ đơn FEB…): chỉ nhãn + giờ; ảnh lấy qua /api/tracking/photo?code=…&n=<số thứ tự>. */
+  photos: { label: string; time: string }[];
 };
 
 export function buildTrackingData(
   order: Pick<OrderRecord, "falco_code" | "awb" | "recipient_name" | "service" | "destination">,
   kango: KangoTrackingResponse | null
 ): PublicTrackingData {
-  const ksnPostUrl = `https://www.ksnpost.com/?code=${encodeURIComponent(order.awb)}`;
+  // Đơn FEB…: mã nguồn (orders.awb) là mã nội bộ của đối tác, không đưa ra ngoài — dùng mã Falco.
+  const isFeb = order.falco_code.toUpperCase().startsWith("FEB");
+  const publicAwb = isFeb ? order.falco_code : order.awb;
+  const ksnPostUrl = isFeb ? "" : `https://www.ksnpost.com/?code=${encodeURIComponent(order.awb)}`;
 
   if (!kango) {
     // Đơn có trong hệ thống Falco nhưng Kango chưa có dữ liệu (đơn quá mới,
     // chưa được quét lần đầu) — vẫn trả về thông tin cơ bản.
     return {
       falcoCode: order.falco_code,
-      awb: order.awb,
+      awb: publicAwb,
       recipientName: order.recipient_name || "",
       service: order.service || "",
       destination: order.destination || "",
@@ -70,6 +75,7 @@ export function buildTrackingData(
       lastMileWebsite: "",
       contactInformation: "",
       ksnPostUrl,
+      photos: [],
     };
   }
 
@@ -97,7 +103,7 @@ export function buildTrackingData(
 
   return {
     falcoCode: order.falco_code,
-    awb: order.awb,
+    awb: publicAwb,
     recipientName: order.recipient_name || "",
     service,
     destination: kango.additional_notes.country || order.destination || "",
@@ -122,6 +128,7 @@ export function buildTrackingData(
     lastMileWebsite: kango.additional_notes.last_mile_website || "",
     contactInformation: kango.additional_notes.contact_information || "",
     ksnPostUrl,
+    photos: (kango.falco_photos ?? []).map((p) => ({ label: p.label, time: p.time })),
   };
 }
 

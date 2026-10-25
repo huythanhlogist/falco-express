@@ -26,6 +26,8 @@ export type KangoTrackingResponse = {
     order_numbers: KangoOrderNumber[];
     country: string;
   };
+  // Chỉ có ở đơn FEB…: ảnh hàng (id ảnh nội bộ, KHÔNG bao giờ gửi ra trình duyệt) — xem src/lib/bay-tracking.ts.
+  falco_photos?: { id: string; label: string; time: string }[];
   additional_notes: {
     service: string;
     country: string;
