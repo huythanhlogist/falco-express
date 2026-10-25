@@ -173,7 +173,7 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
     setSyncing(true);
     setSyncMsg("");
     try {
-      const res = await fetch("/api/admin/bay/sync", { method: "POST" });
+      const res = await fetch("/api/admin/bay/sync?force=1", { method: "POST" });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error ?? `Lỗi HTTP ${res.status}`);
       setSyncMsg(
@@ -222,6 +222,44 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
   useEffect(() => {
     if (configured) void load();
   }, [configured, load]);
+
+  // Mở tab là tự đồng bộ 1 lần (server bỏ qua nếu vừa đồng bộ < 2 phút): vận đơn mới bên Bay có ngay mã FEB…
+  useEffect(() => {
+    if (!configured) return;
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/bay/sync", { method: "POST" });
+        const j = await res.json();
+        if (res.ok && j.created?.length) {
+          setSyncMsg(`Đã tự tạo ${j.created.length} đơn mới: ${j.created.map((c: { falcoCode: string }) => c.falcoCode).join(", ")}.`);
+          void load();
+        }
+      } catch {
+        /* lỗi đồng bộ nền không chặn việc xem danh sách */
+      }
+    })();
+    // chỉ chạy 1 lần khi mở trang
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configured]);
+
+  // Mở tab là tự đồng bộ 1 lần: vận đơn mới bên Bay có ngay mã FEB…, không cần bấm tay.
+  useEffect(() => {
+    if (!configured) return;
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/bay/sync", { method: "POST" });
+        const j = await res.json();
+        if (res.ok && j.created?.length) {
+          setSyncMsg(`Đã tự tạo ${j.created.length} đơn mới: ${j.created.map((c: { falcoCode: string }) => c.falcoCode).join(", ")}.`);
+          void load();
+        }
+      } catch {
+        /* lỗi đồng bộ nền không chặn việc xem danh sách */
+      }
+    })();
+    // chỉ chạy 1 lần khi mở trang
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configured]);
 
   if (!configured) {
     return (

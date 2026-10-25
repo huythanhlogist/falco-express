@@ -43,12 +43,22 @@ function destinationOf(s: BayShipment): string {
  * đơn Falco mã FEB…; chạy lại nhiều lần không sinh đơn trùng. Cập nhật mã tracking chặng cuối
  * khi Bay gán nhãn sau đó.
  */
-export async function syncBayShipments(maxPages = 20): Promise<BaySyncResult> {
-  if (!isBayConfigured()) throw new Error("Chưa cấu hình BAY_API_KEY");
+// Chỉ đồng bộ vận đơn tạo trong 30 ngày gần nhất (đơn cũ hơn đã nằm sẵn trong DB), và bỏ qua nếu
+// vừa đồng bộ xong < 2 phút — mở tab/cron liên tục cũng chỉ tốn rất ít request (hạn mức Bay: 60/phút).
+const SYNC_WINDOW_DAYS = 30;
+const MIN_INTERVAL_MS = 2 * 60 * 1000;
+let lastSync: { at: number; result: BaySyncResult } | null = null;
 
+export async function syncBayShipments(maxPages = 20, force = false): Promise<BaySyncResult & { skipped?: boolean }> {
+  if (!isBayConfigured()) throw new Error("Chưa cấu hình BAY_API_KEY");
+  if (!force && lastSync && Date.now() - lastSync.at < MIN_INTERVAL_MS) {
+    return { total: lastSync.result.total, created: [], alreadySynced: lastSync.result.alreadySynced, skipped: true };
+  }
+
+  const createdFrom = new Date(Date.now() - SYNC_WINDOW_DAYS * 86400_000).toISOString();
   const shipments: BayShipment[] = [];
   for (let page = 1; page <= maxPages; page++) {
-    const res = await bay.listShipments({ page, limit: 100 });
+    const res = await bay.listShipments({ page, limit: 100, createdFrom });
     shipments.push(...res.data);
     if (page >= res.pagination.totalPages) break;
   }
@@ -87,5 +97,7 @@ export async function syncBayShipments(maxPages = 20): Promise<BaySyncResult> {
     created.push({ reference: s.reference, falcoCode });
   }
 
-  return { total: shipments.length, created, alreadySynced };
+  const result = { total: shipments.length, created, alreadySynced };
+  lastSync = { at: Date.now(), result };
+  return result;
 }

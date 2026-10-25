@@ -157,7 +157,7 @@ export default function BayCreateOrder({ onChanged }: { onChanged: () => void })
       );
       setConfirmed(j.shipments.map((s) => s.reference));
       // Đồng bộ ngay để vận đơn vừa sinh có mã FEB… và khách tra cứu được trên web.
-      await fetch("/api/admin/bay/sync", { method: "POST" }).catch(() => undefined);
+      await fetch("/api/admin/bay/sync?force=1", { method: "POST" }).catch(() => undefined);
       onChanged();
     } catch (e) {
       setError((e as Error).message);

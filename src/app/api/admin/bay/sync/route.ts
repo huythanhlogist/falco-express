@@ -7,14 +7,15 @@ import { syncBayShipments } from "@/lib/bay-sync";
 export const dynamic = "force-dynamic";
 
 // Đồng bộ vận đơn BayOnline → đơn Falco mã FEB… (idempotent, chạy lại không sinh trùng).
-export async function POST() {
+export async function POST(request: Request) {
   const session = await getCurrentAdminSession();
   if (!session) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   if (!isBayConfigured()) {
     return NextResponse.json({ error: "Chưa cấu hình BAY_API_KEY" }, { status: 503 });
   }
   try {
-    return NextResponse.json(await syncBayShipments());
+    const force = new URL(request.url).searchParams.get("force") === "1";
+    return NextResponse.json(await syncBayShipments(20, force));
   } catch (err) {
     const message = err instanceof Error ? err.message : "Đồng bộ thất bại";
     console.error("[bay/sync] Lỗi:", err);
