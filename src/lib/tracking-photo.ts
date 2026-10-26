@@ -5,7 +5,7 @@ import { parseCachedKango } from "./tracking-cache";
 
 /**
  * Phục vụ ảnh hàng của đơn FEB… cho khách theo (mã đơn, số thứ tự) — không lộ địa chỉ nguồn ảnh.
- * ownerCtvId: khi gọi từ trang thương hiệu CTV thì đơn phải thuộc CTV đó.
+ * ownerCtvId: khi gọi từ trang thương hiệu FWD thì đơn phải thuộc FWD đó.
  */
 export async function servePhoto(code: string, n: number, ownerCtvId?: number): Promise<Response> {
   if (!code.toUpperCase().startsWith("FEB") || !Number.isInteger(n) || n < 0) {

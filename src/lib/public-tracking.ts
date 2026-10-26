@@ -11,7 +11,7 @@ import {
 /**
  * Hành trình công khai của 1 đơn: ưu tiên cache DB, thiếu/cũ thì gọi nguồn (Kango/đối tác) rồi ghi
  * cache; nguồn lỗi thì trả cache cũ hoặc thông tin cơ bản. Dùng chung cho trang tra cứu Falco
- * (/api/tracking) và trang thương hiệu riêng của CTV (/t/<slug>).
+ * (/api/tracking) và trang thương hiệu riêng của FWD (/t/<slug>).
  */
 export async function loadPublicTracking(order: OrderRecord): Promise<PublicTrackingData> {
   const cached = await getTrackingCache(order.id, order.awb).catch((err) => {
@@ -41,7 +41,7 @@ export async function loadPublicTracking(order: OrderRecord): Promise<PublicTrac
 
 const BRAND_WORDS = /falco|kango|ksn\s?post|bay\s?online|koko/gi;
 
-/** Bản dùng cho trang thương hiệu riêng của CTV: bỏ mọi thông tin dẫn về Falco/đối tác. */
+/** Bản dùng cho trang thương hiệu riêng của FWD: bỏ mọi thông tin dẫn về Falco/đối tác. */
 export function whiteLabel(data: PublicTrackingData): PublicTrackingData {
   const clean = (s: string) => s.replace(BRAND_WORDS, "").replace(/\s{2,}/g, " ").trim();
   return {

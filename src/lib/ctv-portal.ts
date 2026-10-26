@@ -2,10 +2,10 @@ import type { RowDataPacket } from "mysql2";
 import { getPool, type OrderReviewStatus, type PaymentStatus } from "./db";
 import type { ShipmentStatus } from "./shipment-status";
 
-// Dữ liệu cho cổng CTV mới (Đơn hàng · Thống kê · Tài chính · Tracking Site).
+// Dữ liệu cho cổng FWD mới (Đơn hàng · Thống kê · Tài chính · Tracking Site).
 // MỌI hàm nhận ctvId từ phiên đăng nhập (không bao giờ từ client) và luôn lọc theo ctv_id.
-// Thống kê/tài chính chỉ tính đơn đã được chấp nhận: approved (CTV tạo, admin duyệt) hoặc
-// auto_approved (admin gán cho CTV).
+// Thống kê/tài chính chỉ tính đơn đã được chấp nhận: approved (FWD tạo, admin duyệt) hoặc
+// auto_approved (admin gán cho FWD).
 
 const COUNTED = "o.review_status IN ('approved','auto_approved')";
 
@@ -189,7 +189,7 @@ export async function getCtvStats(ctvId: number, period: StatsPeriod, ref: strin
 
 export type CtvFinance = {
   totalRevenue: number; // tổng tiền thu theo đơn (mọi kỳ)
-  collectedByCtv: number; // tiền CTV đã thu hộ khách
+  collectedByCtv: number; // tiền FWD đã thu hộ khách
   remitted: number; // đã nộp lại Falco
   outstanding: number; // còn phải nộp (= đã thu hộ - đã nộp)
   month: string;
@@ -353,9 +353,9 @@ export async function getTrackingSiteImage(slug: string, kind: "logo" | "banner"
   return r[0]?.data ? { data: r[0].data as Buffer, type: String(r[0].type || "image/png") } : null;
 }
 
-// ---------- Admin: gán đơn cho CTV ----------
+// ---------- Admin: gán đơn cho FWD ----------
 
-/** Gán (hoặc bỏ gán khi ctvId = null) nhiều đơn cho 1 CTV. Trả số đơn đã đổi. Đơn CTV tự tạo đang chờ duyệt không bị đổi chủ. */
+/** Gán (hoặc bỏ gán khi ctvId = null) nhiều đơn cho 1 FWD. Trả số đơn đã đổi. Đơn FWD tự tạo đang chờ duyệt không bị đổi chủ. */
 export async function assignOrdersToCtv(orderIds: number[], ctvId: number | null): Promise<number> {
   const ids = [...new Set(orderIds.filter((n) => Number.isInteger(n) && n > 0))].slice(0, 500);
   if (!ids.length) return 0;

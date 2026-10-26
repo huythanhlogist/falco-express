@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ code?: string }> };
 
-// Trang công khai mang thương hiệu CTV: tiêu đề tab = tên CTV, không chỉ mục, tuyệt đối không nhắc Falco.
+// Trang công khai mang thương hiệu FWD: tiêu đề tab = tên FWD, không chỉ mục, tuyệt đối không nhắc Falco.
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const site = await getTrackingSiteBySlug((await params).slug);
   const name = site?.display_name || "Tra cứu đơn hàng";

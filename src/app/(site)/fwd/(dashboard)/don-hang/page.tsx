@@ -24,7 +24,7 @@ const money = (v: string | null) => (v ? `${Number(v).toLocaleString("vi-VN")}đ
 
 export default async function CtvOrdersPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; page?: string }> }) {
   const session = await getCurrentCtvSession();
-  if (!session) redirect("/ctv/login");
+  if (!session) redirect("/fwd/login");
   const sp = await searchParams;
   const search = sp.q ?? "";
   const status = STATUS_FILTERS.some((f) => f.value === sp.status) ? (sp.status as string) : "all";
@@ -45,7 +45,7 @@ export default async function CtvOrdersPage({ searchParams }: { searchParams: Pr
           <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Đơn hàng</h1>
           <p className="mt-1 text-sm text-ink/55">Đơn bạn tạo và đơn được Falco gán cho bạn — {total} đơn</p>
         </div>
-        <Link href="/ctv/tao-don" className="btn-primary !px-4 !py-2 text-sm">
+        <Link href="/fwd/tao-don" className="btn-primary !px-4 !py-2 text-sm">
           + Tạo đơn mới
         </Link>
       </div>
@@ -60,7 +60,7 @@ export default async function CtvOrdersPage({ searchParams }: { searchParams: Pr
         {STATUS_FILTERS.map((f) => (
           <Link
             key={f.value}
-            href={`/ctv/don-hang?${new URLSearchParams({ ...(search ? { q: search } : {}), ...(f.value !== "all" ? { status: f.value } : {}) })}`}
+            href={`/fwd/don-hang?${new URLSearchParams({ ...(search ? { q: search } : {}), ...(f.value !== "all" ? { status: f.value } : {}) })}`}
             className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-semibold ${status === f.value ? "bg-navy-800 text-white" : "bg-white text-ink/60 hover:bg-line"}`}
           >
             {f.label}
@@ -130,7 +130,7 @@ export default async function CtvOrdersPage({ searchParams }: { searchParams: Pr
       {pages > 1 && (
         <div className="mt-4 flex justify-center gap-2">
           {Array.from({ length: pages }, (_, i) => i + 1).map((p) => (
-            <Link key={p} href={`/ctv/don-hang?${qs({ page: String(p) })}`} className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium ${p === page ? "bg-navy-800 text-white" : "text-ink/60 hover:bg-line"}`}>
+            <Link key={p} href={`/fwd/don-hang?${qs({ page: String(p) })}`} className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium ${p === page ? "bg-navy-800 text-white" : "text-ink/60 hover:bg-line"}`}>
               {p}
             </Link>
           ))}

@@ -4,8 +4,8 @@ import { useState } from "react";
 import type { TrackingSite } from "@/lib/ctv-portal";
 import { TRACKING_COLORS } from "@/lib/tracking-site-config";
 
-// Giao diện tra cứu mang thương hiệu CTV. Dùng cho cả trang công khai /t/<slug> và khung xem trước
-// trong cổng CTV. KHÔNG có logo/tên/hotline Falco ở bất kỳ đâu.
+// Giao diện tra cứu mang thương hiệu FWD. Dùng cho cả trang công khai /t/<slug> và khung xem trước
+// trong cổng FWD. KHÔNG có logo/tên/hotline Falco ở bất kỳ đâu.
 
 type Step = { title: string; time: string; location: string | null };
 type Parcel = { hawb: string; trackingCode: string; status: string; trackingUrl: string | null; carrier: string };

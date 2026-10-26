@@ -1,4 +1,4 @@
-// Tên miền trung tính dành cho trang tra cứu thương hiệu riêng của CTV: <slug>.<TRACKING_BASE_DOMAIN>.
+// Tên miền trung tính dành cho trang tra cứu thương hiệu riêng của FWD: <slug>.<TRACKING_BASE_DOMAIN>.
 // Không chứa tên Falco/đối tác. Đặt biến TRACKING_BASE_DOMAIN (vd trackingsite.io.vn) để bật chế độ subdomain.
 export function trackingBaseDomain(): string {
   return (process.env.TRACKING_BASE_DOMAIN || "").trim().toLowerCase();

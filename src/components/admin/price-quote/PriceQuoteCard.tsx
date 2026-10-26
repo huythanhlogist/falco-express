@@ -52,7 +52,7 @@ export default function PriceQuoteCard({
   onEdit?: () => void;
   onDelete?: () => void;
   // Mặc định = thông tin liên hệ báo giá chung của Falco; trang bảng giá
-  // CTV truyền thông tin liên hệ của chính CTV đó (xem /ctv/bao-gia).
+  // FWD truyền thông tin liên hệ của chính FWD đó (xem /fwd/bao-gia).
   contact?: PriceQuoteContact;
 }) {
   const [flatMarkup, setFlatMarkup] = useState(line.markupFlatVnd);

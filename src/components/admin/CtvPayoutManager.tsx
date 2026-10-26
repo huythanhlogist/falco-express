@@ -60,7 +60,7 @@ export default function CtvPayoutManager({ initialPayables }: { initialPayables:
       <table className="w-full min-w-[820px] text-sm">
         <thead>
           <tr className="border-b border-line bg-mist/60 text-left text-xs font-semibold uppercase tracking-wide text-ink/45">
-            <th className="px-4 py-2.5">CTV</th>
+            <th className="px-4 py-2.5">FWD</th>
             <th className="px-4 py-2.5">Hoa hồng gốc</th>
             <th className="px-4 py-2.5">Hoa hồng giới thiệu</th>
             <th className="px-4 py-2.5">Đã trả</th>
@@ -129,7 +129,7 @@ export default function CtvPayoutManager({ initialPayables }: { initialPayables:
           {payables.length === 0 && (
             <tr>
               <td colSpan={6} className="px-4 py-6 text-center text-ink/45">
-                Chưa có CTV nào.
+                Chưa có FWD nào.
               </td>
             </tr>
           )}

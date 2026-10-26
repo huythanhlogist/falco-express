@@ -13,8 +13,8 @@ export type CreateManualOrderInput = {
 
 /**
  * Tạo đơn thủ công (không qua upload Excel Kango) — dùng chung cho nhân
- * viên (`/admin/orders`, chưa từng có form nào trước phase này) và CTV
- * (`/ctv/tao-don`). AWB thật sự (do Kango cấp) chưa có ở bước này nên tạm
+ * viên (`/admin/orders`, chưa từng có form nào trước phase này) và FWD
+ * (`/fwd/tao-don`). AWB thật sự (do Kango cấp) chưa có ở bước này nên tạm
  * dùng chính mã Falco làm AWB — nhân viên sửa lại qua form sửa đơn sẵn có
  * khi có AWB thật.
  */

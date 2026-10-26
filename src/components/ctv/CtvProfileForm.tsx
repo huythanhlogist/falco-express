@@ -39,7 +39,7 @@ export default function CtvProfileForm({ profile }: { profile: Profile }) {
         <p className="mt-1 text-xs text-ink/50">Do Falco quản lý, liên hệ admin nếu cần đổi.</p>
         <dl className="mt-4 flex flex-col gap-3 text-sm">
           <div>
-            <dt className="text-xs font-semibold text-ink/50">Mã CTV</dt>
+            <dt className="text-xs font-semibold text-ink/50">Mã FWD</dt>
             <dd className="mt-0.5 font-bold text-navy-800">{profile.ctv_code}</dd>
           </div>
           <div>

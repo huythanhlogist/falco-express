@@ -17,11 +17,11 @@ import {
 } from "@/components/icons";
 
 const LINKS = [
-  { href: "/ctv/don-hang", label: "Đơn hàng", icon: CargoIcon },
-  { href: "/ctv/thong-ke", label: "Thống kê", icon: LayoutGridIcon },
-  { href: "/ctv/tracking-site", label: "Tracking Site", icon: GlobeIcon },
-  { href: "/ctv/tai-chinh", label: "Tài chính", icon: WalletIcon },
-  { href: "/ctv/tai-khoan", label: "Tài khoản", icon: UsersIcon },
+  { href: "/fwd/don-hang", label: "Đơn hàng", icon: CargoIcon },
+  { href: "/fwd/thong-ke", label: "Thống kê", icon: LayoutGridIcon },
+  { href: "/fwd/tracking-site", label: "Tracking Site", icon: GlobeIcon },
+  { href: "/fwd/tai-chinh", label: "Tài chính", icon: WalletIcon },
+  { href: "/fwd/tai-khoan", label: "Tài khoản", icon: UsersIcon },
 ];
 
 export default function CtvSidebar({ ctvCode, fullName }: { ctvCode: string; fullName: string }) {
@@ -31,14 +31,14 @@ export default function CtvSidebar({ ctvCode, fullName }: { ctvCode: string; ful
 
   async function handleLogout() {
     await fetch("/api/ctv/logout", { method: "POST" });
-    router.push("/ctv/login");
+    router.push("/fwd/login");
     router.refresh();
   }
 
   const nav = (
     <nav className="flex flex-1 flex-col gap-0.5 px-2.5">
       {LINKS.map((link) => {
-        const active = pathname === link.href || (link.href === "/ctv/don-hang" && pathname === "/ctv/tao-don");
+        const active = pathname === link.href || (link.href === "/fwd/don-hang" && pathname === "/fwd/tao-don");
         const Icon = link.icon;
         return (
           <Link
@@ -68,7 +68,7 @@ export default function CtvSidebar({ ctvCode, fullName }: { ctvCode: string; ful
             height={26}
             className="h-6 w-6 rounded-full object-cover ring-1 ring-line"
           />
-          <span className="font-display text-sm font-extrabold text-navy-900">FALCO CTV</span>
+          <span className="font-display text-sm font-extrabold text-navy-900">FALCO FWD</span>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -113,8 +113,8 @@ export default function CtvSidebar({ ctvCode, fullName }: { ctvCode: string; ful
             className="h-7 w-7 rounded-full object-cover ring-1 ring-white/15"
           />
           <div>
-            <p className="font-display text-sm font-extrabold text-white">FALCO CTV</p>
-            <p className="text-xs text-navy-300">Cộng tác viên</p>
+            <p className="font-display text-sm font-extrabold text-white">FALCO FWD</p>
+            <p className="text-xs text-navy-300">FWD</p>
           </div>
         </div>
 

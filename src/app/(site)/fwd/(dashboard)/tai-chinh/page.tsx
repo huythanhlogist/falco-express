@@ -9,7 +9,7 @@ const dateVn = (v: string | null) => (v ? new Date(v).toLocaleDateString("vi-VN"
 
 export default async function CtvFinancePage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
   const session = await getCurrentCtvSession();
-  if (!session) redirect("/ctv/login");
+  if (!session) redirect("/fwd/login");
   const sp = await searchParams;
   const f = await getCtvFinance(session.ctvId, sp.month ?? "");
 

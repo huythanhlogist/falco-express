@@ -11,13 +11,13 @@ import OrganizationJsonLd from "@/components/OrganizationJsonLd";
 
 export default function SiteChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  // /t/<slug>: trang tra cứu mang thương hiệu CTV — không được có header/footer/logo Falco.
+  // /t/<slug>: trang tra cứu mang thương hiệu FWD — không được có header/footer/logo Falco.
   const isWhiteLabel = pathname?.startsWith("/t/");
   if (isWhiteLabel) return <div className="min-h-screen">{children}</div>;
   const jsonLd = <OrganizationJsonLd />;
-  const isBareLayout = pathname?.startsWith("/admin") || pathname?.startsWith("/ctv");
+  const isBareLayout = pathname?.startsWith("/admin") || pathname?.startsWith("/fwd");
 
-  // Admin/CTV cũng theo concept mới (đồng bộ với web công khai): dùng chung lớp
+  // Admin/FWD cũng theo concept mới (đồng bộ với web công khai): dùng chung lớp
   // .lp-theme (góc vuông, màu đặc), giữ bóng đổ cho popup/modal (lp-theme-admin).
   if (isBareLayout) return <div className="lp-theme lp-theme-admin min-h-screen">{children}</div>;
 

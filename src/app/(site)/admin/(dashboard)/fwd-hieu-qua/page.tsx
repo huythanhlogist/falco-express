@@ -20,15 +20,15 @@ export default async function CtvHieuQuaPage() {
 
   return (
     <div>
-      <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Hiệu quả CTV</h1>
-      <p className="mt-1 text-sm text-ink/55">Tổng quan hoạt động kênh cộng tác viên</p>
+      <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Hiệu quả FWD</h1>
+      <p className="mt-1 text-sm text-ink/55">Tổng quan hoạt động kênh FWD</p>
 
       <div className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        <StatCard label="Tổng số CTV" value={String(stats.totalCtvs)} />
+        <StatCard label="Tổng số FWD" value={String(stats.totalCtvs)} />
         <StatCard label="Đang hoạt động" value={String(stats.activeCtvs)} />
         <StatCard label="Doanh thu tháng này" value={money(stats.thisMonthRevenue)} sub={change ?? undefined} />
         <StatCard
-          label="Đơn CTV chờ duyệt"
+          label="Đơn FWD chờ duyệt"
           value={String(stats.pendingReviewCount)}
           highlight={stats.pendingReviewCount > 0}
         />
@@ -39,18 +39,18 @@ export default async function CtvHieuQuaPage() {
           href="/admin/orders?source=ctv&status=all"
           className="mt-3 inline-block text-sm font-semibold text-flame-700 hover:underline"
         >
-          Xem {stats.pendingReviewCount} đơn CTV đang chờ duyệt →
+          Xem {stats.pendingReviewCount} đơn FWD đang chờ duyệt →
         </Link>
       )}
 
       <div className="mt-8">
-        <h2 className="font-display text-base font-bold text-navy-900">Top CTV theo doanh thu (đã duyệt)</h2>
+        <h2 className="font-display text-base font-bold text-navy-900">Top FWD theo doanh thu (đã duyệt)</h2>
         <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-white">
           <table className="w-full min-w-[500px] text-sm">
             <thead>
               <tr className="border-b border-line bg-mist/60 text-left text-xs font-semibold uppercase tracking-wide text-ink/45">
                 <th className="px-4 py-2.5">Hạng</th>
-                <th className="px-4 py-2.5">CTV</th>
+                <th className="px-4 py-2.5">FWD</th>
                 <th className="px-4 py-2.5">Doanh thu</th>
               </tr>
             </thead>
@@ -68,7 +68,7 @@ export default async function CtvHieuQuaPage() {
               {stats.topCtvs.length === 0 && (
                 <tr>
                   <td colSpan={3} className="px-4 py-6 text-center text-ink/45">
-                    Chưa có đơn CTV nào được duyệt.
+                    Chưa có đơn FWD nào được duyệt.
                   </td>
                 </tr>
               )}

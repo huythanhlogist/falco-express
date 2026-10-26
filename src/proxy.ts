@@ -4,7 +4,7 @@ import { CTV_SESSION_COOKIE, verifyCtvSessionToken } from "@/lib/ctv-auth";
 import { slugFromHost } from "@/lib/tracking-domain";
 
 const PUBLIC_ADMIN_PATHS = ["/admin/login", "/api/admin/login"];
-const PUBLIC_CTV_PATHS = ["/ctv/login", "/api/ctv/login"];
+const PUBLIC_CTV_PATHS = ["/fwd/login", "/api/ctv/login"];
 
 /**
  * Cho phép 1 agent ngoài (không có phiên đăng nhập admin) dùng 1 key riêng
@@ -36,8 +36,8 @@ function isAgentApiRequest(request: NextRequest): boolean {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Tên miền tracking trung tính (<slug>.<TRACKING_BASE_DOMAIN>): CHỈ phục vụ trang tra cứu của CTV đó.
-  // Mọi đường dẫn khác (web Falco, admin, CTV, blog…) bị chặn để không lộ Falco qua tên miền này.
+  // Tên miền tracking trung tính (<slug>.<TRACKING_BASE_DOMAIN>): CHỈ phục vụ trang tra cứu của FWD đó.
+  // Mọi đường dẫn khác (web Falco, admin, FWD, blog…) bị chặn để không lộ Falco qua tên miền này.
   const hostSlug = slugFromHost(request.headers.get("host"));
   if (hostSlug !== null) {
     if (pathname.startsWith("/api/t/")) return NextResponse.next();
@@ -50,13 +50,13 @@ export async function proxy(request: NextRequest) {
   }
 
   // Matcher giờ phủ mọi đường dẫn: web công khai của Falco không cần phiên.
-  const isProtected = pathname.startsWith("/admin") || pathname.startsWith("/api/admin") || pathname.startsWith("/ctv") || pathname.startsWith("/api/ctv");
+  const isProtected = pathname.startsWith("/admin") || pathname.startsWith("/api/admin") || pathname.startsWith("/fwd") || pathname.startsWith("/api/ctv");
   if (!isProtected) return NextResponse.next();
 
-  // Vùng CTV — cookie/secret RIÊNG với admin, kiểm tra tách biệt hoàn toàn
-  // (xem ghi chú trong src/lib/ctv-auth.ts) để 1 phiên không thể dùng thay
+  // Vùng FWD — cookie/secret RIÊNG với admin, kiểm tra tách biệt hoàn toàn
+  // (xem ghi chú trong src/lib/fwd-auth.ts) để 1 phiên không thể dùng thay
   // cho phiên kia dù có đọc nhầm cookie.
-  if (pathname.startsWith("/ctv") || pathname.startsWith("/api/ctv")) {
+  if (pathname.startsWith("/fwd") || pathname.startsWith("/api/ctv")) {
     if (PUBLIC_CTV_PATHS.some((p) => pathname === p)) {
       return NextResponse.next();
     }
@@ -66,7 +66,7 @@ export async function proxy(request: NextRequest) {
       if (pathname.startsWith("/api/ctv")) {
         return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
       }
-      return NextResponse.redirect(new URL("/ctv/login", request.url));
+      return NextResponse.redirect(new URL("/fwd/login", request.url));
     }
     return NextResponse.next();
   }
@@ -95,6 +95,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Chạy cho mọi đường dẫn (trừ file tĩnh của Next) để nhận ra tên miền tracking; với host của Falco,
-  // các đường dẫn ngoài admin/ctv đi thẳng qua (kiểm tra ngay đầu hàm bên dưới).
+  // các đường dẫn ngoài admin/fwd đi thẳng qua (kiểm tra ngay đầu hàm bên dưới).
   matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|robots.txt|sitemap.xml).*)"],
 };

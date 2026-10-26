@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   const ctvIdNum = Number(ctvId);
   const amountNum = Number(amount);
   if (!Number.isInteger(ctvIdNum) || ctvIdNum <= 0) {
-    return NextResponse.json({ error: "Thiếu CTV" }, { status: 400 });
+    return NextResponse.json({ error: "Thiếu FWD" }, { status: 400 });
   }
   if (!Number.isFinite(amountNum) || amountNum <= 0) {
     return NextResponse.json({ error: "Số tiền không hợp lệ" }, { status: 400 });

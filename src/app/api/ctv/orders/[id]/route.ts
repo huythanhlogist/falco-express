@@ -21,8 +21,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   return NextResponse.json({ order, parcels });
 }
 
-// CTV chỉ sửa/xoá được đơn của chính mình VÀ khi đơn còn "chờ duyệt" — sau
-// khi admin đã duyệt/từ chối thì chỉ xem, tránh CTV sửa đơn admin đang xử lý.
+// FWD chỉ sửa/xoá được đơn của chính mình VÀ khi đơn còn "chờ duyệt" — sau
+// khi admin đã duyệt/từ chối thì chỉ xem, tránh FWD sửa đơn admin đang xử lý.
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getCurrentCtvSession();
   if (!session) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });

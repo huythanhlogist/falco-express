@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CtvTrackingSitePage() {
   const session = await getCurrentCtvSession();
-  if (!session) redirect("/ctv/login");
+  if (!session) redirect("/fwd/login");
   const [site, ctv] = await Promise.all([getTrackingSiteByCtv(session.ctvId), findCtvById(session.ctvId)]);
 
   return (

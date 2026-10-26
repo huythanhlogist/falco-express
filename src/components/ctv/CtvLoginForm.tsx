@@ -30,7 +30,7 @@ export default function CtvLoginForm() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Đăng nhập thất bại");
-      router.push("/ctv/don-hang");
+      router.push("/fwd/don-hang");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Có lỗi xảy ra");
@@ -49,8 +49,8 @@ export default function CtvLoginForm() {
             height={48}
             className="h-12 w-12 rounded-full object-cover ring-1 ring-line"
           />
-          <h1 className="mt-3 font-display text-lg font-bold text-navy-900">Đăng nhập CTV</h1>
-          <p className="mt-1 text-sm text-ink/55">FALCO EXPRESS — Cộng tác viên</p>
+          <h1 className="mt-3 font-display text-lg font-bold text-navy-900">Đăng nhập FWD</h1>
+          <p className="mt-1 text-sm text-ink/55">FALCO EXPRESS — FWD</p>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-7 flex flex-col gap-4">

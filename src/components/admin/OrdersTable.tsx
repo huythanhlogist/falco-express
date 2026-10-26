@@ -60,7 +60,7 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
         body: JSON.stringify({ orderIds: [...selected.keys()], ctvId }),
       });
       const j = await res.json();
-      if (!res.ok) throw new Error(j.error ?? "Lỗi gán CTV");
+      if (!res.ok) throw new Error(j.error ?? "Lỗi gán FWD");
       setAssignMsg(ctvId ? `Đã gán ${j.changed} đơn` : `Đã bỏ gán ${j.changed} đơn`);
       router.refresh();
     } catch (e) {
@@ -137,10 +137,10 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
                 <select
                   value={assignCtv}
                   onChange={(e) => setAssignCtv(e.target.value)}
-                  aria-label="Chọn CTV để gán"
+                  aria-label="Chọn FWD để gán"
                   className="rounded-lg border border-line bg-white px-2 py-1.5 text-xs"
                 >
-                  <option value="">Chọn CTV…</option>
+                  <option value="">Chọn FWD…</option>
                   {ctvs.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.ctv_code} · {c.full_name}
@@ -153,7 +153,7 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
                   onClick={() => assign(Number(assignCtv))}
                   className="rounded-lg bg-navy-800 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
                 >
-                  Gán CTV
+                  Gán FWD
                 </button>
                 <button
                   type="button"

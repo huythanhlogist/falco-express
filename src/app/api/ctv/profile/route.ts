@@ -13,7 +13,7 @@ export async function GET() {
   return NextResponse.json({ profile });
 }
 
-// CTV chỉ tự sửa được phần liên hệ hiển thị trên bảng giá — tên/SĐT/CCCD là
+// FWD chỉ tự sửa được phần liên hệ hiển thị trên bảng giá — tên/SĐT/CCCD là
 // thông tin định danh do admin quản lý, không cho tự đổi ở đây.
 export async function PATCH(request: Request) {
   const session = await getCurrentCtvSession();

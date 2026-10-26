@@ -13,9 +13,9 @@ export default async function CtvPage() {
 
   return (
     <div>
-      <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Quản lý CTV</h1>
+      <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Quản lý FWD</h1>
       <p className="mt-1 text-sm text-ink/55">
-        Tạo và quản lý tài khoản cộng tác viên — CTV đăng nhập ở khu vực riêng /ctv
+        Tạo và quản lý tài khoản FWD — FWD đăng nhập ở khu vực riêng /fwd
       </p>
 
       <div className="mt-6">
@@ -23,8 +23,8 @@ export default async function CtvPage() {
       </div>
 
       <div className="mt-10">
-        <h2 className="font-display text-base font-bold text-navy-900">Hướng dẫn sử dụng (hiện cho CTV)</h2>
-        <p className="mt-0.5 text-sm text-ink/55">Các bước/ghi chú CTV thấy ở tab &quot;Hướng dẫn&quot;.</p>
+        <h2 className="font-display text-base font-bold text-navy-900">Hướng dẫn sử dụng (hiện cho FWD)</h2>
+        <p className="mt-0.5 text-sm text-ink/55">Các bước/ghi chú FWD thấy ở tab &quot;Hướng dẫn&quot;.</p>
         <div className="mt-3">
           <CtvContentManager
             kind="guide"
@@ -36,8 +36,8 @@ export default async function CtvPage() {
       </div>
 
       <div className="mt-10">
-        <h2 className="font-display text-base font-bold text-navy-900">Nhóm/kênh + content mẫu (hiện cho CTV)</h2>
-        <p className="mt-0.5 text-sm text-ink/55">Danh sách nhóm FB/kênh hiệu quả + nội dung mẫu CTV có thể đăng.</p>
+        <h2 className="font-display text-base font-bold text-navy-900">Nhóm/kênh + content mẫu (hiện cho FWD)</h2>
+        <p className="mt-0.5 text-sm text-ink/55">Danh sách nhóm FB/kênh hiệu quả + nội dung mẫu FWD có thể đăng.</p>
         <div className="mt-3">
           <CtvContentManager
             kind="channel"

@@ -5,7 +5,7 @@ import { loadPublicTracking, whiteLabel } from "@/lib/public-tracking";
 
 export const dynamic = "force-dynamic";
 
-// Tra cứu trên trang thương hiệu riêng của CTV: chỉ trả đơn thuộc đúng CTV đó, dữ liệu đã bỏ mọi dấu vết Falco/đối tác.
+// Tra cứu trên trang thương hiệu riêng của FWD: chỉ trả đơn thuộc đúng FWD đó, dữ liệu đã bỏ mọi dấu vết Falco/đối tác.
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const code = (new URL(request.url).searchParams.get("code") ?? "").trim();

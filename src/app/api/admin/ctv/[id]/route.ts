@@ -17,7 +17,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     referralOverridePct: Number.isFinite(body.referralOverridePct) ? Number(body.referralOverridePct) : undefined,
   });
 
-  if (!ok) return NextResponse.json({ error: "Không tìm thấy CTV" }, { status: 404 });
+  if (!ok) return NextResponse.json({ error: "Không tìm thấy FWD" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
 
@@ -27,6 +27,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
   const { id } = await params;
   const ok = await deleteCtvUser(Number(id));
-  if (!ok) return NextResponse.json({ error: "Không tìm thấy CTV" }, { status: 404 });
+  if (!ok) return NextResponse.json({ error: "Không tìm thấy FWD" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

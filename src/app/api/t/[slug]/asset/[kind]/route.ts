@@ -3,7 +3,7 @@ import { getTrackingSiteImage } from "@/lib/ctv-portal";
 
 export const dynamic = "force-dynamic";
 
-// Logo / banner của trang CTV, phục vụ qua đường dẫn của chính trang đó.
+// Logo / banner của trang FWD, phục vụ qua đường dẫn của chính trang đó.
 export async function GET(_req: Request, { params }: { params: Promise<{ slug: string; kind: string }> }) {
   const { slug, kind } = await params;
   if (kind !== "logo" && kind !== "banner") return NextResponse.json({ error: "Không tìm thấy" }, { status: 404 });

@@ -5,10 +5,10 @@ import { findCtvById } from "@/lib/db";
 
 export default async function CtvDashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getCurrentCtvSession();
-  if (!session) redirect("/ctv/login");
+  if (!session) redirect("/fwd/login");
 
   const ctv = await findCtvById(session.ctvId);
-  if (!ctv || ctv.status !== "active") redirect("/ctv/login");
+  if (!ctv || ctv.status !== "active") redirect("/fwd/login");
 
   return (
     <div className="min-h-screen bg-mist md:flex">

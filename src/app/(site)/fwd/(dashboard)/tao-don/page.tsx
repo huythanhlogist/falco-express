@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CtvCreateOrderPage() {
   const session = await getCurrentCtvSession();
-  if (!session) redirect("/ctv/login");
+  if (!session) redirect("/fwd/login");
 
   const { orders } = await listOrders({
     search: "",

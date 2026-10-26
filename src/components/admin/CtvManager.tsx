@@ -91,7 +91,7 @@ export default function CtvManager({ initialCtvs }: { initialCtvs: CtvItem[] }) 
       ]);
       form.reset();
       setSuccess(
-        `Đã tạo tài khoản CTV ${json.ctvCode} (${fullName}) — hãy lưu lại mật khẩu vừa nhập để gửi cho CTV, mật khẩu sẽ không hiển thị lại được.`
+        `Đã tạo tài khoản FWD ${json.ctvCode} (${fullName}) — hãy lưu lại mật khẩu vừa nhập để gửi cho FWD, mật khẩu sẽ không hiển thị lại được.`
       );
     });
   }
@@ -155,7 +155,7 @@ export default function CtvManager({ initialCtvs }: { initialCtvs: CtvItem[] }) 
             {ctvs.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-6 text-center text-ink/45">
-                  Chưa có tài khoản CTV nào.
+                  Chưa có tài khoản FWD nào.
                 </td>
               </tr>
             )}
@@ -168,9 +168,9 @@ export default function CtvManager({ initialCtvs }: { initialCtvs: CtvItem[] }) 
         onSubmit={createCtv}
         className="w-full shrink-0 rounded-xl border border-line bg-white p-5 lg:w-96"
       >
-        <p className="font-display text-sm font-bold text-navy-900">Tạo tài khoản CTV</p>
+        <p className="font-display text-sm font-bold text-navy-900">Tạo tài khoản FWD</p>
         <p className="mt-1 text-xs text-ink/50">
-          CTV chỉ truy cập được khu vực /ctv riêng — không thấy dữ liệu nội bộ khác của admin.
+          FWD chỉ truy cập được khu vực /fwd riêng — không thấy dữ liệu nội bộ khác của admin.
         </p>
 
         <div className="mt-4 flex flex-col gap-3">
@@ -278,7 +278,7 @@ export default function CtvManager({ initialCtvs }: { initialCtvs: CtvItem[] }) 
           disabled={isPending}
           className="btn-primary mt-4 w-full justify-center disabled:opacity-50"
         >
-          {isPending ? "Đang tạo..." : "Tạo tài khoản CTV"}
+          {isPending ? "Đang tạo..." : "Tạo tài khoản FWD"}
         </button>
       </form>
     </div>

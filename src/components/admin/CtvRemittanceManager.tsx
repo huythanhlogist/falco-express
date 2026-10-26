@@ -39,7 +39,7 @@ export default function CtvRemittanceManager({ initialCollections }: { initialCo
         <thead>
           <tr className="border-b border-line bg-mist/60 text-left text-xs font-semibold uppercase tracking-wide text-ink/45">
             <th className="px-4 py-2.5">Mã đơn</th>
-            <th className="px-4 py-2.5">CTV</th>
+            <th className="px-4 py-2.5">FWD</th>
             <th className="px-4 py-2.5">Số tiền thu hộ</th>
             <th className="px-4 py-2.5" />
           </tr>

@@ -18,7 +18,7 @@ const ORGANIZATION_JSON_LD = {
 };
 
 
-// Dữ liệu có cấu trúc của Falco — chỉ render ở web Falco, KHÔNG render ở trang thương hiệu riêng của CTV (/t/…).
+// Dữ liệu có cấu trúc của Falco — chỉ render ở web Falco, KHÔNG render ở trang thương hiệu riêng của FWD (/t/…).
 export default function OrganizationJsonLd() {
   return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_JSON_LD) }} />;
 }

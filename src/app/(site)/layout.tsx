@@ -40,8 +40,8 @@ export const metadata: Metadata = {
     type: "website",
   },
   icons: {
-    icon: "/icon.png",
-    apple: "/apple-icon.png",
+    icon: "/falco-logo.png",
+    apple: "/falco-logo.png",
   },
   verification: {
     google: "64U_TbBQ6JCA1mIh5iW0lA9vW6zoQw4L3LD1Q-t-hXs",

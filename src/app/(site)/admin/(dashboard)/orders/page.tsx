@@ -15,14 +15,14 @@ const STATUS_TABS: { value: "all" | "unpaid" | "collected_by_staff" | "collected
   { value: "all", label: "Tất cả" },
   { value: "unpaid", label: "Chưa thu" },
   { value: "collected_by_staff", label: "Thu hộ" },
-  { value: "collected_by_ctv", label: "Thu hộ (CTV)" },
+  { value: "collected_by_ctv", label: "Thu hộ (FWD)" },
   { value: "paid", label: "Đã thu" },
 ];
 
 const SOURCE_TABS: { value: "all" | "staff" | "ctv"; label: string }[] = [
   { value: "all", label: "Tất cả nguồn" },
   { value: "staff", label: "Của mình" },
-  { value: "ctv", label: "CTV" },
+  { value: "ctv", label: "FWD" },
 ];
 
 export default async function AdminOrdersPage({
@@ -53,7 +53,7 @@ export default async function AdminOrdersPage({
     listOrders({
       search,
       status,
-      // "Của mình" = đơn chưa gắn CTV; "CTV" = đơn đã gắn CTV (do CTV tạo hoặc admin gán), lọc được từng CTV.
+      // "Của mình" = đơn chưa gắn FWD; "FWD" = đơn đã gắn FWD (do FWD tạo hoặc admin gán), lọc được từng FWD.
       hasCtv: source === "staff" ? false : source === "ctv" ? true : undefined,
       ctvId: ctvFilter,
       month: month || undefined,

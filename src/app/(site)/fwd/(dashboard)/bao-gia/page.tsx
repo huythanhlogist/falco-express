@@ -8,10 +8,10 @@ export const dynamic = "force-dynamic";
 
 export default async function CtvBaoGiaPage() {
   const session = await getCurrentCtvSession();
-  if (!session) redirect("/ctv/login");
+  if (!session) redirect("/fwd/login");
 
   const [ctv, categoryRows] = await Promise.all([findCtvById(session.ctvId), listPriceQuoteCategories()]);
-  if (!ctv) redirect("/ctv/login");
+  if (!ctv) redirect("/fwd/login");
 
   const categories: PriceQuoteCategory[] = categoryRows.map((c) => ({
     id: c.id,

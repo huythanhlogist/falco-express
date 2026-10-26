@@ -105,8 +105,8 @@
 /* Vùng nội dung công khai (<main class="lp-theme">): các trang trong (dịch vụ,
    giới thiệu, liên hệ, blog, tra cứu, trang tuyến) vẫn dùng class cũ (.btn*, .card,
    .eyebrow, rounded-*, gradient cam) — ép sang concept mới: góc vuông, màu đặc,
-   accent đỏ. Admin/CTV không nằm trong SiteChrome nên không bị ảnh hưởng. */
-/* Góc vuông CHỈ cho web công khai; admin/CTV (.lp-theme-admin) giữ bo tròn của từng thành phần
+   accent đỏ. Admin/FWD không nằm trong SiteChrome nên không bị ảnh hưởng. */
+/* Góc vuông CHỈ cho web công khai; admin/FWD (.lp-theme-admin) giữ bo tròn của từng thành phần
    (thẻ/bảng bo vừa, ô nhập và nút bo nhẹ, nhãn trạng thái bo tròn hẳn). */
 .lp-theme:not(.lp-theme-admin) [class*="rounded"],
 .lp-theme:not(.lp-theme-admin) .card,
@@ -230,7 +230,7 @@
   color: #132440;
 }
 
-/* Admin/CTV: giữ bóng đổ của popup/modal/dropdown để còn nổi trên nền. */
+/* Admin/FWD: giữ bóng đổ của popup/modal/dropdown để còn nổi trên nền. */
 .lp-theme-admin .shadow-lg {
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.12), 0 4px 6px -4px rgba(0, 0, 0, 0.12);
 }

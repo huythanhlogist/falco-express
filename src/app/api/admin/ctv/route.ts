@@ -7,7 +7,7 @@ export async function GET() {
   return NextResponse.json({ ctvs });
 }
 
-// Mọi nhân viên admin (owner lẫn staff) đều tạo được tài khoản CTV — không
+// Mọi nhân viên admin (owner lẫn staff) đều tạo được tài khoản FWD — không
 // giới hạn riêng cho owner như tài khoản nhân viên.
 export async function POST(request: Request) {
   const session = await getCurrentAdminSession();
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Mật khẩu phải có ít nhất 8 ký tự" }, { status: 400 });
   }
   if (!fullName || typeof fullName !== "string" || !fullName.trim()) {
-    return NextResponse.json({ error: "Vui lòng nhập tên CTV" }, { status: 400 });
+    return NextResponse.json({ error: "Vui lòng nhập tên FWD" }, { status: 400 });
   }
   if (!phone || typeof phone !== "string" || !phone.trim()) {
     return NextResponse.json({ error: "Vui lòng nhập số điện thoại" }, { status: 400 });
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
   const existing = await findCtvByEmail(email);
   if (existing) {
-    return NextResponse.json({ error: "Email này đã có tài khoản CTV" }, { status: 409 });
+    return NextResponse.json({ error: "Email này đã có tài khoản FWD" }, { status: 409 });
   }
 
   const passwordHash = await hashPassword(password);

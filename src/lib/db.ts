@@ -250,7 +250,7 @@ export async function deleteOrder(id: number): Promise<boolean> {
   return (result as mysql.ResultSetHeader).affectedRows > 0;
 }
 
-/** Duyệt 1 đơn do CTV tạo — chỉ tác dụng khi đơn đang "chờ duyệt". */
+/** Duyệt 1 đơn do FWD tạo — chỉ tác dụng khi đơn đang "chờ duyệt". */
 export async function approveOrder(id: number, adminEmail: string): Promise<boolean> {
   const [result] = await getPool().query(
     `UPDATE orders SET review_status = 'approved', reviewed_by = ?, reviewed_at = NOW()
@@ -346,7 +346,7 @@ export async function deleteAdminUser(id: number): Promise<boolean> {
   return (result as mysql.ResultSetHeader).affectedRows > 0;
 }
 
-// ---------- CTV: tài khoản cộng tác viên ----------
+// ---------- FWD: tài khoản FWD ----------
 
 export type CtvStatus = "active" | "disabled";
 
@@ -396,7 +396,7 @@ export type CtvUserListItem = {
   created_at: string;
 };
 
-/** Danh sách CTV cho tab "Quản lý CTV" — kèm tên người giới thiệu (nếu có). */
+/** Danh sách FWD cho tab "Quản lý FWD" — kèm tên người giới thiệu (nếu có). */
 export async function listCtvUsers(): Promise<CtvUserListItem[]> {
   const [rows] = await getPool().query(
     `SELECT c.id, c.ctv_code, c.full_name, c.phone, c.status, c.referred_by_ctv_id,
@@ -421,8 +421,8 @@ export type NewCtvUser = {
 };
 
 /**
- * ctv_code ("mã riêng") được sinh từ chính id sau khi insert (CTV-0001,
- * CTV-0002, ...) — luôn duy nhất vì id là AUTO_INCREMENT, không cần khoá
+ * ctv_code ("mã riêng") được sinh từ chính id sau khi insert (FWD-0001,
+ * FWD-0002, ...) — luôn duy nhất vì id là AUTO_INCREMENT, không cần khoá
  * bảng hay đếm số dòng hiện có (tránh trùng nếu có dòng đã bị xoá).
  */
 export async function insertCtvUser(
@@ -445,7 +445,7 @@ export async function insertCtvUser(
     ]
   );
   const id = (result as mysql.ResultSetHeader).insertId;
-  const ctvCode = `CTV-${String(id).padStart(4, "0")}`;
+  const ctvCode = `FWD-${String(id).padStart(4, "0")}`;
   await getPool().query("UPDATE ctv_users SET ctv_code = ? WHERE id = ?", [ctvCode, id]);
   return { id, ctvCode };
 }
@@ -475,7 +475,7 @@ const CTV_FIELD_COLUMNS: Record<keyof CtvEditableFields, string> = {
 };
 
 /**
- * Dùng chung cho cả admin sửa hồ sơ CTV (mọi field) lẫn CTV tự sửa liên hệ
+ * Dùng chung cho cả admin sửa hồ sơ FWD (mọi field) lẫn FWD tự sửa liên hệ
  * hiển thị trên bảng giá (chỉ contact*) — giới hạn field nào được sửa nằm ở
  * route handler gọi hàm này, không phải ở đây.
  */
@@ -496,7 +496,7 @@ export async function deleteCtvUser(id: number): Promise<boolean> {
   return (result as mysql.ResultSetHeader).affectedRows > 0;
 }
 
-// ---------- CTV: nội dung hướng dẫn + nhóm/kênh (admin quản lý, CTV chỉ xem) ----------
+// ---------- FWD: nội dung hướng dẫn + nhóm/kênh (admin quản lý, FWD chỉ xem) ----------
 
 export type CtvContentKind = "guide" | "channel";
 
@@ -548,7 +548,7 @@ export async function deleteCtvContentItem(id: number): Promise<boolean> {
   return (result as mysql.ResultSetHeader).affectedRows > 0;
 }
 
-// ---------- CTV: hoa hồng + công nợ ----------
+// ---------- FWD: hoa hồng + công nợ ----------
 
 export type CtvCommissionSummary = {
   baseRevenue: number;
@@ -624,7 +624,7 @@ export type CtvDestinationStat = {
   orderCount: number;
 };
 
-/** "Thống kê doanh thu + sản lượng (kg)" của 1 CTV, chia theo destination — chỉ tính đơn đã duyệt. */
+/** "Thống kê doanh thu + sản lượng (kg)" của 1 FWD, chia theo destination — chỉ tính đơn đã duyệt. */
 export async function getCtvRevenueStats(ctvId: number): Promise<CtvDestinationStat[]> {
   const [rows] = await getPool().query(
     `SELECT destination, COALESCE(SUM(amount), 0) AS revenue, COALESCE(SUM(weight_kg), 0) AS weightKg, COUNT(*) AS orderCount
@@ -646,7 +646,7 @@ export async function getCtvRevenueStats(ctvId: number): Promise<CtvDestinationS
 
 export type CtvPayableRow = CtvCommissionSummary & { ctvId: number; ctvCode: string; fullName: string };
 
-/** Sổ công nợ (chiều Falco nợ CTV) cho tab "Công nợ" ở admin — 1 dòng / CTV. */
+/** Sổ công nợ (chiều Falco nợ FWD) cho tab "Công nợ" ở admin — 1 dòng / FWD. */
 export async function listCtvPayables(): Promise<CtvPayableRow[]> {
   const ctvs = await listCtvUsers();
   const rows: CtvPayableRow[] = [];
@@ -679,7 +679,7 @@ export type OutstandingCollection = {
   amount: string | null;
 };
 
-/** Đơn CTV thu hộ khách nhưng CHƯA xác nhận nộp lại cho Falco (chiều CTV nợ Falco). */
+/** Đơn FWD thu hộ khách nhưng CHƯA xác nhận nộp lại cho Falco (chiều FWD nợ Falco). */
 export async function listOutstandingCtvCollections(): Promise<OutstandingCollection[]> {
   const [rows] = await getPool().query(
     `SELECT o.id AS orderId, o.falco_code AS falcoCode, o.ctv_id AS ctvId,
@@ -707,7 +707,7 @@ export async function insertCtvRemittance(data: {
   return (result as mysql.ResultSetHeader).insertId;
 }
 
-// ---------- CTV: dashboard hiệu quả ----------
+// ---------- FWD: dashboard hiệu quả ----------
 
 export type CtvDashboardStats = {
   totalCtvs: number;
@@ -1024,7 +1024,7 @@ export async function listOrders(params: {
   source?: "all" | OrderSource;
   reviewStatus?: "all" | OrderReviewStatus;
   ctvId?: number;
-  /** true: chỉ đơn đã gắn CTV (ctv_id không rỗng); false: chỉ đơn không gắn CTV. */
+  /** true: chỉ đơn đã gắn FWD (ctv_id không rỗng); false: chỉ đơn không gắn FWD. */
   hasCtv?: boolean;
 }): Promise<{
   orders: OrderListItem[];
@@ -1093,7 +1093,7 @@ export async function listOrders(params: {
     whereArgs
   );
 
-  // Đếm riêng theo trạng thái thu tiền + số đơn CTV đang chờ duyệt (không áp
+  // Đếm riêng theo trạng thái thu tiền + số đơn FWD đang chờ duyệt (không áp
   // bộ lọc status/source/reviewStatus, chỉ áp tìm kiếm + tháng) để hiển thị
   // số lượng trên các tab lọc kể cả khi đang xem tab khác.
   const searchMonthConditions: string[] = [];

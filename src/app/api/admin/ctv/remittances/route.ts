@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     remittedTo: session.email,
   });
 
-  // Đã xác nhận CTV nộp lại tiền — đơn coi như đã thu xong.
+  // Đã xác nhận FWD nộp lại tiền — đơn coi như đã thu xong.
   await updateOrder(orderIdNum, { paymentStatus: "paid" });
 
   try {

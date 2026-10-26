@@ -40,7 +40,7 @@ function Bars({ data }: { data: { month: string; weightKg: number }[] }) {
 
 export default async function CtvStatsPage({ searchParams }: { searchParams: Promise<{ p?: string; ref?: string }> }) {
   const session = await getCurrentCtvSession();
-  if (!session) redirect("/ctv/login");
+  if (!session) redirect("/fwd/login");
   const sp = await searchParams;
   const period: StatsPeriod = sp.p === "quarter" || sp.p === "year" ? sp.p : "month";
   const nowVn = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 7);
@@ -56,7 +56,7 @@ export default async function CtvStatsPage({ searchParams }: { searchParams: Pro
         </div>
         <div className="flex gap-2">
           {PERIODS.map((p) => (
-            <Link key={p.value} href={`/ctv/thong-ke?p=${p.value}&ref=${ref}`} className={`rounded-full px-3.5 py-1.5 text-sm font-semibold ${period === p.value ? "bg-navy-800 text-white" : "bg-white text-ink/60 hover:bg-line"}`}>
+            <Link key={p.value} href={`/fwd/thong-ke?p=${p.value}&ref=${ref}`} className={`rounded-full px-3.5 py-1.5 text-sm font-semibold ${period === p.value ? "bg-navy-800 text-white" : "bg-white text-ink/60 hover:bg-line"}`}>
               {p.label}
             </Link>
           ))}
