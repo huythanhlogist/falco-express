@@ -1,3 +1,4 @@
+import OrderDetailButton from "@/components/ctv/OrderDetailButton";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentCtvSession } from "@/lib/ctv-auth";
@@ -69,7 +70,7 @@ export default async function CtvOrdersPage({ searchParams }: { searchParams: Pr
       </div>
 
       <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-white">
-        <table className="w-full min-w-[980px] text-sm">
+        <table className="w-full min-w-[1060px] text-sm">
           <thead>
             <tr className="border-b border-line bg-mist/60 text-left text-xs font-semibold uppercase tracking-wide text-ink/45">
               <th className="px-3 py-2">Mã đơn</th>
@@ -81,6 +82,7 @@ export default async function CtvOrdersPage({ searchParams }: { searchParams: Pr
               <th className="px-3 py-2">Tiền thu</th>
               <th className="px-3 py-2">Vận chuyển</th>
               <th className="px-3 py-2">Tracking</th>
+              <th className="px-3 py-2">Kiện hàng</th>
             </tr>
           </thead>
           <tbody>
@@ -116,11 +118,14 @@ export default async function CtvOrdersPage({ searchParams }: { searchParams: Pr
                     <span className="text-xs text-ink/35">Bật Tracking Site</span>
                   )}
                 </td>
+                <td className="px-3 py-2">
+                  {o.falco_code.toUpperCase().startsWith("FEB") ? <OrderDetailButton orderId={o.id} code={o.falco_code} /> : <span className="text-ink/30">—</span>}
+                </td>
               </tr>
             ))}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-5 py-10 text-center text-ink/45">Chưa có đơn nào.</td>
+                <td colSpan={10} className="px-5 py-10 text-center text-ink/45">Chưa có đơn nào.</td>
               </tr>
             )}
           </tbody>

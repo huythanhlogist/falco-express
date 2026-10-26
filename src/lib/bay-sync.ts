@@ -1,4 +1,4 @@
-import { findOrderByAwb, insertOrder, insertParcels, listFalcoCodeSet, setOrderService, syncOrderParcel } from "./db";
+import { fillOrderBlanks, findOrderByAwb, insertOrder, insertParcels, listFalcoCodeSet, setOrderService, syncOrderParcel } from "./db";
 import { bay, isBayConfigured, type BayShipment } from "./bay-api";
 import { BAY_COUNTRY_VI, BAY_SERVICE_NAME_VI } from "./bay-tracking";
 
@@ -75,6 +75,13 @@ export async function syncBayShipments(maxPages = 20, force = false): Promise<Ba
     if (order) {
       alreadySynced++;
       await setOrderService(order.id, BAY_SERVICE_NAME_VI[s.serviceType] ?? "Hàng hoá");
+      // Bay có thể bổ sung thông tin người nhận/cân nặng sau khi đơn đã được đồng bộ.
+      await fillOrderBlanks(order.id, {
+        recipientName: s.recipient.name ?? "",
+        recipientPhone: s.recipient.phone ?? "",
+        destination: destinationOf(s),
+        weightKg: s.parcel.weightKg.total ?? null,
+      });
       if (trackingNumber) await syncOrderParcel(order.id, s.reference, trackingNumber);
       continue;
     }

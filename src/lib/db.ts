@@ -142,6 +142,22 @@ export async function setOrderService(orderId: number, service: string): Promise
   await getPool().query("UPDATE orders SET service = ? WHERE id = ? AND (service IS NULL OR service <> ?)", [service, orderId, service]);
 }
 
+/** Điền các trường còn trống của đơn (người nhận, SĐT, điểm đến, cân nặng) từ dữ liệu vận đơn — không ghi đè giá trị đã có. */
+export async function fillOrderBlanks(
+  orderId: number,
+  f: { recipientName?: string; recipientPhone?: string; destination?: string; weightKg?: number | null }
+): Promise<void> {
+  await getPool().query(
+    `UPDATE orders SET
+       recipient_name = IF(recipient_name IS NULL OR recipient_name = '', ?, recipient_name),
+       recipient_phone = IF(recipient_phone IS NULL OR recipient_phone = '', ?, recipient_phone),
+       destination = IF(destination IS NULL OR destination = '', ?, destination),
+       weight_kg = IF(weight_kg IS NULL, ?, weight_kg)
+     WHERE id = ?`,
+    [f.recipientName ?? "", f.recipientPhone ?? "", f.destination ?? "", f.weightKg ?? null, orderId]
+  );
+}
+
 /** Thêm mã tracking cho đơn nếu chưa có (dùng khi đồng bộ vận đơn BayOnline gán nhãn muộn). */
 export async function syncOrderParcel(orderId: number, hawb: string, trackingCode: string): Promise<void> {
   const [rows] = await getPool().query(
