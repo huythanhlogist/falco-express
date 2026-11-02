@@ -495,6 +495,81 @@ export const BLOG_POSTS: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "gui-tai-lieu-giay-to-quan-trong-di-chau-au-anh",
+    title:
+      "Gửi tài liệu, giấy tờ quan trọng (bằng cấp, hồ sơ, hợp đồng) sang châu Âu, Anh: đóng gói và lưu ý gì để không thất lạc, hư hỏng?",
+    metaTitle: "Gửi tài liệu, giấy tờ đi châu Âu, Anh | Falco Express",
+    metaDescription:
+      "Bằng cấp, bảng điểm, hồ sơ, hợp đồng là tài liệu chứ không phải hàng hoá thương mại — thường không bị tính thuế nhập khẩu nhưng dễ hư, dễ thất lạc nếu đóng gói sai. Cách gửi an toàn sang Anh, Đức, Pháp, Hà Lan, Séc, Ba Lan.",
+    excerpt:
+      "Bằng gốc, hồ sơ visa, hợp đồng kinh doanh là loại hàng không thể gửi lại lần hai nếu mất. Khác với quà hay đồ dùng cá nhân, tài liệu có cách gửi và đóng gói riêng — biết trước để không phải làm lại từ đầu.",
+    publishedAt: "2026-11-02",
+    content: [
+      {
+        type: "p",
+        text: "Nhiều người cần gửi bằng cấp, bảng điểm cho hồ sơ du học, hồ sơ xin visa, hợp đồng kinh doanh hoặc giấy tờ pháp lý sang Anh, Đức, Pháp, Hà Lan, Séc, Ba Lan — nhưng đây là loại hàng khác hẳn quà tặng hay đồ dùng cá nhân: thường không thể xin cấp lại nhanh nếu bị thất lạc, và chỉ cần gấp nếp hay ướt nước là coi như hỏng. Bài viết này nói về cách gửi tài liệu, giấy tờ sao cho an toàn và đúng mục đích sử dụng ở nơi nhận.",
+      },
+      {
+        type: "h2",
+        text: "Tài liệu khác gì so với hàng hoá khi gửi quốc tế?",
+      },
+      {
+        type: "p",
+        text: "Trong ngành chuyển phát quốc tế, các đơn vị vận chuyển thường phân biệt \"tài liệu\" (document) với \"hàng hoá\" (non-document/parcel). Tài liệu — ví dụ giấy tờ cá nhân, bằng cấp, hợp đồng, hồ sơ — được xem là không có giá trị thương mại, nên thường không cần hoá đơn thương mại và thường không bị tính thuế nhập khẩu như một món hàng mua bán. Hàng hoá (quần áo, đồ dùng, thiết bị...) thì ngược lại, vẫn phải khai giá trị và có thể bị tính thuế theo quy định từng nước.",
+      },
+      {
+        type: "note",
+        text: "Đây là quy ước phổ biến trong ngành chuyển phát quốc tế, không phải quy định cố định áp dụng giống nhau ở mọi nơi — một số nước hoặc một số loại giấy tờ (ví dụ hồ sơ có đính kèm vật phẩm, mẫu vật) vẫn có thể yêu cầu khai giá trị tượng trưng cho mục đích bảo hiểm/hải quan. Falco sẽ xác nhận cụ thể theo loại giấy tờ và nước đến trước khi gửi.",
+      },
+      {
+        type: "h2",
+        text: "Những lỗi thường gặp khi gửi tài liệu ra nước ngoài",
+      },
+      {
+        type: "list",
+        items: [
+          "Thiếu giấy tờ đi kèm mà nơi nhận yêu cầu — ví dụ bản dịch công chứng, bản sao hợp pháp hoá lãnh sự — khiến hồ sơ bị trả lại hoặc chậm xét duyệt dù đã gửi đúng địa chỉ",
+          "Đóng gói sơ sài: bỏ giấy tờ vào phong bì thường, không chống nước, không chống gấp nếp — dễ nhăn, rách, mờ chữ trong quá trình vận chuyển",
+          "Không theo dõi đơn hàng hoặc không cân nhắc bảo hiểm cho bằng gốc, hồ sơ gốc — loại giấy tờ khó hoặc tốn nhiều thời gian xin cấp lại nếu thất lạc",
+          "Chọn dịch vụ chuyển phát không phù hợp với thời hạn cần — nhất là khi hồ sơ có deadline nộp cụ thể (ví dụ hạn nộp hồ sơ visa, hạn nhập học)",
+        ],
+      },
+      {
+        type: "h2",
+        text: "Đóng gói đúng cách để tài liệu không hư, không thất lạc",
+      },
+      {
+        type: "list",
+        items: [
+          "Dùng bìa cứng, ống đựng tài liệu hoặc túi chống nước chuyên dụng thay vì phong bì giấy thường — tránh gấp các giấy tờ quan trọng, đặc biệt là bằng gốc và giấy tờ có dấu mộc, chữ ký",
+          "Nếu gửi nhiều loại giấy tờ cùng lúc, tách riêng từng loại và kèm theo danh sách nội dung để người nhận dễ đối chiếu, tránh thất lạc từng tờ rời",
+          "Ghi rõ, ghi đúng thông tin người gửi và người nhận, kèm số điện thoại liên lạc được ở cả hai đầu — để xử lý nhanh nếu hải quan hoặc bưu tá cần xác minh",
+          "Với bằng gốc, hồ sơ gốc hoặc giấy tờ khó thay thế, nên chọn dịch vụ có theo dõi đơn hàng (tracking) xuyên suốt và cân nhắc mua bảo hiểm cho lô hàng",
+        ],
+      },
+      {
+        type: "h2",
+        text: "Gửi bằng cấp, bảng điểm du học, hồ sơ visa cần lưu ý thêm gì?",
+      },
+      {
+        type: "p",
+        text: "Yêu cầu cụ thể về giấy tờ — cần bản gốc hay bản sao công chứng, có cần dịch thuật hoặc hợp pháp hoá lãnh sự hay không — do trường học, cơ quan di trú hoặc đối tác nhận hồ sơ quy định, không phải quy định của bên vận chuyển. Nên xác nhận trực tiếp với nơi nhận trước khi đóng gói và gửi đi, để tránh trường hợp gửi đúng nhưng vẫn thiếu giấy tờ theo yêu cầu riêng của họ. Falco Express hỗ trợ phần vận chuyển an toàn, đúng hẹn, nhưng không tư vấn thay cho yêu cầu hồ sơ pháp lý hay di trú của từng trường hợp cụ thể.",
+      },
+      {
+        type: "h2",
+        text: "Falco Express hỗ trợ gì khi gửi tài liệu, giấy tờ?",
+      },
+      {
+        type: "p",
+        text: "Falco nhận gửi tài liệu, giấy tờ cùng với các lô hàng cá nhân khác sang Anh, Đức, Pháp, Hà Lan, Séc, Ba Lan — tư vấn cách đóng gói phù hợp với loại giấy tờ, chọn tốc độ chuyển phát theo đúng thời hạn cần (đặc biệt khi hồ sơ có deadline), và theo dõi đơn hàng xuyên suốt tới khi người nhận ký nhận.",
+      },
+      {
+        type: "note",
+        text: "Thông tin về cách phân loại tài liệu/hàng hoá và lưu ý đóng gói trong bài tổng hợp từ hướng dẫn chung của các đơn vị chuyển phát quốc tế (DHL, Pitney Bowes, cập nhật 2026), mang tính tham khảo, không phải tư vấn hải quan hay pháp lý chính thức. Quy định cụ thể có thể khác nhau theo từng nước và từng loại giấy tờ — nhắn Zalo hoặc gọi hotline Falco Express để được tư vấn cụ thể cho lô hàng của bạn.",
+      },
+    ],
+  },
 ];
 
 export function getBlogPost(slug: string) {
