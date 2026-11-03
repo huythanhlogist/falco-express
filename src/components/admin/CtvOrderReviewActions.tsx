@@ -36,7 +36,7 @@ export default function CtvOrderReviewActions({
         {ctvCode && <span className="text-xs font-bold text-navy-800">{ctvCode}</span>}
         {/* Đơn nhân viên được gán cho FWD: chỉ hiện mã FWD, không kèm nhãn "Đơn của mình". */}
         {!(ctvCode && reviewStatus === "auto_approved") && (
-          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${reviewStatusClassName(reviewStatus)}`}>
+          <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-bold ${reviewStatusClassName(reviewStatus)}`}>
             {reviewStatusLabel(reviewStatus)}
           </span>
         )}

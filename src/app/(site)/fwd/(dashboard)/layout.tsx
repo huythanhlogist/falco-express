@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { ToastProvider } from "@/components/ui/Toast";
 import NavProgress from "@/components/admin/NavProgress";
 import CtvSidebar from "@/components/ctv/CtvSidebar";
 import { getCurrentCtvSession } from "@/lib/ctv-auth";
@@ -13,6 +14,7 @@ export default async function CtvDashboardLayout({ children }: { children: React
   if (!ctv || ctv.status !== "active") redirect("/fwd/login");
 
   return (
+    <ToastProvider>
     <div className="min-h-screen bg-mist md:flex">
       <Suspense fallback={null}>
         <NavProgress />
@@ -22,5 +24,6 @@ export default async function CtvDashboardLayout({ children }: { children: React
         <div className="admin-fade">{children}</div>
       </main>
     </div>
+    </ToastProvider>
   );
 }

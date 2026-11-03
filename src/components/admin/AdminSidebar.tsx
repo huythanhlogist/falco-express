@@ -23,21 +23,41 @@ import {
   TruckIcon,
 } from "@/components/icons";
 
-const LINKS = [
-  { href: "/admin/orders", label: "Đơn hàng", icon: CargoIcon },
-  { href: "/admin/kango-bills", label: "Tạo bill", icon: PackageCheckIcon },
-  { href: "/admin/bay", label: "BayOnline", icon: TruckIcon },
-  { href: "/admin/dbn", label: "Tạo DBN", icon: TruckIcon },
-  { href: "/admin/ai-nhap-don", label: "Nhập đơn AI", icon: BoltIcon },
-  { href: "/admin/ke-toan", label: "Kế toán", icon: WalletIcon },
-  { href: "/admin/bao-gia", label: "Báo giá", icon: TagIcon },
-  { href: "/admin/fwd", label: "Quản lý FWD", icon: HandshakeIcon },
-  { href: "/admin/fwd-cong-no", label: "Công nợ FWD", icon: WalletIcon },
-  { href: "/admin/fwd-hieu-qua", label: "Hiệu quả FWD", icon: LayoutGridIcon },
-  { href: "/admin/upload", label: "Upload tài liệu", icon: UploadIcon },
-  { href: "/admin/seo", label: "SEO", icon: SearchIcon },
-  { href: "/admin/search-console", label: "Search Console", icon: GlobeIcon },
-  { href: "/admin/staff", label: "Nhân viên", icon: UsersIcon },
+const GROUPS: { title: string; links: { href: string; label: string; icon: typeof CargoIcon }[] }[] = [
+  {
+    title: "Vận hành",
+    links: [
+      { href: "/admin/orders", label: "Đơn hàng", icon: CargoIcon },
+      { href: "/admin/kango-bills", label: "Tạo bill", icon: PackageCheckIcon },
+      { href: "/admin/bay", label: "BayOnline", icon: TruckIcon },
+      { href: "/admin/ai-nhap-don", label: "Nhập đơn AI", icon: BoltIcon },
+      { href: "/admin/upload", label: "Upload tài liệu", icon: UploadIcon },
+    ],
+  },
+  {
+    title: "Tài chính",
+    links: [
+      { href: "/admin/dbn", label: "Tạo DBN", icon: TruckIcon },
+      { href: "/admin/ke-toan", label: "Kế toán", icon: WalletIcon },
+      { href: "/admin/bao-gia", label: "Báo giá", icon: TagIcon },
+    ],
+  },
+  {
+    title: "FWD",
+    links: [
+      { href: "/admin/fwd", label: "Quản lý FWD", icon: HandshakeIcon },
+      { href: "/admin/fwd-cong-no", label: "Công nợ FWD", icon: WalletIcon },
+      { href: "/admin/fwd-hieu-qua", label: "Hiệu quả FWD", icon: LayoutGridIcon },
+    ],
+  },
+  {
+    title: "Website",
+    links: [
+      { href: "/admin/seo", label: "SEO", icon: SearchIcon },
+      { href: "/admin/search-console", label: "Search Console", icon: GlobeIcon },
+    ],
+  },
+  { title: "Hệ thống", links: [{ href: "/admin/staff", label: "Nhân viên", icon: UsersIcon }] },
 ];
 
 export default function AdminSidebar({
@@ -61,29 +81,36 @@ export default function AdminSidebar({
   }
 
   const nav = (
-    <nav className="flex flex-1 flex-col gap-0.5 px-2.5">
-      {LINKS.map((link) => {
-        const active = (pending ?? pathname) === link.href;
-        const Icon = link.icon;
-        return (
-          <Link
-            key={link.href}
-            href={link.href}
-            onClick={() => {
-              setOpen(false);
-              setPending(link.href);
-            }}
-            className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors active:scale-[0.98] ${
-              active
-                ? "bg-white/10 text-white"
-                : "text-navy-200 hover:bg-white/5 hover:text-white"
-            }`}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            {link.label}
-          </Link>
-        );
-      })}
+    <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-2.5 pb-2" aria-label="Menu quản trị">
+      {GROUPS.map((group) => (
+        <div key={group.title}>
+          <p className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-navy-300/70">{group.title}</p>
+          <div className="flex flex-col gap-0.5">
+            {group.links.map((link) => {
+              const active = (pending ?? pathname) === link.href;
+              const Icon = link.icon;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => {
+                    setOpen(false);
+                    setPending(link.href);
+                  }}
+                  className={`relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors active:scale-[0.98] ${
+                    active ? "bg-white/10 text-white" : "text-navy-200 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  {active && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-flame-500" aria-hidden />}
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {link.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </nav>
   );
 

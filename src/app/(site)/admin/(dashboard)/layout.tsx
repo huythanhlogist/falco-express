@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { ToastProvider } from "@/components/ui/Toast";
 import NavProgress from "@/components/admin/NavProgress";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { getCurrentAdminSession } from "@/lib/auth";
@@ -13,6 +14,7 @@ export default async function DashboardLayout({
   if (!session) redirect("/admin/login");
 
   return (
+    <ToastProvider>
     <div className="min-h-screen bg-mist md:flex">
       <Suspense fallback={null}>
         <NavProgress />
@@ -22,5 +24,6 @@ export default async function DashboardLayout({
         <div className="admin-fade">{children}</div>
       </main>
     </div>
+    </ToastProvider>
   );
 }

@@ -121,7 +121,7 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
   return (
     <div className="mt-3">
       {selected.size > 0 && (
-        <div className="mb-2 flex items-center justify-between rounded-xl border border-line bg-mist/60 px-4 py-2.5">
+        <div className="sticky top-2 z-20 mb-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-navy-100 bg-white/95 px-4 py-2.5 shadow-md backdrop-blur">
           <p className="text-sm font-medium text-navy-800">
             Đã chọn {selected.size} đơn
           </p>
@@ -197,10 +197,10 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
         </div>
       )}
 
-      <div className={`overflow-x-auto rounded-xl border border-line bg-white transition-opacity duration-150 ${refreshing ? "opacity-60" : ""}`}>
+      <div className={`max-h-[calc(100vh-16rem)] min-h-[320px] overflow-auto rounded-xl border border-line bg-white shadow-sm transition-opacity duration-150 ${refreshing ? "opacity-60" : ""}`}>
         <table className="w-full min-w-[1480px] text-sm">
           <thead>
-            <tr className="border-b border-line bg-mist/60 text-left text-xs font-semibold uppercase tracking-wide text-ink/45">
+            <tr className="sticky top-0 z-10 border-b border-line bg-mist text-left text-[11px] font-semibold uppercase tracking-wide text-ink/50 shadow-[0_1px_0_0_rgba(0,0,0,0.04)]">
               <th className="w-9 px-3 py-2">
                 <input
                   type="checkbox"
@@ -244,12 +244,12 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
                       className="h-4 w-4 rounded border-line accent-navy-800"
                     />
                   </td>
-                  <td className="px-3 py-2 font-semibold text-navy-900">{o.falco_code}</td>
+                  <td className="whitespace-nowrap px-3 py-2 font-semibold text-navy-900">{o.falco_code}</td>
                   <td className="px-3 py-2 text-ink/70">{o.awb}</td>
-                  <td className="px-3 py-2 text-ink/70">{o.recipient_name || "—"}</td>
+                  <td className="max-w-[200px] px-3 py-2 text-ink/80"><span className="block truncate" title={o.recipient_name ?? ""}>{o.recipient_name || "—"}</span></td>
                   <td className="px-3 py-2 text-ink/70">{o.recipient_phone || "—"}</td>
                   <td className="px-3 py-2 text-ink/70">{o.recipient_postcode || "—"}</td>
-                  <td className="px-3 py-2 text-ink/70">{o.destination || "—"}</td>
+                  <td className="max-w-[200px] px-3 py-2 text-ink/70"><span className="block truncate" title={o.destination ?? ""}>{o.destination || "—"}</span></td>
                   <td className="px-3 py-2 text-ink/70">{o.parcel_count}</td>
                   <td className="px-3 py-2 text-ink/70">
                     {o.received_date
