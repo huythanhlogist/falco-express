@@ -45,30 +45,6 @@ function Images({ urls }: { urls: string[] }) {
 function TrackingPanel({ reference, onClose }: { reference: string; onClose: () => void }) {
   const [data, setData] = useState<BayTracking | null>(null);
   const [error, setError] = useState("");
-  const [saveMsg, setSaveMsg] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  async function saveImages() {
-    if (!data) return;
-    const urls = [...data.receiveItems.flatMap((r) => r.images), ...data.events.flatMap((e) => e.images)];
-    setSaving(true);
-    setSaveMsg("");
-    try {
-      const res = await fetch("/api/admin/bay/save-images", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls }),
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error ?? `Lỗi HTTP ${res.status}`);
-      setSaveMsg(`Đã lưu ${j.saved} ảnh mới, ${j.exists} ảnh đã có từ trước${j.failed ? `, ${j.failed} ảnh lỗi` : ""}.`);
-    } catch (e) {
-      setSaveMsg((e as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
   useEffect(() => {
     let alive = true;
     setData(null);
@@ -95,16 +71,20 @@ function TrackingPanel({ reference, onClose }: { reference: string; onClose: () 
         </div>
         <div className="flex items-center gap-3">
           {data && (
-            <button type="button" onClick={saveImages} disabled={saving} className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-mist/60 disabled:opacity-50">
-              {saving ? "Đang lưu…" : "Lưu ảnh về server"}
-            </button>
+            <a
+              href={`/api/admin/bay/pdf?ref=${encodeURIComponent(reference)}`}
+              download
+              className="rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-mist/60"
+              title="Tải file PDF hành trình kèm ảnh hàng về máy"
+            >
+              Tải PDF
+            </a>
           )}
           <button type="button" onClick={onClose} className="text-sm text-ink/50 hover:text-ink/80">
             Đóng
           </button>
         </div>
       </div>
-      {saveMsg && <p className="mt-2 text-sm text-ink/70">{saveMsg}</p>}
 
       {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
       {!data && !error && <p className="mt-3 text-sm text-ink/50">Đang tải…</p>}

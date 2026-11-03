@@ -7,7 +7,7 @@ import type { ShipmentStatus } from "./shipment-status";
 // (cache, trang tra cứu công khai, cột "Vận chuyển" ở admin) dùng chung 1 luồng, không phải
 // viết lại. Tiêu đề các mốc của Bay được chuẩn hoá sang tiếng Việt.
 
-const BAY_EVENT_VI: Record<string, string> = {
+export const BAY_EVENT_VI: Record<string, string> = {
   created_by_agency: "Đã tạo đơn",
   created_by_bay: "Đã tạo đơn",
   package_received: "Kho đã nhận kiện hàng",
@@ -58,7 +58,7 @@ export const BAY_SERVICE_NAME_VI: Record<string, string> = {
 const CARRIER_NAMES: Record<string, string> = { dhl: "DHL", dpd: "DPD", ups: "UPS", fedex: "FedEx" };
 
 /** "2026-10-24T04:27:14Z" → "2026-10-24 11:27:14" (giờ Việt Nam, cùng dạng với Kango). */
-function toVnTime(iso: string): string {
+export function toVnTime(iso: string): string {
   return new Date(new Date(iso).getTime() + 7 * 3600_000).toISOString().slice(0, 19).replace("T", " ");
 }
 
