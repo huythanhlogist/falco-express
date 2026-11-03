@@ -254,3 +254,36 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Khu quản trị: nội dung mờ dần vào khi chuyển tab, nhấn nút có phản hồi nhẹ — cảm giác mượt, không "đứng hình". */
+@keyframes admin-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.admin-fade {
+  animation: admin-fade-in 160ms ease-out both;
+}
+.admin-fade button:not(:disabled),
+.admin-fade a.btn-primary,
+.admin-fade a.btn-outline {
+  transition: transform 90ms ease-out, background-color 150ms, opacity 150ms, box-shadow 150ms;
+}
+.admin-fade button:not(:disabled):active,
+.admin-fade a.btn-primary:active,
+.admin-fade a.btn-outline:active {
+  transform: scale(0.97);
+}
+.admin-fade tbody tr {
+  transition: background-color 120ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-fade {
+    animation: none;
+  }
+}

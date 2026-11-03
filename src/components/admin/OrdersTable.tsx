@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import OrderRowActions from "@/components/admin/OrderRowActions";
 import CopyOrderInfoButton from "@/components/admin/CopyOrderInfoButton";
@@ -49,6 +49,7 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
   const [assignCtv, setAssignCtv] = useState("");
   const [assignMsg, setAssignMsg] = useState("");
   const [assigning, setAssigning] = useState(false);
+  const [refreshing, startRefresh] = useTransition();
 
   async function assign(ctvId: number | null) {
     setAssigning(true);
@@ -62,7 +63,7 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
       const j = await res.json();
       if (!res.ok) throw new Error(j.error ?? "Lỗi gán FWD");
       setAssignMsg(ctvId ? `Đã gán ${j.changed} đơn` : `Đã bỏ gán ${j.changed} đơn`);
-      router.refresh();
+      startRefresh(() => router.refresh());
     } catch (e) {
       setAssignMsg((e as Error).message);
     } finally {
@@ -196,7 +197,7 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-line bg-white">
+      <div className={`overflow-x-auto rounded-xl border border-line bg-white transition-opacity duration-150 ${refreshing ? "opacity-60" : ""}`}>
         <table className="w-full min-w-[1480px] text-sm">
           <thead>
             <tr className="border-b border-line bg-mist/60 text-left text-xs font-semibold uppercase tracking-wide text-ink/45">

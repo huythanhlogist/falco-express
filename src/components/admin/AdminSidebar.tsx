@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -48,6 +48,9 @@ export default function AdminSidebar({
   role: "owner" | "staff";
 }) {
   const pathname = usePathname();
+  // Tô sáng mục vừa bấm ngay lập tức, không chờ server trả trang.
+  const [pending, setPending] = useState<string | null>(null);
+  useEffect(() => setPending(null), [pathname]);
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -60,14 +63,17 @@ export default function AdminSidebar({
   const nav = (
     <nav className="flex flex-1 flex-col gap-0.5 px-2.5">
       {LINKS.map((link) => {
-        const active = pathname === link.href;
+        const active = (pending ?? pathname) === link.href;
         const Icon = link.icon;
         return (
           <Link
             key={link.href}
             href={link.href}
-            onClick={() => setOpen(false)}
-            className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
+            onClick={() => {
+              setOpen(false);
+              setPending(link.href);
+            }}
+            className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors active:scale-[0.98] ${
               active
                 ? "bg-white/10 text-white"
                 : "text-navy-200 hover:bg-white/5 hover:text-white"
