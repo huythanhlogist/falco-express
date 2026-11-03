@@ -242,25 +242,6 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configured]);
 
-  // Mở tab là tự đồng bộ 1 lần: vận đơn mới bên Bay có ngay mã FEB…, không cần bấm tay.
-  useEffect(() => {
-    if (!configured) return;
-    void (async () => {
-      try {
-        const res = await fetch("/api/admin/bay/sync", { method: "POST" });
-        const j = await res.json();
-        if (res.ok && j.created?.length) {
-          setSyncMsg(`Đã tự tạo ${j.created.length} đơn mới: ${j.created.map((c: { falcoCode: string }) => c.falcoCode).join(", ")}.`);
-          void load();
-        }
-      } catch {
-        /* lỗi đồng bộ nền không chặn việc xem danh sách */
-      }
-    })();
-    // chỉ chạy 1 lần khi mở trang
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configured]);
-
   if (!configured) {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">

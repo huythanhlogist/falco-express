@@ -1,4 +1,4 @@
-import { fillOrderBlanks, findOrderByAwb, insertOrder, insertParcels, listFalcoCodeSet, setOrderService, syncOrderParcel } from "./db";
+import { fillOrderBlanks, findOrdersByAwbs, insertOrder, listTrackingCodesByOrders, insertParcels, listFalcoCodeSet, setOrderService } from "./db";
 import { bay, isBayConfigured, type BayShipment } from "./bay-api";
 import { BAY_COUNTRY_VI, BAY_SERVICE_NAME_VI } from "./bay-tracking";
 
@@ -49,12 +49,22 @@ const SYNC_WINDOW_DAYS = 30;
 const MIN_INTERVAL_MS = 2 * 60 * 1000;
 let lastSync: { at: number; result: BaySyncResult } | null = null;
 
+let inflight: Promise<BaySyncResult & { skipped?: boolean }> | null = null;
+
 export async function syncBayShipments(maxPages = 20, force = false): Promise<BaySyncResult & { skipped?: boolean }> {
   if (!isBayConfigured()) throw new Error("Chưa cấu hình BAY_API_KEY");
   if (!force && lastSync && Date.now() - lastSync.at < MIN_INTERVAL_MS) {
     return { total: lastSync.result.total, created: [], alreadySynced: lastSync.result.alreadySynced, skipped: true };
   }
+  // Nhiều tab/lần mở cùng lúc chỉ chạy 1 lần đồng bộ (tránh trùng việc và tạo trùng đơn FEB).
+  if (inflight) return inflight;
+  inflight = runSync(maxPages).finally(() => {
+    inflight = null;
+  });
+  return inflight;
+}
 
+async function runSync(maxPages: number): Promise<BaySyncResult> {
   const createdFrom = new Date(Date.now() - SYNC_WINDOW_DAYS * 86400_000).toISOString();
   const shipments: BayShipment[] = [];
   for (let page = 1; page <= maxPages; page++) {
@@ -65,24 +75,35 @@ export async function syncBayShipments(maxPages = 20, force = false): Promise<Ba
   // Cũ → mới để số thứ tự FEB tăng theo thứ tự tạo.
   shipments.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
-  const existingCodes = await listFalcoCodeSet();
+  // Nạp trước toàn bộ đơn/mã tracking đã có bằng 2 truy vấn, chỉ ghi DB khi dữ liệu thật sự đổi.
+  const [existingCodes, byAwb] = await Promise.all([listFalcoCodeSet(), findOrdersByAwbs(shipments.map((s) => s.reference))]);
+  const trackingByOrder = await listTrackingCodesByOrders([...byAwb.values()].map((o) => o.id));
   const created: BaySyncResult["created"] = [];
   let alreadySynced = 0;
 
   for (const s of shipments) {
     const trackingNumber = s.carrier.trackingNumber?.trim() || "";
-    const order = await findOrderByAwb(s.reference);
+    const service = BAY_SERVICE_NAME_VI[s.serviceType] ?? "Hàng hoá";
+    const order = byAwb.get(s.reference);
     if (order) {
       alreadySynced++;
-      await setOrderService(order.id, BAY_SERVICE_NAME_VI[s.serviceType] ?? "Hàng hoá");
-      // Bay có thể bổ sung thông tin người nhận/cân nặng sau khi đơn đã được đồng bộ.
-      await fillOrderBlanks(order.id, {
-        recipientName: s.recipient.name ?? "",
-        recipientPhone: s.recipient.phone ?? "",
-        destination: destinationOf(s),
-        weightKg: s.parcel.weightKg.total ?? null,
-      });
-      if (trackingNumber) await syncOrderParcel(order.id, s.reference, trackingNumber);
+      const name = s.recipient.name ?? "";
+      const phone = s.recipient.phone ?? "";
+      const postcode = s.recipient.address.postalCode ?? "";
+      const dest = destinationOf(s);
+      const weight = s.parcel.weightKg.total ?? null;
+      const changed =
+        (name && name !== (order.recipient_name ?? "")) ||
+        (phone && phone !== (order.recipient_phone ?? "")) ||
+        (postcode && postcode !== (order.recipient_postcode ?? "")) ||
+        (dest && dest !== (order.destination ?? "")) ||
+        (weight !== null && Number(order.weight_kg) !== weight);
+      if (order.service !== service) await setOrderService(order.id, service);
+      // Bay có thể bổ sung/sửa thông tin người nhận sau khi đơn đã được đồng bộ.
+      if (changed) await fillOrderBlanks(order.id, { recipientName: name, recipientPhone: phone, recipientPostcode: postcode, destination: dest, weightKg: weight });
+      if (trackingNumber && !trackingByOrder.get(order.id)?.has(trackingNumber)) {
+        await insertParcels(order.id, [{ hawb: s.reference, trackingCode: trackingNumber }]);
+      }
       continue;
     }
 
@@ -93,7 +114,8 @@ export async function syncBayShipments(maxPages = 20, force = false): Promise<Ba
       awb: s.reference,
       recipientName: s.recipient.name ?? "",
       recipientPhone: s.recipient.phone ?? "",
-      service: BAY_SERVICE_NAME_VI[s.serviceType] ?? "Hàng hoá",
+      recipientPostcode: s.recipient.address.postalCode ?? "",
+      service,
       destination: destinationOf(s),
       receivedDate: vnDateParts(s.createdAt).ymd,
       weightKg: s.parcel.weightKg.total ?? null,

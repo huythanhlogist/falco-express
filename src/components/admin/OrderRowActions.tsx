@@ -8,6 +8,7 @@ type OrderDetail = {
   awb: string;
   recipient_name: string | null;
   recipient_phone: string | null;
+  recipient_postcode: string | null;
   service: string | null;
   destination: string | null;
   received_date: string | null;
@@ -54,6 +55,7 @@ export default function OrderRowActions({
           awb: o.awb || "",
           recipient_name: o.recipient_name || "",
           recipient_phone: o.recipient_phone || "",
+          recipient_postcode: o.recipient_postcode || "",
           service: o.service || "",
           destination: o.destination || "",
           received_date: o.received_date ? toDateInputValue(o.received_date) : "",
@@ -79,6 +81,7 @@ export default function OrderRowActions({
           awb: form.awb,
           recipientName: form.recipient_name,
           recipientPhone: form.recipient_phone,
+          recipientPostcode: form.recipient_postcode,
           service: form.service,
           destination: form.destination,
           receivedDate: form.received_date || null,
@@ -162,6 +165,11 @@ export default function OrderRowActions({
                   label="Điện thoại"
                   value={form.recipient_phone || ""}
                   onChange={(v) => setForm({ ...form, recipient_phone: v })}
+                />
+                <Field
+                  label="Postcode"
+                  value={form.recipient_postcode || ""}
+                  onChange={(v) => setForm({ ...form, recipient_postcode: v })}
                 />
                 <Field
                   label="Dịch vụ"

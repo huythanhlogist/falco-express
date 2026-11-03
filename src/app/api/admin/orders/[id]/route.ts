@@ -56,6 +56,7 @@ export async function PATCH(
     awb,
     recipientName,
     recipientPhone,
+    recipientPostcode,
     service,
     destination,
     receivedDate,
@@ -94,6 +95,7 @@ export async function PATCH(
   if (awb !== undefined) fields.awb = String(awb).trim();
   if (recipientName !== undefined) fields.recipientName = String(recipientName).trim();
   if (recipientPhone !== undefined) fields.recipientPhone = String(recipientPhone).trim();
+  if (recipientPostcode !== undefined) fields.recipientPostcode = String(recipientPostcode).trim() || null;
   if (service !== undefined) fields.service = String(service).trim();
   if (destination !== undefined) fields.destination = String(destination).trim();
   if (receivedDate !== undefined) fields.receivedDate = receivedDate || null;

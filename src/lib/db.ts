@@ -40,6 +40,23 @@ export function getPool(): mysql.Pool {
   return pool;
 }
 
+// Tự thêm cột mới vào bảng orders khi web chạy lần đầu sau khi cập nhật (idempotent, chạy 1 lần mỗi tiến trình).
+let schemaReady: Promise<void> | null = null;
+export function ensureOrdersSchema(): Promise<void> {
+  if (!schemaReady) {
+    schemaReady = (async () => {
+      const [cols] = await getPool().query("SHOW COLUMNS FROM orders LIKE 'recipient_postcode'");
+      if ((cols as unknown[]).length === 0) {
+        await getPool().query("ALTER TABLE orders ADD COLUMN recipient_postcode VARCHAR(20) NULL AFTER recipient_phone");
+      }
+    })().catch((err) => {
+      schemaReady = null;
+      throw err;
+    });
+  }
+  return schemaReady;
+}
+
 export type PaymentStatus = "unpaid" | "collected_by_staff" | "collected_by_ctv" | "paid";
 export type OrderSource = "staff" | "ctv";
 export type OrderReviewStatus = "auto_approved" | "pending" | "approved" | "rejected";
@@ -50,6 +67,7 @@ export type OrderRecord = {
   awb: string;
   recipient_name: string | null;
   recipient_phone: string | null;
+  recipient_postcode: string | null; // mã bưu chính người nhận — chỉ dùng nội bộ (tra DPD/DHL), không công khai
   service: string | null;
   destination: string | null;
   received_date: string | null;
@@ -85,6 +103,28 @@ export async function findOrderById(id: number): Promise<OrderRecord | null> {
   return list[0] ?? null;
 }
 
+/** Tra nhiều đơn theo AWB trong 1 truy vấn: Map awb → đơn. */
+export async function findOrdersByAwbs(awbs: string[]): Promise<Map<string, OrderRecord>> {
+  const list = [...new Set(awbs.map((a) => a.trim()).filter(Boolean))];
+  const map = new Map<string, OrderRecord>();
+  if (!list.length) return map;
+  const [rows] = await getPool().query("SELECT * FROM orders WHERE awb IN (?)", [list]);
+  for (const o of rows as OrderRecord[]) map.set(o.awb, o);
+  return map;
+}
+
+/** Mã tracking đã có của nhiều đơn trong 1 truy vấn: Map orderId → Set mã. */
+export async function listTrackingCodesByOrders(orderIds: number[]): Promise<Map<number, Set<string>>> {
+  const map = new Map<number, Set<string>>();
+  if (!orderIds.length) return map;
+  const [rows] = await getPool().query("SELECT order_id, tracking_code FROM order_parcels WHERE order_id IN (?)", [orderIds]);
+  for (const r of rows as { order_id: number; tracking_code: string }[]) {
+    if (!map.has(r.order_id)) map.set(r.order_id, new Set());
+    map.get(r.order_id)!.add(r.tracking_code);
+  }
+  return map;
+}
+
 export async function findOrderByAwb(
   awb: string
 ): Promise<OrderRecord | null> {
@@ -101,6 +141,7 @@ export type NewOrder = {
   awb: string;
   recipientName: string;
   recipientPhone: string;
+  recipientPostcode?: string | null;
   service: string;
   destination: string;
   receivedDate: string | null; // "YYYY-MM-DD" or null
@@ -113,16 +154,18 @@ export type NewOrder = {
 };
 
 export async function insertOrder(order: NewOrder): Promise<number> {
+  await ensureOrdersSchema();
   const [result] = await getPool().query(
     `INSERT INTO orders
-      (falco_code, awb, recipient_name, recipient_phone, service, destination, received_date,
+      (falco_code, awb, recipient_name, recipient_phone, recipient_postcode, service, destination, received_date,
        weight_kg, amount, cost, source, ctv_id, review_status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       order.falcoCode,
       order.awb,
       order.recipientName,
       order.recipientPhone,
+      order.recipientPostcode?.trim() || null,
       order.service,
       order.destination,
       order.receivedDate,
@@ -145,18 +188,21 @@ export async function setOrderService(orderId: number, service: string): Promise
 /** Đơn FEB… lấy dữ liệu theo vận đơn Bay: ghi đè người nhận/SĐT/điểm đến/cân nặng bằng giá trị Bay khi Bay có (không xoá khi Bay để trống). */
 export async function fillOrderBlanks(
   orderId: number,
-  f: { recipientName?: string; recipientPhone?: string; destination?: string; weightKg?: number | null }
+  f: { recipientName?: string; recipientPhone?: string; recipientPostcode?: string; destination?: string; weightKg?: number | null }
 ): Promise<void> {
+  await ensureOrdersSchema();
   await getPool().query(
     `UPDATE orders SET
        recipient_name = IF(? <> '', ?, recipient_name),
        recipient_phone = IF(? <> '', ?, recipient_phone),
+       recipient_postcode = IF(? <> '', ?, recipient_postcode),
        destination = IF(? <> '', ?, destination),
        weight_kg = IF(? IS NOT NULL, ?, weight_kg)
      WHERE id = ?`,
     [
       f.recipientName ?? "", f.recipientName ?? "",
       f.recipientPhone ?? "", f.recipientPhone ?? "",
+      f.recipientPostcode ?? "", f.recipientPostcode ?? "",
       f.destination ?? "", f.destination ?? "",
       f.weightKg ?? null, f.weightKg ?? null,
       orderId,
@@ -214,6 +260,7 @@ export type OrderEditableFields = Partial<{
   awb: string;
   recipientName: string;
   recipientPhone: string;
+  recipientPostcode: string | null;
   service: string;
   destination: string;
   receivedDate: string | null;
@@ -229,6 +276,7 @@ const ORDER_FIELD_COLUMNS: Record<keyof OrderEditableFields, string> = {
   awb: "awb",
   recipientName: "recipient_name",
   recipientPhone: "recipient_phone",
+  recipientPostcode: "recipient_postcode",
   service: "service",
   destination: "destination",
   receivedDate: "received_date",
@@ -246,6 +294,7 @@ export async function updateOrder(
 ): Promise<boolean> {
   const entries = Object.entries(fields) as [keyof OrderEditableFields, unknown][];
   if (entries.length === 0) return false;
+  await ensureOrdersSchema();
   const assignments = entries.map(([key]) => `${ORDER_FIELD_COLUMNS[key]} = ?`);
   const values = entries.map(([, value]) => value);
   // Đổi trạng thái thu mà không chỉ định ngày thu: sang "chưa thu" thì xoá
@@ -1057,6 +1106,7 @@ export async function listOrders(params: {
   unpaidCount: number;
   pendingReviewCount: number;
 }> {
+  await ensureOrdersSchema();
   const { search, limit, offset, status = "all", month, source = "all", reviewStatus = "all", ctvId, hasCtv } = params;
   const like = `%${search.trim()}%`;
 

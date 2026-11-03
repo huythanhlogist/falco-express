@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentAdminSession } from "@/lib/auth";
 import { BayApiError, isBayConfigured } from "@/lib/bay-api";
-import { findOrderByAwb } from "@/lib/db";
+import { findOrdersByAwbs } from "@/lib/db";
 import { syncBayShipments } from "@/lib/bay-sync";
 
 export const dynamic = "force-dynamic";
@@ -29,9 +29,6 @@ export async function GET(request: Request) {
   if (!session) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   const refs = (new URL(request.url).searchParams.get("refs") ?? "").split(",").map((r) => r.trim()).filter(Boolean).slice(0, 100);
   const map: Record<string, string> = {};
-  for (const ref of refs) {
-    const order = await findOrderByAwb(ref);
-    if (order) map[ref] = order.falco_code;
-  }
+  for (const [awb, order] of await findOrdersByAwbs(refs)) map[awb] = order.falco_code;
   return NextResponse.json(map);
 }

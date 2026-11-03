@@ -47,6 +47,7 @@ const COL = {
   CONTACT: 15,
   CITY: 19,
   COUNTRY: 21,
+  POSTAL_CODE: 22,
   TELEPHONE: 23,
 } as const;
 
@@ -73,6 +74,7 @@ type ShipmentGroup = {
   dateIso: string | null; // yyyy-mm-dd — để ghi vào MySQL
   contact: string;
   telephone: string;
+  postcode: string;
   city: string;
   country: string;
   trackingNumbers: string[];
@@ -126,7 +128,7 @@ function excelDateToISO(raw: string): string | null {
   return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
 }
 
-function groupRowsByAwb(rows: unknown[][]): ShipmentGroup[] {
+function groupRowsByAwb(rows: unknown[][], postalIdxOk: boolean): ShipmentGroup[] {
   const groups: ShipmentGroup[] = [];
   let current: ShipmentGroup | null = null;
 
@@ -143,6 +145,7 @@ function groupRowsByAwb(rows: unknown[][]): ShipmentGroup[] {
         dateIso: excelDateToISO(rawDate),
         contact: cellToString(row[COL.CONTACT]),
         telephone: cellToString(row[COL.TELEPHONE]),
+        postcode: postalIdxOk ? cellToString(row[COL.POSTAL_CODE]) : "",
         city: cellToString(row[COL.CITY]),
         country: cellToString(row[COL.COUNTRY]),
         trackingNumbers: tracking ? [tracking] : [],
@@ -265,7 +268,9 @@ export async function processKangoWorkbook(
     };
   }
 
-  const groups = groupRowsByAwb(rows.slice(1));
+  // Cột mã bưu chính chỉ dùng khi tiêu đề đúng là POSTAL (tránh đọc nhầm cột nếu Kango đổi mẫu).
+  const postalIdxOk = cellToString(rows[0][COL.POSTAL_CODE]).toUpperCase().includes("POSTAL");
+  const groups = groupRowsByAwb(rows.slice(1), postalIdxOk);
   if (groups.length === 0) {
     return {
       ...empty,
@@ -308,6 +313,9 @@ export async function processKangoWorkbook(
         }
         if (g.telephone && g.telephone !== (existing.recipient_phone ?? "")) {
           fields.recipientPhone = g.telephone;
+        }
+        if (g.postcode && g.postcode !== (existing.recipient_postcode ?? "")) {
+          fields.recipientPostcode = g.postcode;
         }
         if (g.service && g.service !== (existing.service ?? "")) {
           fields.service = g.service;
@@ -371,6 +379,7 @@ export async function processKangoWorkbook(
         awb: g.awb,
         recipientName: g.contact,
         recipientPhone: g.telephone,
+        recipientPostcode: g.postcode,
         service: g.service,
         destination,
         receivedDate: g.dateIso,

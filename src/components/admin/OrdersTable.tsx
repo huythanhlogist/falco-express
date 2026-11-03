@@ -197,7 +197,7 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
       )}
 
       <div className="overflow-x-auto rounded-xl border border-line bg-white">
-        <table className="w-full min-w-[1400px] text-sm">
+        <table className="w-full min-w-[1480px] text-sm">
           <thead>
             <tr className="border-b border-line bg-mist/60 text-left text-xs font-semibold uppercase tracking-wide text-ink/45">
               <th className="w-9 px-3 py-2">
@@ -213,6 +213,7 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
               <th className="px-3 py-2">AWB</th>
               <th className="px-3 py-2">Người nhận</th>
               <th className="px-3 py-2">Điện thoại</th>
+              <th className="px-3 py-2">Postcode</th>
               <th className="px-3 py-2">Điểm đến</th>
               <th className="px-3 py-2">Kiện</th>
               <th className="px-3 py-2">Ngày nhận</th>
@@ -246,6 +247,7 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
                   <td className="px-3 py-2 text-ink/70">{o.awb}</td>
                   <td className="px-3 py-2 text-ink/70">{o.recipient_name || "—"}</td>
                   <td className="px-3 py-2 text-ink/70">{o.recipient_phone || "—"}</td>
+                  <td className="px-3 py-2 text-ink/70">{o.recipient_postcode || "—"}</td>
                   <td className="px-3 py-2 text-ink/70">{o.destination || "—"}</td>
                   <td className="px-3 py-2 text-ink/70">{o.parcel_count}</td>
                   <td className="px-3 py-2 text-ink/70">
@@ -292,7 +294,7 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
             })}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={13} className="px-5 py-10 text-center text-ink/45">
+                <td colSpan={14} className="px-5 py-10 text-center text-ink/45">
                   Không tìm thấy đơn hàng nào.
                 </td>
               </tr>
