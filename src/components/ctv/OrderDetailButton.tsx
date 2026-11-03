@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 
 type Detail = {
   code: string;
@@ -66,7 +67,8 @@ export default function OrderDetailButton({ orderId, code }: { orderId: number; 
       <button type="button" onClick={show} className="text-xs font-semibold text-navy-800 underline">
         Chi tiết
       </button>
-      {open && (
+      {open &&
+        createPortal(
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4" onClick={() => setOpen(false)}>
           <div className="my-6 w-full max-w-2xl rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
@@ -139,7 +141,8 @@ export default function OrderDetailButton({ orderId, code }: { orderId: number; 
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       {zoom && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4" onClick={() => setZoom(null)}>

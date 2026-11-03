@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { PencilIcon, TrashIcon } from "@/components/icons";
 
 type OrderDetail = {
@@ -138,7 +139,8 @@ export default function OrderRowActions({
         </button>
       </div>
 
-      {open && (
+      {open &&
+        createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/50 p-4"
           onClick={() => !saving && setOpen(false)}
@@ -234,8 +236,9 @@ export default function OrderRowActions({
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body
+        )}
     </>
   );
 }
