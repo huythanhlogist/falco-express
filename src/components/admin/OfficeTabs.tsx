@@ -6,16 +6,18 @@ import OfficeLeadsPanel from "@/components/admin/OfficeLeadsPanel";
 import OfficeQueuePanel from "@/components/admin/OfficeQueuePanel";
 import OfficeNotesPanel from "@/components/admin/OfficeNotesPanel";
 import OfficeZaloPanel from "@/components/admin/OfficeZaloPanel";
-import { officeApi, type NotesResponse } from "@/lib/office-api";
+import OfficeKnowledgePanel from "@/components/admin/OfficeKnowledgePanel";
+import { officeApi, type KnowledgeResponse, type NotesResponse } from "@/lib/office-api";
 import type { OfficeLive } from "@/lib/office-agents";
 
-type Tab = "overview" | "leads" | "zalo" | "queue" | "notes";
+type Tab = "overview" | "leads" | "zalo" | "queue" | "knowledge" | "notes";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Tổng quan" },
   { id: "leads", label: "Lead chờ duyệt" },
   { id: "zalo", label: "Gửi Zalo" },
   { id: "queue", label: "Giao việc & hàng đợi" },
+  { id: "knowledge", label: "Kiến thức" },
   { id: "notes", label: "Ghi chú & lỗi" },
 ];
 
@@ -37,9 +39,10 @@ export default function OfficeTabs() {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const [r, n] = await Promise.all([
+      const [r, n, k] = await Promise.all([
         officeApi<OfficeLive>("status"),
         officeApi<NotesResponse>("notes"),
+        officeApi<KnowledgeResponse>("knowledge"),
       ]);
       if (cancelled) return;
       setBadges((prev) => ({
@@ -51,6 +54,7 @@ export default function OfficeTabs() {
             }
           : {}),
         ...(n.ok ? { notes: n.data.counts.mo } : {}),
+        ...(k.ok ? { knowledge: k.data.counts.de_xuat } : {}),
       }));
     };
     void load();
@@ -90,6 +94,7 @@ export default function OfficeTabs() {
       {tab === "leads" ? <OfficeLeadsPanel /> : null}
       {tab === "zalo" ? <OfficeZaloPanel /> : null}
       {tab === "queue" ? <OfficeQueuePanel /> : null}
+      {tab === "knowledge" ? <OfficeKnowledgePanel /> : null}
       {tab === "notes" ? <OfficeNotesPanel /> : null}
     </div>
   );

@@ -158,3 +158,35 @@ export type ZaloResponse = {
     saleAgent: string;
   }[];
 };
+
+export type KnowledgeItem = {
+  id: number;
+  area: string;
+  kind: string;
+  title: string;
+  content: string;
+  sourceUrl: string;
+  status: "de_xuat" | "da_duyet" | "loai";
+  addedBy: string;
+  note: string;
+  createdAt: string;
+};
+
+export type KnowledgeResponse = {
+  agents: { code: string; name: string; role: string }[];
+  counts: { de_xuat: number; da_duyet: number; loai: number };
+  items: KnowledgeItem[];
+};
+
+export const KNOWLEDGE_KIND_LABEL: Record<string, string> = {
+  tieu_chi_lead: "Tiêu chí lead",
+  khach_mau: "Khách mẫu",
+  kenh_tim: "Kênh tìm",
+  tu_khoa: "Từ khóa",
+  cau_mau: "Câu mẫu",
+  tu_cam: "Từ cấm",
+  faq: "Hỏi đáp",
+  doi_thu: "Đối thủ",
+  bai_hoc: "Bài học",
+  khac: "Khác",
+};
