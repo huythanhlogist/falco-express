@@ -455,7 +455,7 @@ export default function OfficeScene() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-navy">Văn phòng AI</h1>
+          <h1 className="text-xl font-bold text-navy-800">Văn phòng AI</h1>
           <p className="mt-1 text-slate-500">
             {OFFICE_AGENTS.length} nhân viên, {working} đang làm việc. Bấm vào
             nhân viên để xem chi tiết, kéo để xoay góc nhìn.
@@ -485,21 +485,21 @@ export default function OfficeScene() {
         <button
           type="button"
           onClick={() => setSimulating((v) => !v)}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-navy hover:bg-slate-50"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-slate-50"
         >
           {simulating ? "Quay lại dữ liệu thật" : "Xem thử mô phỏng"}
         </button>
         <button
           type="button"
           onClick={() => setWalking((v) => !v)}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-navy hover:bg-slate-50"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-slate-50"
         >
           {walking ? "Dừng đi lại" : "Cho đi lại"}
         </button>
         <button
           type="button"
           onClick={() => resetViewRef.current()}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-navy hover:bg-slate-50"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-slate-50"
         >
           Đặt lại góc nhìn
         </button>
@@ -526,10 +526,10 @@ export default function OfficeScene() {
                         if (e.key === "Enter") saveName(selected, draft);
                         if (e.key === "Escape") setEditing(false);
                       }}
-                      className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1 text-base font-bold text-navy outline-none focus:border-navy"
+                      className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1 text-base font-bold text-navy-800 outline-none focus:border-navy-800"
                     />
                   ) : (
-                    <h2 className="text-base font-bold text-navy">{displayName(selected)}</h2>
+                    <h2 className="text-base font-bold text-navy-800">{displayName(selected)}</h2>
                   )}
                   <span
                     className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-white"
@@ -544,7 +544,7 @@ export default function OfficeScene() {
                       <button
                         type="button"
                         onClick={() => saveName(selected, draft)}
-                        className="rounded-lg bg-navy px-3 py-1 text-xs font-semibold text-white hover:opacity-90"
+                        className="rounded-lg bg-navy-800 px-3 py-1 text-xs font-semibold text-white hover:opacity-90"
                       >
                         Lưu tên
                       </button>
@@ -572,7 +572,7 @@ export default function OfficeScene() {
                         setDraft(displayName(selected));
                         setEditing(true);
                       }}
-                      className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-navy hover:bg-slate-50"
+                      className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-navy-800 hover:bg-slate-50"
                     >
                       Đổi tên
                     </button>
@@ -600,7 +600,7 @@ export default function OfficeScene() {
                     href={`${N8N_PROJECT_URL}/${selected.n8nId}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-block rounded-lg bg-navy px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+                    className="inline-block rounded-lg bg-navy-800 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
                   >
                     Mở agent trong n8n
                   </a>
@@ -628,7 +628,7 @@ export default function OfficeScene() {
                       style={{ background: STATUS_COLOR[st] }}
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-semibold text-navy">{displayName(a)}</span>
+                      <span className="block truncate font-semibold text-navy-800">{displayName(a)}</span>
                       <span className="block truncate text-xs text-slate-500">
                         {STATUS_LABEL[st]}
                       </span>
@@ -649,7 +649,7 @@ export default function OfficeScene() {
                 </ul>
               ) : null}
               <div>
-                <h3 className="mb-1 text-sm font-bold text-navy">Hàng đợi Muse</h3>
+                <h3 className="mb-1 text-sm font-bold text-navy-800">Hàng đợi Muse</h3>
                 <p>
                   Chờ giao {live.queue.cho_giao} · Đang làm {live.queue.dang_lam} · Chờ nạp{" "}
                   {live.queue.cho_nap} · Xong {live.queue.done} · Bị chặn {live.queue.blocked} ·
@@ -657,7 +657,7 @@ export default function OfficeScene() {
                 </p>
               </div>
               <div>
-                <h3 className="mb-1 text-sm font-bold text-navy">
+                <h3 className="mb-1 text-sm font-bold text-navy-800">
                   Lead chờ anh Huy duyệt ({live.leads.cho_duyet})
                 </h3>
                 {live.pending.length === 0 ? (
@@ -666,7 +666,7 @@ export default function OfficeScene() {
                   <ul className="space-y-2">
                     {live.pending.slice(0, 5).map((l) => (
                       <li key={l.id} className="rounded-lg border border-slate-100 p-2">
-                        <p className="font-semibold text-navy">
+                        <p className="font-semibold text-navy-800">
                           {l.company} · {l.score} điểm
                         </p>
                         <p className="text-slate-500">
@@ -683,7 +683,7 @@ export default function OfficeScene() {
               </div>
               {live.recent.length > 0 ? (
                 <div>
-                  <h3 className="mb-1 text-sm font-bold text-navy">Việc gần đây</h3>
+                  <h3 className="mb-1 text-sm font-bold text-navy-800">Việc gần đây</h3>
                   <ul className="space-y-1">
                     {live.recent.slice(0, 5).map((t) => (
                       <li key={t.taskCode} className="truncate">

@@ -11,14 +11,14 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "Chưa đăng nhập" }, { status: 401 });
   }
 
-  const key = process.env.N8N_OFFICE_KEY;
+  const key = process.env.N8N_OFFICE_KEY?.trim();
   if (!key) {
     return NextResponse.json(
       { ok: false, error: "Chưa cấu hình N8N_OFFICE_KEY trên server" },
       { status: 503 },
     );
   }
-  const base = process.env.N8N_BASE_URL || "https://n8n.falcoexpress.com";
+  const base = (process.env.N8N_BASE_URL || "https://n8n.falcoexpress.com").trim();
 
   try {
     const res = await fetch(`${base}/webhook/office/status`, {
@@ -26,6 +26,12 @@ export async function GET() {
       cache: "no-store",
       signal: AbortSignal.timeout(8000),
     });
+    if (res.status === 401 || res.status === 403) {
+      return NextResponse.json(
+        { ok: false, error: "Khóa N8N_OFFICE_KEY trên server không khớp với n8n (kiểm tra dán nhầm khóa hoặc thừa khoảng trắng)" },
+        { status: 502 },
+      );
+    }
     if (!res.ok) {
       return NextResponse.json(
         { ok: false, error: `n8n trả về ${res.status}` },
