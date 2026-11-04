@@ -150,24 +150,22 @@ export default function OfficeScene() {
   useEffect(() => {
     if (simulating) return;
     let cancelled = false;
+    let failures = 0;
     const load = async () => {
       try {
         const res = await fetch("/api/admin/office/status", { cache: "no-store" });
         const data = (await res.json()) as OfficeLive & { error?: string };
         if (cancelled) return;
-        if (!res.ok || !data.ok) {
-          setLiveError(data.error ?? `Lỗi ${res.status}`);
-          setStatuses(allIdle());
-          return;
-        }
+        if (!res.ok || !data.ok) throw new Error(data.error ?? `Lỗi ${res.status}`);
+        failures = 0;
         setLive(data);
         setLiveError(null);
         setStatuses(liveStatuses(data));
-      } catch {
-        if (!cancelled) {
-          setLiveError("Không kết nối được n8n");
-          setStatuses(allIdle());
-        }
+      } catch (e) {
+        if (cancelled) return;
+        failures += 1;
+        // Lỗi thoáng qua (deploy, mạng chậm): giữ nguyên hình đang thấy, chỉ báo khi lỗi kéo dài.
+        if (failures >= 3) setLiveError(e instanceof Error && e.message ? e.message : "Không kết nối được n8n");
       }
     };
     void load();

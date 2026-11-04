@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentAdminSession } from "@/lib/auth";
+import { fetchOfficeWithRetry } from "@/lib/n8n-office-fetch";
 
 export const dynamic = "force-dynamic";
 
@@ -20,30 +21,16 @@ export async function GET() {
   }
   const base = (process.env.N8N_BASE_URL || "https://n8n.falcoexpress.com").trim();
 
-  try {
-    const res = await fetch(`${base}/webhook/office/status`, {
-      headers: { "x-api-key": key },
-      cache: "no-store",
-      signal: AbortSignal.timeout(8000),
-    });
-    if (res.status === 401 || res.status === 403) {
-      return NextResponse.json(
-        { ok: false, error: "Khóa N8N_OFFICE_KEY trên server không khớp với n8n (kiểm tra dán nhầm khóa hoặc thừa khoảng trắng)" },
-        { status: 502 },
-      );
-    }
-    if (!res.ok) {
-      return NextResponse.json(
-        { ok: false, error: `n8n trả về ${res.status}` },
-        { status: 502 },
-      );
-    }
-    const data = await res.json();
-    return NextResponse.json(data);
-  } catch {
+  const r = await fetchOfficeWithRetry(
+    `${base}/webhook/office/status`,
+    { headers: { "x-api-key": key }, cache: "no-store" },
+    "status",
+  );
+  if (r.status === 401 || r.status === 403) {
     return NextResponse.json(
-      { ok: false, error: "Không kết nối được n8n" },
+      { ok: false, error: "Khóa N8N_OFFICE_KEY trên server không khớp với n8n (kiểm tra dán nhầm khóa hoặc thừa khoảng trắng)" },
       { status: 502 },
     );
   }
+  return NextResponse.json(r.body, { status: r.status });
 }

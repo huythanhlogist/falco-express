@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentAdminSession } from "@/lib/auth";
+import { fetchOfficeWithRetry } from "@/lib/n8n-office-fetch";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,7 @@ async function forward(
     method,
     headers: { "x-api-key": key, "Content-Type": "application/json" },
     cache: "no-store",
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(25000),
   };
   if (method === "POST") {
     try {
@@ -49,6 +50,17 @@ async function forward(
     }
   }
 
+  // GET thử lại và giữ bản gần nhất; POST chỉ gửi một lần để không làm trùng thao tác.
+  if (method === "GET") {
+    const r = await fetchOfficeWithRetry(`${base}/webhook/office/${name}${search}`, init, `${name}${search}`);
+    if (r.status === 401 || r.status === 403) {
+      return NextResponse.json(
+        { ok: false, error: "Khóa N8N_OFFICE_KEY trên server không khớp với n8n (kiểm tra dán nhầm khóa hoặc thừa khoảng trắng)" },
+        { status: 502 },
+      );
+    }
+    return NextResponse.json(r.body, { status: r.status });
+  }
   try {
     const res = await fetch(`${base}/webhook/office/${name}${search}`, init);
     if (res.status === 401 || res.status === 403) {
