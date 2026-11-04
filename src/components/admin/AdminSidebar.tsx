@@ -31,6 +31,7 @@ const GROUPS: { title: string; links: { href: string; label: string; icon: typeo
       { href: "/admin/kango-bills", label: "Tạo bill", icon: PackageCheckIcon },
       { href: "/admin/bay", label: "BayOnline", icon: TruckIcon },
       { href: "/admin/ai-nhap-don", label: "Nhập đơn AI", icon: BoltIcon },
+      { href: "/admin/van-phong", label: "Văn phòng AI", icon: LayoutGridIcon },
       { href: "/admin/upload", label: "Upload tài liệu", icon: UploadIcon },
     ],
   },
