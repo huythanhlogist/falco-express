@@ -5,6 +5,8 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    /* Font tự lưu trong dự án (@fontsource), không tải từ Google lúc build. */
+    --font-jakarta: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", system-ui, sans-serif;
   }
 
   body {

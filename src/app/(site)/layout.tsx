@@ -1,15 +1,8 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import "@fontsource-variable/plus-jakarta-sans";
 import "../globals.css";
 import SiteChrome from "@/components/SiteChrome";
 import { SITE } from "@/lib/constants";
-
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ["latin", "vietnamese"],
-  weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-jakarta",
-  display: "swap",
-});
 
 const SEO_DESCRIPTION =
   "Falco Express – gửi hàng, thực phẩm và quà từ Việt Nam sang Châu Âu, Vương quốc Anh (Anh, Đức, Pháp, Hà Lan, Séc, Ba Lan...) cho người Việt xa xứ. Nhanh chóng, an toàn, minh bạch, hỗ trợ trọn gói thủ tục hải quan.";
@@ -54,7 +47,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi" className={plusJakartaSans.variable}>
+    <html lang="vi">
       <body className="flex min-h-screen flex-col font-body">
         <SiteChrome>{children}</SiteChrome>
       </body>
