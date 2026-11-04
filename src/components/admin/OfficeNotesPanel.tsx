@@ -236,6 +236,15 @@ export default function OfficeNotesPanel() {
                   >
                     Giao Muse sửa
                   </button>
+                  {n.status === "dang_xu_ly" ? (
+                    <button
+                      type="button"
+                      onClick={() => noteAction({ action: "set_status", id: n.id, status: "mo" }, "Đã mở lại, có thể giao lại")}
+                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-slate-50"
+                    >
+                      Hủy giao, mở lại
+                    </button>
+                  ) : null}
                   {n.status === "mo" ? (
                     <button
                       type="button"
