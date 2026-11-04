@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/Toast";
 import { useState } from "react";
 import { PencilIcon, TrashIcon } from "@/components/icons";
 import PriceQuoteCard from "./PriceQuoteCard";
@@ -8,18 +9,19 @@ import PriceQuoteCategoryEditModal from "./PriceQuoteCategoryEditModal";
 import type { PriceQuoteCategory, PriceQuoteLine } from "./types";
 
 export default function PriceQuoteBoard({ initialCategories }: { initialCategories: PriceQuoteCategory[] }) {
+  const ask = useConfirm();
   const [categories, setCategories] = useState(initialCategories);
   const [editingCategory, setEditingCategory] = useState<PriceQuoteCategory | null>(null);
   const [editingLine, setEditingLine] = useState<{ categoryId: number; line: PriceQuoteLine } | null>(null);
 
   async function deleteCategory(id: number) {
-    if (!confirm("Xoá toàn bộ nhóm giá này (kể cả các dòng bên trong)?")) return;
+    if (!await ask("Xoá toàn bộ nhóm giá này (kể cả các dòng bên trong)?")) return;
     const res = await fetch(`/api/admin/price-quote/categories/${id}`, { method: "DELETE" });
     if (res.ok) setCategories((prev) => prev.filter((c) => c.id !== id));
   }
 
   async function deleteLine(categoryId: number, lineId: number) {
-    if (!confirm("Xoá dòng giá này?")) return;
+    if (!await ask("Xoá dòng giá này?")) return;
     const res = await fetch(`/api/admin/price-quote/lines/${lineId}`, { method: "DELETE" });
     if (res.ok) {
       setCategories((prev) =>

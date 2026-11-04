@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/Toast";
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { PencilIcon, TrashIcon, ImageDownloadIcon } from "@/components/icons";
@@ -12,6 +13,7 @@ import type { PolicyItem } from "./types";
 const CARD_WIDTH = 720;
 
 export default function PolicyManager({ initialItems }: { initialItems: PolicyItem[] }) {
+  const ask = useConfirm();
   const [items, setItems] = useState(initialItems);
   const [newContent, setNewContent] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -64,7 +66,7 @@ export default function PolicyManager({ initialItems }: { initialItems: PolicyIt
   }
 
   async function deleteItem(id: number) {
-    if (!confirm("Xoá mục chính sách này?")) return;
+    if (!await ask("Xoá mục chính sách này?")) return;
     const res = await fetch(`/api/admin/price-quote/policy/${id}`, { method: "DELETE" });
     if (res.ok) setItems((prev) => prev.filter((i) => i.id !== id));
   }

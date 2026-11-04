@@ -104,7 +104,7 @@ export default async function KeToanPage({
 
   return (
     <div>
-      <h1 className="font-display text-xl font-bold text-navy-900">Kế toán</h1>
+      <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Kế toán</h1>
       <p className="mt-0.5 text-sm text-ink/55">
         Tổng kết thu chi, lãi lỗ theo tuần và theo tháng
       </p>

@@ -43,7 +43,7 @@ export default async function CtvOrdersPage({ searchParams }: { searchParams: Pr
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Đơn hàng</h1>
+          <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Đơn hàng</h1>
           <p className="mt-1 text-sm text-ink/55">Đơn bạn tạo và đơn được Falco gán cho bạn — {total} đơn</p>
         </div>
         <Link href="/fwd/tao-don" className="btn-primary !px-4 !py-2 text-sm">

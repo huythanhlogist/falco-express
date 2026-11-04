@@ -39,7 +39,7 @@ export default async function AdminSeoPage() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl font-bold text-navy-900">SEO</h1>
+      <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">SEO</h1>
       <p className="mt-1 text-sm text-ink/55">
         Chỉnh tiêu đề &amp; mô tả từng trang. Để trống để dùng nội dung mặc định của trang.
       </p>

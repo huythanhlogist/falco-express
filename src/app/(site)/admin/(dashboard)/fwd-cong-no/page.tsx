@@ -9,7 +9,7 @@ export default async function CtvCongNoPage() {
 
   return (
     <div>
-      <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Công nợ FWD</h1>
+      <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Công nợ FWD</h1>
       <p className="mt-1 text-sm text-ink/55">Hoa hồng Falco còn nợ FWD, và tiền FWD thu hộ khách chưa nộp lại</p>
 
       <div className="mt-6">

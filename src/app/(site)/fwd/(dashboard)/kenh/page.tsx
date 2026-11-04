@@ -8,7 +8,7 @@ export default async function CtvKenhPage() {
 
   return (
     <div>
-      <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Nhóm &amp; kênh</h1>
+      <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Nhóm &amp; kênh</h1>
       <p className="mt-1 text-sm text-ink/55">Các nhóm FB/kênh mang lại traffic tốt kèm nội dung mẫu để đăng</p>
 
       <div className="mt-6 flex flex-col gap-3">

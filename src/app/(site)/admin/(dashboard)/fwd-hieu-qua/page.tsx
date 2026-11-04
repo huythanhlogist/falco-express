@@ -20,7 +20,7 @@ export default async function CtvHieuQuaPage() {
 
   return (
     <div>
-      <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Hiệu quả FWD</h1>
+      <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Hiệu quả FWD</h1>
       <p className="mt-1 text-sm text-ink/55">Tổng quan hoạt động kênh FWD</p>
 
       <div className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4">

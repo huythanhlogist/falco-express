@@ -4,7 +4,7 @@ import DbnHistory from "@/components/admin/DbnHistory";
 export default function DbnPage() {
   return (
     <div>
-      <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Tạo DBN (báo giá cước)</h1>
+      <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Tạo DBN (báo giá cước)</h1>
       <p className="mt-1 text-sm text-ink/55">
         Chọn đơn có sẵn hoặc nhập tay, tạo xong tải ảnh gửi khách. Đơn dưới 21kg là giá cố định, không cần
         nhập đơn giá/kg.

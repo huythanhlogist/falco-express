@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/Toast";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
@@ -16,6 +17,7 @@ export default function KangoBillSendBar({
   sent: SentInfo;
   sendError: string | null;
 }) {
+  const ask = useConfirm();
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -36,8 +38,8 @@ export default function KangoBillSendBar({
     });
   }
 
-  function removeBill() {
-    if (!confirm("Xoá bill này? Không thể hoàn tác.")) return;
+  async function removeBill() {
+    if (!await ask("Xoá bill này? Không thể hoàn tác.")) return;
     startTransition(async () => {
       const res = await fetch(`/api/admin/kango-bills/${billId}`, { method: "DELETE" });
       if (res.ok) router.push("/admin/kango-bills");

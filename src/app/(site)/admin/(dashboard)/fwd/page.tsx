@@ -13,7 +13,7 @@ export default async function CtvPage() {
 
   return (
     <div>
-      <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Quản lý FWD</h1>
+      <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Quản lý FWD</h1>
       <p className="mt-1 text-sm text-ink/55">
         Tạo và quản lý tài khoản FWD — FWD đăng nhập ở khu vực riêng /fwd
       </p>

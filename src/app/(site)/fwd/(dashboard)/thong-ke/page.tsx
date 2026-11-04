@@ -51,7 +51,7 @@ export default async function CtvStatsPage({ searchParams }: { searchParams: Pro
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Thống kê</h1>
+          <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Thống kê</h1>
           <p className="mt-1 text-sm text-ink/55">{s.label} · chỉ tính đơn đã được duyệt hoặc do Falco gán</p>
         </div>
         <div className="flex gap-2">

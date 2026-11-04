@@ -10,7 +10,7 @@ export default async function StaffPage() {
 
   return (
     <div>
-      <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Nhân viên</h1>
+      <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Nhân viên</h1>
       <p className="mt-1 text-sm text-ink/55">Quản lý tài khoản đăng nhập trang quản trị</p>
 
       <div className="mt-6">

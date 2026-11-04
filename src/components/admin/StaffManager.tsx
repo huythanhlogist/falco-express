@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/Toast";
 import { useRef, useState, useTransition } from "react";
 import { EyeIcon } from "@/components/icons";
 
@@ -14,6 +15,7 @@ export default function StaffManager({
   currentEmail: string;
   canManage: boolean;
 }) {
+  const ask = useConfirm();
   const [staff, setStaff] = useState(initialStaff);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -66,8 +68,8 @@ export default function StaffManager({
     });
   }
 
-  function removeStaff(id: number) {
-    if (!confirm("Xoá tài khoản này?")) return;
+  async function removeStaff(id: number) {
+    if (!await ask("Xoá tài khoản này?")) return;
     startTransition(async () => {
       const res = await fetch(`/api/admin/staff/${id}`, { method: "DELETE" });
       if (res.ok) {

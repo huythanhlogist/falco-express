@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/Toast";
 import { useRef, useState } from "react";
 import { PencilIcon, TrashIcon } from "@/components/icons";
 import type { CtvContentKind } from "@/lib/db";
@@ -17,6 +18,7 @@ export default function CtvContentManager({
   titlePlaceholder: string;
   contentPlaceholder: string;
 }) {
+  const ask = useConfirm();
   const [items, setItems] = useState(initialItems);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
@@ -72,7 +74,7 @@ export default function CtvContentManager({
   }
 
   async function deleteItem(id: number) {
-    if (!confirm("Xoá mục này?")) return;
+    if (!await ask("Xoá mục này?")) return;
     const res = await fetch(`/api/admin/ctv/content/${id}`, { method: "DELETE" });
     if (res.ok) setItems((prev) => prev.filter((i) => i.id !== id));
   }

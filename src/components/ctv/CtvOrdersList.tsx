@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/Toast";
 import { useState, useTransition } from "react";
 import { reviewStatusClassName, reviewStatusLabel, type OrderReviewStatus } from "@/lib/review-status";
 
@@ -42,6 +43,7 @@ function money(v: string | null): string {
 }
 
 export default function CtvOrdersList({ initialOrders }: { initialOrders: CtvOrder[] }) {
+  const ask = useConfirm();
   const [orders, setOrders] = useState(initialOrders);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [creating, setCreating] = useState(false);
@@ -148,8 +150,8 @@ export default function CtvOrdersList({ initialOrders }: { initialOrders: CtvOrd
     });
   }
 
-  function removeOrder(id: number) {
-    if (!confirm("Xoá đơn này?")) return;
+  async function removeOrder(id: number) {
+    if (!await ask("Xoá đơn này?")) return;
     startTransition(async () => {
       const res = await fetch(`/api/ctv/orders/${id}`, { method: "DELETE" });
       if (res.ok) setOrders((prev) => prev.filter((o) => o.id !== id));

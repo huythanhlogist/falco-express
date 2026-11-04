@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm, useToast } from "@/components/ui/Toast";
 import { useEffect, useState } from "react";
 import { TrashIcon, ImageDownloadIcon } from "@/components/icons";
 import { saveOrDownloadImage } from "@/lib/download-image";
@@ -23,6 +24,8 @@ function formatDate(iso: string): string {
 }
 
 export default function DbnHistory() {
+  const ask = useConfirm();
+  const toast = useToast();
   const [quotes, setQuotes] = useState<DbnQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -50,7 +53,7 @@ export default function DbnHistory() {
     try {
       const res = await fetch(`/api/admin/dbn/${q.id}/image`);
       if (!res.ok) {
-        alert("Không tìm thấy ảnh — DBN này có thể chưa từng bấm 'Tải ảnh'.");
+        toast("Không tìm thấy ảnh — DBN này có thể chưa từng bấm 'Tải ảnh'.", "error");
         return;
       }
       const blob = await res.blob();
@@ -64,12 +67,12 @@ export default function DbnHistory() {
   }
 
   async function remove(id: number) {
-    if (!confirm("Xoá DBN này? Không hoàn tác được.")) return;
+    if (!await ask("Xoá DBN này? Không hoàn tác được.")) return;
     const res = await fetch(`/api/admin/dbn/${id}`, { method: "DELETE" });
     if (res.ok) {
       setQuotes((prev) => prev.filter((q) => q.id !== id));
     } else {
-      alert("Xoá thất bại");
+      toast("Xoá thất bại", "error");
     }
   }
 

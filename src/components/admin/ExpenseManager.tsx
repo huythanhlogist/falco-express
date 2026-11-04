@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/Toast";
 import { useState, useTransition } from "react";
 import { PencilIcon, TrashIcon } from "@/components/icons";
 
@@ -17,6 +18,7 @@ function toDatetimeLocal(value: string): string {
 }
 
 export default function ExpenseManager({ initialExpenses }: { initialExpenses: Expense[] }) {
+  const ask = useConfirm();
   const [expenses, setExpenses] = useState(initialExpenses);
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
@@ -92,8 +94,8 @@ export default function ExpenseManager({ initialExpenses }: { initialExpenses: E
     });
   }
 
-  function remove(id: number) {
-    if (!confirm("Xoá chi phí này?")) return;
+  async function remove(id: number) {
+    if (!await ask("Xoá chi phí này?")) return;
     startTransition(async () => {
       const res = await fetch(`/api/admin/expenses/${id}`, { method: "DELETE" });
       if (res.ok) setExpenses((prev) => prev.filter((exp) => exp.id !== id));

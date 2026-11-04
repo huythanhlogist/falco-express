@@ -41,7 +41,7 @@ export default async function CtvBaoGiaPage() {
 
   return (
     <div>
-      <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Bảng giá</h1>
+      <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Bảng giá</h1>
       <p className="mt-1 text-sm text-ink/55">
         Giống bảng giá của Falco — chân trang tự dùng thông tin liên hệ của bạn. Sửa ở tab &quot;Tài khoản&quot; nếu
         cần đổi.

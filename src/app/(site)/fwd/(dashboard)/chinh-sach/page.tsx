@@ -25,7 +25,7 @@ export default async function CtvChinhSachPage() {
 
   return (
     <div>
-      <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Chính sách</h1>
+      <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Chính sách</h1>
       <p className="mt-1 text-sm text-ink/55">Chính sách vận chuyển gửi khách + chính sách hoa hồng FWD</p>
 
       <div className="mt-4 rounded-xl border border-line bg-white p-5">

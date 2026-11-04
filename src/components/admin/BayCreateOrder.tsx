@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/Toast";
 import { useEffect, useRef, useState } from "react";
 import type { BayDraftOrderInput, BayWarehouse } from "@/lib/bay-api";
 
@@ -42,6 +43,7 @@ async function bayPost<T>(path: string, body: unknown, idempotencyKey?: string):
 }
 
 export default function BayCreateOrder({ onChanged }: { onChanged: () => void }) {
+  const ask = useConfirm();
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({
     partnerReference: "",
@@ -147,7 +149,7 @@ export default function BayCreateOrder({ onChanged }: { onChanged: () => void })
 
   async function confirmDraft() {
     if (!draft || !warehouse) return;
-    if (!window.confirm(`Xác nhận (book tem) đơn ${draft.reference} cho kho ${warehouse}? Sẽ sinh vận đơn thật bên BayOnline.`)) return;
+    if (!await ask(`Xác nhận (book tem) đơn ${draft.reference} cho kho ${warehouse}? Sẽ sinh vận đơn thật bên BayOnline.`, { confirmLabel: "Xác nhận", danger: false })) return;
     setError("");
     setBusy(true);
     try {

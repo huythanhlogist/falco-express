@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm, useToast } from "@/components/ui/Toast";
 import { useEffect, useRef, useState } from "react";
 import { TrashIcon, UploadIcon, ClockIcon } from "@/components/icons";
 
@@ -18,6 +19,8 @@ function formatDate(iso: string): string {
 }
 
 export default function AiIntakeForm() {
+  const ask = useConfirm();
+  const toast = useToast();
   const [note, setNote] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -91,13 +94,13 @@ export default function AiIntakeForm() {
   }
 
   async function removeOrder(id: number) {
-    if (!confirm("Xoá đơn này? Không hoàn tác được.")) return;
+    if (!await ask("Xoá đơn này? Không hoàn tác được.")) return;
     const res = await fetch(`/api/admin/ai-intake/${id}`, { method: "DELETE" });
     if (res.ok) {
       setPending((prev) => prev.filter((o) => o.id !== id));
     } else {
       const json = await res.json().catch(() => null);
-      alert(json?.error || "Xoá thất bại");
+      toast(json?.error || "Xoá thất bại", "error");
     }
   }
 

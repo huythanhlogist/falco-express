@@ -27,7 +27,7 @@ export default async function BaoGiaPage() {
 
   return (
     <div>
-      <h1 className="font-display text-xl font-bold text-navy-900">Báo giá</h1>
+      <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Báo giá</h1>
       <p className="mt-0.5 text-sm text-ink/55">
         Bảng giá gửi khách và chính sách vận chuyển — chỉ hiển thị trong web admin, không công khai. Tải bảng giá
         mới nhất ở tab &quot;Upload tài liệu&quot;.

@@ -17,7 +17,7 @@ export default async function CtvFinancePage({ searchParams }: { searchParams: P
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Tài chính</h1>
+          <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Tài chính</h1>
           <p className="mt-1 text-sm text-ink/55">Tiền thu theo đơn, tiền thu hộ đã nộp Falco và sao kê theo tháng</p>
         </div>
         <form className="flex gap-1">

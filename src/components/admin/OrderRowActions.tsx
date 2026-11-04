@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/Toast";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Modal from "@/components/ui/Modal";
@@ -36,6 +37,7 @@ export default function OrderRowActions({
   orderId: number;
   falcoCode: string;
 }) {
+  const ask = useConfirm();
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = useState(false);
@@ -106,7 +108,7 @@ export default function OrderRowActions({
   }
 
   async function remove() {
-    if (!confirm(`Xoá đơn ${falcoCode}? Hành động này không thể hoàn tác.`)) return;
+    if (!await ask(`Xoá đơn ${falcoCode}? Hành động này không thể hoàn tác.`)) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/admin/orders/${orderId}`, { method: "DELETE" });

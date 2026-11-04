@@ -18,7 +18,7 @@ export default async function CtvCreateOrderPage() {
 
   return (
     <div>
-      <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Tạo đơn</h1>
+      <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Tạo đơn</h1>
       <p className="mt-1 text-sm text-ink/55">Tạo đơn hàng gửi về kho Falco và theo dõi trạng thái duyệt</p>
 
       <div className="mt-6">

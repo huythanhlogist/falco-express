@@ -7,7 +7,7 @@ export default async function CtvHuongDanPage() {
 
   return (
     <div>
-      <h1 className="font-display text-xl font-bold text-navy-900 sm:text-2xl">Hướng dẫn sử dụng</h1>
+      <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Hướng dẫn sử dụng</h1>
       <p className="mt-1 text-sm text-ink/55">Các bước cơ bản để tạo đơn và làm việc với Falco</p>
 
       <div className="mt-6 flex flex-col gap-3">

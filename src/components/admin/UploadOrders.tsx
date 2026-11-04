@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm, useToast } from "@/components/ui/Toast";
 import { useEffect, useRef, useState } from "react";
 import { UploadIcon } from "@/components/icons";
 
@@ -40,6 +41,8 @@ function formatDateTime(iso: string): string {
 }
 
 export default function UploadOrders() {
+  const ask = useConfirm();
+  const toast = useToast();
   const [state, setState] = useState<UploadState>("idle");
   const [fileName, setFileName] = useState("");
   const [result, setResult] = useState<UploadResult | null>(null);
@@ -92,7 +95,7 @@ export default function UploadOrders() {
   }
 
   async function handleUndo(h: HistoryEntry) {
-    if (!confirm(`Hoàn tác lượt upload "${h.file_name}"? Bill mới sẽ bị xoá, bill đã cập nhật sẽ được trả về đúng dữ liệu trước đó.`)) {
+    if (!await ask(`Hoàn tác lượt upload "${h.file_name}"? Bill mới sẽ bị xoá, bill đã cập nhật sẽ được trả về đúng dữ liệu trước đó.`, { confirmLabel: "Hoàn tác" })) {
       return;
     }
     setUndoingId(h.id);
@@ -100,15 +103,15 @@ export default function UploadOrders() {
       const res = await fetch(`/api/admin/upload-history/${h.id}/undo`, { method: "POST" });
       const json = await res.json();
       if (!res.ok) {
-        alert(json.error || "Hoàn tác thất bại");
+        toast(json.error || "Hoàn tác thất bại", "error");
         return;
       }
       if (json.errors?.length > 0) {
-        alert(`Đã hoàn tác nhưng có vài lỗi nhỏ:\n${json.errors.join("\n")}`);
+        toast(`Đã hoàn tác nhưng có vài lỗi nhỏ:\n${json.errors.join("\n")}`, "error");
       }
       loadHistory();
     } catch {
-      alert("Không kết nối được tới máy chủ — thử lại sau");
+      toast("Không kết nối được tới máy chủ — thử lại sau", "error");
     } finally {
       setUndoingId(null);
     }

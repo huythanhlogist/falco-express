@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm } from "@/components/ui/Toast";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 
@@ -14,11 +15,12 @@ type BillRow = {
 };
 
 export default function KangoBillsTable({ initialBills }: { initialBills: BillRow[] }) {
+  const ask = useConfirm();
   const [bills, setBills] = useState(initialBills);
   const [isPending, startTransition] = useTransition();
 
-  function removeBill(id: number) {
-    if (!confirm("Xoá bill này? Không thể hoàn tác.")) return;
+  async function removeBill(id: number) {
+    if (!await ask("Xoá bill này? Không thể hoàn tác.")) return;
     startTransition(async () => {
       const res = await fetch(`/api/admin/kango-bills/${id}`, { method: "DELETE" });
       if (res.ok) setBills((prev) => prev.filter((b) => b.id !== id));

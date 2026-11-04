@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export default function UploadPage() {
   return (
     <div>
-      <h1 className="font-display text-xl font-bold text-navy-900">Upload tài liệu</h1>
+      <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Upload tài liệu</h1>
       <p className="mt-0.5 text-sm text-ink/55">
         Tải file Excel Kango lên để tự động cập nhật đơn hàng — chỉ thêm bill mới, không tạo trùng; bill đã
         có sẽ được cập nhật thông tin/mã tracking thay đổi hoặc còn thiếu.

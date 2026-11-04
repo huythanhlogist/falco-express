@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfirm, useToast } from "@/components/ui/Toast";
 import { useEffect, useState } from "react";
 
 type HistoryEntry = {
@@ -24,6 +25,8 @@ function formatDateTime(iso: string): string {
 }
 
 export default function OrderEditHistory() {
+  const ask = useConfirm();
+  const toast = useToast();
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
   const [undoingId, setUndoingId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
@@ -50,7 +53,7 @@ export default function OrderEditHistory() {
     } catch {
       // giữ nguyên fallback
     }
-    if (!confirm(`Hoàn tác lượt ${h.action === "delete" ? "xoá" : "sửa"} đơn ${falcoCode}?`)) {
+    if (!await ask(`Hoàn tác lượt ${h.action === "delete" ? "xoá" : "sửa"} đơn ${falcoCode}?`, { confirmLabel: "Hoàn tác" })) {
       return;
     }
     setUndoingId(h.id);
@@ -58,7 +61,7 @@ export default function OrderEditHistory() {
       const res = await fetch(`/api/admin/order-edit-history/${h.id}/undo`, { method: "POST" });
       const json = await res.json();
       if (!res.ok) {
-        alert(json.error || "Hoàn tác thất bại");
+        toast(json.error || "Hoàn tác thất bại", "error");
         return;
       }
       loadHistory();
@@ -67,7 +70,7 @@ export default function OrderEditHistory() {
       // hơn là tự đồng bộ state rải rác nhiều nơi.
       window.location.reload();
     } catch {
-      alert("Không kết nối được tới máy chủ — thử lại sau");
+      toast("Không kết nối được tới máy chủ — thử lại sau", "error");
     } finally {
       setUndoingId(null);
     }

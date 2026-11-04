@@ -76,7 +76,7 @@ export default async function AdminOrdersPage({
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-xl font-bold text-navy-900">Đơn hàng</h1>
+          <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Đơn hàng</h1>
           <p className="mt-0.5 text-sm text-ink/55">Quản lý và theo dõi toàn bộ đơn hàng</p>
         </div>
         <div className="flex flex-wrap gap-2">

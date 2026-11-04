@@ -318,3 +318,18 @@
 .admin-fade input[type="checkbox"] {
   cursor: pointer;
 }
+
+/* Bảng trong khu quản trị: cùng một kiểu tiêu đề cột, hàng di chuột sáng nhẹ, số liệu thẳng hàng. */
+.admin-fade table {
+  font-variant-numeric: tabular-nums;
+}
+.admin-fade table thead th {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.admin-fade table tbody tr:hover {
+  background-color: rgb(244 246 250 / 0.7);
+}
