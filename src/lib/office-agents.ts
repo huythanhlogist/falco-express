@@ -41,8 +41,9 @@ export const OFFICE_DEPARTMENTS: OfficeDepartment[] = [
 ];
 
 export const OFFICE_AGENTS: OfficeAgent[] = [
-  { id: "huy", name: "Anh Huy", role: "Chủ doanh nghiệp, duyệt cuối trước khi gửi", deptId: "exec", kind: "human", deskX: -9, deskZ: -4.5 },
-  { id: "huybot", name: "Huy-bot", role: "Quản lý: n8n giao việc hằng ngày cho Muse, tổng hợp kết quả", deptId: "exec", kind: "ai", deskX: -6, deskZ: -4.5 },
+  { id: "huy", name: "Anh Huy", role: "Chủ doanh nghiệp, duyệt cuối trước khi gửi", deptId: "exec", kind: "human", deskX: -10, deskZ: -4.5 },
+  { id: "huybot", name: "Huy-bot", role: "Quản lý: n8n giao việc mỗi 10 phút cho Muse, tổng hợp kết quả", deptId: "exec", kind: "ai", deskX: -7.5, deskZ: -4.5 },
+  { id: "advisor", name: "Cố vấn", role: "ADVISOR-01: khi sale tìm không ra lead thì nghĩ cách tìm mới, ghi vào kho kiến thức để sale thử", deptId: "exec", kind: "ai", deskX: -5, deskZ: -4.5 },
   { id: "linh", name: "Linh", role: "SALE-01: shop và cơ sở nhỏ bán đặc sản VN (EU, Anh), do Muse thực hiện", deptId: "sale", kind: "ai", deskX: -3, deskZ: -4.5 },
   { id: "nam", name: "Nam", role: "SALE-02: shop online nhỏ bán cho Việt kiều (Mỹ, Canada, Úc), do Muse thực hiện", deptId: "sale", kind: "ai", deskX: 0.5, deskZ: -4.5 },
   { id: "vy", name: "Vy", role: "SALE-03: đại lý và cộng tác viên, do Muse thực hiện", deptId: "sale", kind: "ai", deskX: 4, deskZ: -4.5 },
@@ -92,6 +93,7 @@ export type OfficeLive = {
     string,
     { status: "working" | "queued" | "idle"; task: string; taskCode: string; bot: string }
   >;
+  advisor?: { status: "working" | "queued" | "idle"; task: string; taskCode: string; bot: string };
   qa: { status: "review" | "idle" };
   manager: { status: "working" | "idle" };
   queue: {
@@ -137,6 +139,7 @@ export function liveStatuses(live: OfficeLive): Record<string, AgentStatus> {
   for (const id of ["linh", "nam", "vy", "mai"]) {
     if (live.sales[id]?.status === "working") s[id] = "working";
   }
+  if (live.advisor?.status === "working") s.advisor = "working";
   if (live.qa.status === "review") s.quan = "review";
   if (live.manager.status === "working") s.huybot = "working";
   if (live.pending.length > 0) s.huy = "review";
@@ -165,6 +168,12 @@ export function liveTaskText(
     if (sale.status === "working") return sale.task || "Đang tìm lead";
     if (sale.status === "queued") return `Đang chờ Muse nhận: ${sale.task}`;
     return "Chưa có việc";
+  }
+  if (agent.id === "advisor") {
+    const a = live.advisor;
+    if (a?.status === "working") return a.task || "Đang nghĩ cách tìm lead mới";
+    if (a?.status === "queued") return `Đang chờ Muse nhận: ${a.task}`;
+    return "Chưa có sale nào bí lead";
   }
   if (agent.id === "quan")
     return live.queue.cho_nap > 0
