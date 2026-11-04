@@ -6,7 +6,7 @@ import OfficeLeadsPanel from "@/components/admin/OfficeLeadsPanel";
 import OfficeQueuePanel from "@/components/admin/OfficeQueuePanel";
 import OfficeNotesPanel from "@/components/admin/OfficeNotesPanel";
 import OfficeZaloPanel from "@/components/admin/OfficeZaloPanel";
-import { officeApi } from "@/lib/office-api";
+import { officeApi, type NotesResponse } from "@/lib/office-api";
 import type { OfficeLive } from "@/lib/office-agents";
 
 type Tab = "overview" | "leads" | "zalo" | "queue" | "notes";
@@ -37,12 +37,21 @@ export default function OfficeTabs() {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const r = await officeApi<OfficeLive>("status");
-      if (cancelled || !r.ok) return;
-      setBadges({
-        leads: r.data.leads.cho_duyet,
-        queue: r.data.queue.failed + r.data.queue.blocked + r.data.alerts.length,
-      });
+      const [r, n] = await Promise.all([
+        officeApi<OfficeLive>("status"),
+        officeApi<NotesResponse>("notes"),
+      ]);
+      if (cancelled) return;
+      setBadges((prev) => ({
+        ...prev,
+        ...(r.ok
+          ? {
+              leads: r.data.leads.cho_duyet,
+              queue: r.data.queue.failed + r.data.queue.blocked + r.data.alerts.length,
+            }
+          : {}),
+        ...(n.ok ? { notes: n.data.counts.mo } : {}),
+      }));
     };
     void load();
     const id = window.setInterval(load, 20000);

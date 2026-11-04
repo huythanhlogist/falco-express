@@ -212,7 +212,7 @@ export default function OfficeZaloPanel() {
               {s.replyText ? (
                 <p className="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-900">
                   <b>Khách trả lời{s.repliedAt ? ` (${fmtTime(s.repliedAt)})` : ""}:</b> {s.replyText}
-                  <span className="block text-[11px] text-emerald-700">Bot AI không tự trả lời người này, anh Huy nhắn lại trên Zalo.</span>
+                  <span className="block text-[11px] text-emerald-700">Bot AI tự trả lời tiếp. Khi bot không trả lời được (chốt đơn, khiếu nại, hỏi hợp tác, bảo dừng...) sẽ có ghi chú &quot;cần anh Huy&quot; ở tab Ghi chú &amp; lỗi.</span>
                 </p>
               ) : null}
             </li>
