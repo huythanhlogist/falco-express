@@ -21,6 +21,7 @@ export default function OfficeZaloPanel() {
   const [data, setData] = useState<ZaloResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sendingId, setSendingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     const r = await officeApi<ZaloResponse>("zalo");
@@ -53,6 +54,20 @@ export default function OfficeZaloPanel() {
     setBusy(false);
     if (!r.ok) toast(r.error, "error");
     else toast(next ? "Đã bật gửi Zalo tự động" : "Đã tắt gửi Zalo tự động", "success");
+    void load();
+  }
+
+  async function sendNow(a: ZaloResponse["approved"][number]) {
+    const ok = await confirm(
+      `Gửi ngay tới ${a.phone} (${a.company})?\n\n"${a.draft}"\n\nTin vẫn phải qua hạn mức của Zalo (cách nhau tối thiểu 3 phút, 15 tin mỗi ngày, 8h đến 20h).`,
+      { confirmLabel: "Gửi ngay" },
+    );
+    if (!ok) return;
+    setSendingId(a.id);
+    const r = await officeApi("zalo-send-now", { id: a.id });
+    setSendingId(null);
+    if (!r.ok) toast(r.error, "error");
+    else toast("Đã gửi tin qua Zalo", "success");
     void load();
   }
 
@@ -145,8 +160,18 @@ export default function OfficeZaloPanel() {
                     Số này đã được gửi
                   </span>
                 ) : (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                    Chờ lượt gửi · {a.phone}
+                  <span className="flex items-center gap-2">
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                      Chờ lượt gửi · {a.phone}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={sendingId === a.id}
+                      onClick={() => sendNow(a)}
+                      className="rounded-lg bg-navy-800 px-3 py-1 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
+                    >
+                      {sendingId === a.id ? "Đang gửi..." : "Gửi ngay"}
+                    </button>
                   </span>
                 )}
               </div>
