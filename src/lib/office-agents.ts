@@ -88,6 +88,8 @@ export type OfficeLive = {
     online: boolean;
     stale: boolean;
     taskCode: string;
+    working?: number;
+    threads?: { bot: string; online: boolean; taskCode: string }[];
   }[];
   sales: Record<
     string,
@@ -161,7 +163,10 @@ export function liveTaskText(
     const m = live.muse.find((x) => x.bot === agent.museBot);
     if (!m || !m.lastSeen) return "Chưa từng báo nhịp sống";
     if (status === "offline") return "Không có nhịp sống từ bot";
-    return m.taskCode ? `Đang làm việc ${m.taskCode}` : "Rảnh, chờ việc mới";
+    const n = m.threads?.filter((t) => t.online).length ?? 0;
+    const w = m.working ?? 0;
+    if (w > 1) return `Đang làm ${w} việc song song (${n} luồng): ${m.taskCode}...`;
+    return m.taskCode ? `Đang làm việc ${m.taskCode}${n > 1 ? ` (${n} luồng)` : ""}` : `Rảnh, chờ việc mới${n > 1 ? ` (${n} luồng)` : ""}`;
   }
   const sale = live.sales[agent.id];
   if (sale) {
