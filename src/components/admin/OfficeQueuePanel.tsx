@@ -25,6 +25,7 @@ const SALES = [
   { id: "linh", label: "Linh: đặc sản châu Âu" },
   { id: "nam", label: "Nam: shop bán Việt kiều" },
   { id: "vy", label: "Vy: đại lý & CTV" },
+  { id: "mai", label: "Mai: khách lẻ" },
 ];
 
 export default function OfficeQueuePanel() {
@@ -69,8 +70,8 @@ export default function OfficeQueuePanel() {
 
   async function runSales(agents: string[]) {
     const ok = await confirm(
-      agents.length === 3
-        ? "Giao cả 3 việc tìm lead (Linh, Nam, Vy) cho Muse ngay bây giờ?"
+      agents.length === 4
+        ? "Giao cả 4 việc tìm lead (Linh, Nam, Vy, Mai) cho Muse ngay bây giờ?"
         : `Giao việc tìm lead cho ${agents[0]} ngay bây giờ?`,
       { confirmLabel: "Giao việc" },
     );
@@ -199,10 +200,10 @@ export default function OfficeQueuePanel() {
             ))}
             <button
               type="button"
-              onClick={() => runSales(["linh", "nam", "vy"])}
+              onClick={() => runSales(["linh", "nam", "vy", "mai"])}
               className="rounded-lg bg-navy-800 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
             >
-              Cả 3 người
+              Cả 4 người
             </button>
           </div>
           {live ? (

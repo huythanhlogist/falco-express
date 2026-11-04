@@ -43,9 +43,10 @@ export const OFFICE_DEPARTMENTS: OfficeDepartment[] = [
 export const OFFICE_AGENTS: OfficeAgent[] = [
   { id: "huy", name: "Anh Huy", role: "Chủ doanh nghiệp, duyệt cuối trước khi gửi", deptId: "exec", kind: "human", deskX: -9, deskZ: -4.5 },
   { id: "huybot", name: "Huy-bot", role: "Quản lý: n8n giao việc hằng ngày cho Muse, tổng hợp kết quả", deptId: "exec", kind: "ai", deskX: -6, deskZ: -4.5 },
-  { id: "linh", name: "Linh", role: "Sale: đặc sản & thực phẩm VN (EU, Anh), do Muse thực hiện", deptId: "sale", kind: "ai", deskX: -1.5, deskZ: -4.5 },
-  { id: "nam", name: "Nam", role: "Sale: shop online bán cho Việt kiều (Mỹ, Canada, Úc), do Muse thực hiện", deptId: "sale", kind: "ai", deskX: 2.5, deskZ: -4.5 },
-  { id: "vy", name: "Vy", role: "Sale: đại lý & cộng tác viên, do Muse thực hiện", deptId: "sale", kind: "ai", deskX: 6.5, deskZ: -4.5 },
+  { id: "linh", name: "Linh", role: "SALE-01: shop và cơ sở nhỏ bán đặc sản VN (EU, Anh), do Muse thực hiện", deptId: "sale", kind: "ai", deskX: -3, deskZ: -4.5 },
+  { id: "nam", name: "Nam", role: "SALE-02: shop online nhỏ bán cho Việt kiều (Mỹ, Canada, Úc), do Muse thực hiện", deptId: "sale", kind: "ai", deskX: 0.5, deskZ: -4.5 },
+  { id: "vy", name: "Vy", role: "SALE-03: đại lý và cộng tác viên, do Muse thực hiện", deptId: "sale", kind: "ai", deskX: 4, deskZ: -4.5 },
+  { id: "mai", name: "Mai", role: "SALE-04: khách lẻ cá nhân gửi hàng đi châu Âu, do Muse thực hiện", deptId: "sale", kind: "ai", deskX: 7.5, deskZ: -4.5 },
   { id: "quan", name: "Quân", role: "QA tự động: n8n kiểm tra lead bằng luật (giá, độ dài tin, trùng, bằng chứng)", deptId: "qa", kind: "ai", deskX: -7.5, deskZ: 2.5 },
   { id: "muse1", name: "Muse Huy Thanh", role: "Bot Muse 1 (@musehuythanh_bot): nhận việc từ hàng đợi n8n", deptId: "muse", kind: "ai", museBot: "musehuythanh", deskX: -2.5, deskZ: 2.5 },
   { id: "muse2", name: "Muse Video", role: "Bot Muse 2 (@videomuse_bot): nhận việc từ hàng đợi n8n", deptId: "muse", kind: "ai", museBot: "videomuse", deskX: 0.5, deskZ: 2.5 },
@@ -133,7 +134,7 @@ export function allIdleStatuses(): Record<string, AgentStatus> {
 
 export function liveStatuses(live: OfficeLive): Record<string, AgentStatus> {
   const s = allIdleStatuses();
-  for (const id of ["linh", "nam", "vy"]) {
+  for (const id of ["linh", "nam", "vy", "mai"]) {
     if (live.sales[id]?.status === "working") s[id] = "working";
   }
   if (live.qa.status === "review") s.quan = "review";

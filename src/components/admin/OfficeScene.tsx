@@ -32,7 +32,7 @@ const CAMERA_TARGET = new THREE.Vector3(-2.5, 0, 0.5);
 
 const allIdle = (): Statuses => allIdleStatuses();
 
-// Mô phỏng một vòng làm việc: 3 sale tìm lead → Quân kiểm tra → Huy-bot báo
+// Mô phỏng một vòng làm việc: 4 sale tìm lead → Quân kiểm tra → Huy-bot báo
 // cáo → anh Huy duyệt. Chỉ để xem thử giao diện; mặc định trang đọc dữ liệu
 // thật từ n8n.
 function simulate(t: number): Statuses {
