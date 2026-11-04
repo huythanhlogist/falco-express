@@ -28,6 +28,8 @@ export default function OfficeKnowledgePanel() {
   const [editing, setEditing] = useState<number | null>(null);
   const [draft, setDraft] = useState({ area: "", kind: "faq", title: "", content: "" });
   const [adding, setAdding] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = useCallback(async () => {
     const r = await officeApi<KnowledgeResponse>("knowledge");
@@ -79,6 +81,39 @@ export default function OfficeKnowledgePanel() {
   }
 
   const shown = (data?.items ?? []).filter((i) => i.status === filter && (!area || i.area === area));
+  const selectedShown = shown.filter((i) => selected.has(i.id));
+  const allShownSelected = shown.length > 0 && selectedShown.length === shown.length;
+
+  function toggleOne(id: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelected(allShownSelected ? new Set() : new Set(shown.map((i) => i.id)));
+  }
+
+  async function bulk(status: Filter, okText: string) {
+    const ids = selectedShown.map((i) => i.id);
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+    let fail = 0;
+    for (let n = 0; n < ids.length; n += 4) {
+      const results = await Promise.all(
+        ids.slice(n, n + 4).map((id) => officeApi("knowledge-action", { action: "set_status", id, status })),
+      );
+      fail += results.filter((r) => !r.ok).length;
+    }
+    setBulkBusy(false);
+    setSelected(new Set());
+    if (fail > 0) toast(`${okText}: ${ids.length - fail} mục, lỗi ${fail} mục`, "error");
+    else toast(`${okText}: ${ids.length} mục`, "success");
+    void load();
+  }
   const areaOptions = data
     ? [{ code: "ALL", name: "Dùng chung" }, ...data.agents.map((a) => ({ code: a.code, name: a.name }))]
     : [];
@@ -142,6 +177,35 @@ export default function OfficeKnowledgePanel() {
         </button>
       </div>
 
+      {shown.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm">
+          <label className="flex cursor-pointer items-center gap-2 font-semibold text-navy-800">
+            <input type="checkbox" checked={allShownSelected} onChange={toggleAll} className="h-4 w-4" />
+            Chọn tất cả ({shown.length})
+          </label>
+          {selectedShown.length > 0 ? (
+            <>
+              <span className="text-xs text-slate-500">Đã chọn {selectedShown.length}</span>
+              {filter !== "da_duyet" ? (
+                <button type="button" disabled={bulkBusy} onClick={() => bulk("da_duyet", "Đã duyệt")} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-40">
+                  {bulkBusy ? "Đang xử lý..." : "Duyệt các mục đã chọn"}
+                </button>
+              ) : null}
+              {filter !== "loai" ? (
+                <button type="button" disabled={bulkBusy} onClick={() => bulk("loai", "Đã loại")} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40">
+                  Loại các mục đã chọn
+                </button>
+              ) : null}
+              {filter !== "de_xuat" ? (
+                <button type="button" disabled={bulkBusy} onClick={() => bulk("de_xuat", "Đã đưa về chờ duyệt")} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-slate-50 disabled:opacity-40">
+                  Về chờ duyệt
+                </button>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
       {adding ? (
         <section className="rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="mb-2 font-bold text-navy-800">Thêm mục (tự động ở trạng thái đã duyệt)</h2>
@@ -161,6 +225,7 @@ export default function OfficeKnowledgePanel() {
             ) : (
               <>
                 <div className="flex flex-wrap items-center gap-2">
+                  <input type="checkbox" checked={selected.has(i.id)} onChange={() => toggleOne(i.id)} aria-label={`Chọn mục ${i.id}`} className="h-4 w-4" />
                   <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">{nameOf(i.area)}</span>
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
                     {KNOWLEDGE_KIND_LABEL[i.kind] ?? i.kind}
