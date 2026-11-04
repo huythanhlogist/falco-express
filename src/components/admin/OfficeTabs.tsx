@@ -5,14 +5,16 @@ import OfficeScene from "@/components/admin/OfficeScene";
 import OfficeLeadsPanel from "@/components/admin/OfficeLeadsPanel";
 import OfficeQueuePanel from "@/components/admin/OfficeQueuePanel";
 import OfficeNotesPanel from "@/components/admin/OfficeNotesPanel";
+import OfficeZaloPanel from "@/components/admin/OfficeZaloPanel";
 import { officeApi } from "@/lib/office-api";
 import type { OfficeLive } from "@/lib/office-agents";
 
-type Tab = "overview" | "leads" | "queue" | "notes";
+type Tab = "overview" | "leads" | "zalo" | "queue" | "notes";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Tổng quan" },
   { id: "leads", label: "Lead chờ duyệt" },
+  { id: "zalo", label: "Gửi Zalo" },
   { id: "queue", label: "Giao việc & hàng đợi" },
   { id: "notes", label: "Ghi chú & lỗi" },
 ];
@@ -77,6 +79,7 @@ export default function OfficeTabs() {
 
       {tab === "overview" ? <OfficeScene /> : null}
       {tab === "leads" ? <OfficeLeadsPanel /> : null}
+      {tab === "zalo" ? <OfficeZaloPanel /> : null}
       {tab === "queue" ? <OfficeQueuePanel /> : null}
       {tab === "notes" ? <OfficeNotesPanel /> : null}
     </div>

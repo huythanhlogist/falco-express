@@ -5,8 +5,8 @@ export const dynamic = "force-dynamic";
 
 // Chuyển yêu cầu từ trang admin tới webhook n8n tương ứng. Chỉ cho phép các
 // đường dẫn trong danh sách dưới đây; khóa n8n chỉ nằm ở biến môi trường server.
-const GET_PATHS = new Set(["leads", "notes"]);
-const POST_PATHS = new Set(["lead-action", "task-action", "run-sales", "note-action"]);
+const GET_PATHS = new Set(["leads", "notes", "zalo"]);
+const POST_PATHS = new Set(["lead-action", "task-action", "run-sales", "note-action", "zalo-action"]);
 
 async function forward(
   request: Request,

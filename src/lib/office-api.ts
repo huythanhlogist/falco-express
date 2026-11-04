@@ -110,3 +110,51 @@ export function fmtTime(iso: string | null | undefined): string {
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" });
 }
+
+// Số di động Việt Nam đầu tiên tìm thấy trong ô liên hệ (Zalo cần số điện thoại). Khớp luật của n8n.
+export function phoneOf(contact: string): string {
+  const re = /(?:\+?84|0)[\s.()\-]*(?:\d[\s.()\-]*){8,10}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(contact || "")) !== null) {
+    let d = m[0].replace(/\D/g, "");
+    if (d.startsWith("84")) d = "0" + d.slice(2);
+    if (/^0(3|5|7|8|9)\d{8}$/.test(d)) return d;
+  }
+  return "";
+}
+
+export type ZaloResponse = {
+  enabled: boolean;
+  bridge: {
+    loggedIn: boolean;
+    account: string;
+    sentToday: number;
+    dailyLimit: number;
+    canSendNow: boolean;
+    reason: string;
+  } | null;
+  counts: { ready: number; noPhone: number; duplicate: number; sent: number; replied: number; failed: number };
+  approved: {
+    id: number;
+    company: string;
+    contact: string;
+    phone: string;
+    score: number;
+    saleAgent: string;
+    draft: string;
+    hasPhone: boolean;
+    duplicate: boolean;
+  }[];
+  sent: {
+    id: number;
+    company: string;
+    phone: string;
+    status: "da_gui" | "da_phan_hoi" | "gui_loi";
+    sentAt: string | null;
+    note: string;
+    replyText: string;
+    repliedAt: string | null;
+    draft: string;
+    saleAgent: string;
+  }[];
+};

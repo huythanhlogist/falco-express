@@ -6,6 +6,7 @@ import {
   ASSIGNEE_LABEL,
   fmtTime,
   officeApi,
+  phoneOf,
   type LeadItem,
   type LeadsResponse,
   type NoteItem,
@@ -54,6 +55,16 @@ export default function OfficeLeadsPanel() {
   async function act(lead: LeadItem, action: "approve" | "reject" | "undo" | "edit") {
     if (action === "reject") {
       const ok = await confirm(`Loại lead "${lead.company}"?`, { confirmLabel: "Loại", danger: true });
+      if (!ok) return;
+    }
+    if (action === "approve") {
+      const phone = phoneOf(lead.contact);
+      const ok = await confirm(
+        phone
+          ? `Duyệt "${lead.company}"? Tin nháp sẽ được gửi qua Zalo tới ${phone} khi đến lượt (nếu công tắc Gửi Zalo đang bật).`
+          : `Duyệt "${lead.company}"? Ô liên hệ không có số di động Zalo hợp lệ nên tin sẽ KHÔNG tự gửi, bạn phải nhắn tay.`,
+        { confirmLabel: "Duyệt" },
+      );
       if (!ok) return;
     }
     setBusy(lead.id);
@@ -109,7 +120,7 @@ export default function OfficeLeadsPanel() {
             {data ? ` (${data.counts[f.id]})` : ""}
           </button>
         ))}
-        <span className="text-xs text-slate-400">Tự cập nhật mỗi 15 giây. Duyệt xong lead chờ bước gửi Zalo.</span>
+        <span className="text-xs text-slate-400">Tự cập nhật mỗi 15 giây. Duyệt = đồng ý gửi tin này qua Zalo (xem tab Gửi Zalo).</span>
       </div>
 
       {error ? (
