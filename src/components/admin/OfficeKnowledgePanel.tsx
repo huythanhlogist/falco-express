@@ -19,11 +19,22 @@ const FILTER_LABEL: Record<Filter, string> = {
 
 const KINDS = Object.keys(KNOWLEDGE_KIND_LABEL);
 
+type Pillar = "chan_dung" | "cong_cu" | "bai_hoc" | "khac" | "all";
+
+const PILLARS: { id: Pillar; label: string; hint: string; kinds: string[] }[] = [
+  { id: "chan_dung", label: "Chân dung khách", hint: "Ai đáng gọi, vì sao cần Falco, khi nào mua, loại ai. Chỉ anh sửa.", kinds: ["chan_dung"] },
+  { id: "cong_cu", label: "Công cụ tìm", hint: "Kênh tìm, từ khóa, khách mẫu, câu mẫu. Muse tự bổ sung.", kinds: ["kenh_tim", "tu_khoa", "khach_mau", "cau_mau"] },
+  { id: "bai_hoc", label: "Bài học", hint: "Sai ở đâu, làm gì để tốt hơn lần sau.", kinds: ["bai_hoc", "tieu_chi_lead"] },
+  { id: "khac", label: "Khác", hint: "Từ cấm, hỏi đáp Zalo, đối thủ.", kinds: ["tu_cam", "faq", "doi_thu", "khac"] },
+  { id: "all", label: "Tất cả", hint: "", kinds: [] },
+];
+
 export default function OfficeKnowledgePanel() {
   const toast = useToast();
   const [data, setData] = useState<KnowledgeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("de_xuat");
+  const [filter, setFilter] = useState<Filter>("da_duyet");
+  const [pillar, setPillar] = useState<Pillar>("chan_dung");
   const [area, setArea] = useState("");
   const [editing, setEditing] = useState<number | null>(null);
   const [draft, setDraft] = useState({ area: "", kind: "faq", title: "", content: "" });
@@ -80,7 +91,10 @@ export default function OfficeKnowledgePanel() {
     }
   }
 
-  const shown = (data?.items ?? []).filter((i) => i.status === filter && (!area || i.area === area));
+  const pillarKinds = PILLARS.find((p) => p.id === pillar)?.kinds ?? [];
+  const shown = (data?.items ?? []).filter(
+    (i) => i.status === filter && (!area || i.area === area) && (pillar === "all" || pillarKinds.includes(i.kind)),
+  );
   const selectedShown = shown.filter((i) => selected.has(i.id));
   const allShownSelected = shown.length > 0 && selectedShown.length === shown.length;
 
@@ -151,6 +165,24 @@ export default function OfficeKnowledgePanel() {
       <p className="text-xs text-slate-500">
         Muse đề xuất, anh duyệt. Chỉ mục đã duyệt mới được agent dùng. Mỗi mục gắn với mã agent nên đổi tên nhân viên không mất dữ liệu.
       </p>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {PILLARS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => setPillar(p.id)}
+            className={`rounded-lg border px-3 py-1.5 text-sm font-bold ${
+              pillar === p.id ? "border-teal-700 bg-teal-700 text-white" : "border-slate-200 bg-white text-teal-800 hover:bg-slate-50"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      {PILLARS.find((p) => p.id === pillar)?.hint ? (
+        <p className="text-xs text-slate-500">{PILLARS.find((p) => p.id === pillar)?.hint}</p>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
         {(["de_xuat", "da_duyet", "loai"] as const).map((f) => (

@@ -179,6 +179,7 @@ export type KnowledgeResponse = {
 };
 
 export const KNOWLEDGE_KIND_LABEL: Record<string, string> = {
+  chan_dung: "Chân dung khách",
   tieu_chi_lead: "Tiêu chí lead",
   khach_mau: "Khách mẫu",
   kenh_tim: "Kênh tìm",

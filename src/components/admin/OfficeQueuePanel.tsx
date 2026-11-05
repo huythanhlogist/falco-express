@@ -23,9 +23,10 @@ const STATUS_STYLE: Record<string, string> = {
 
 const SALES = [
   { id: "linh", label: "Linh: đặc sản châu Âu" },
-  { id: "nam", label: "Nam: shop bán Việt kiều" },
+  { id: "nam", label: "Nam: shop bán Việt kiều (Âu, Úc)" },
   { id: "vy", label: "Vy: đại lý & CTV" },
-  { id: "mai", label: "Mai: khách lẻ" },
+  { id: "mai", label: "Mai: khách lẻ ở châu Âu" },
+  { id: "khoa", label: "Khoa: linh kiện đi Mỹ" },
 ];
 
 export default function OfficeQueuePanel() {
@@ -200,10 +201,10 @@ export default function OfficeQueuePanel() {
             ))}
             <button
               type="button"
-              onClick={() => runSales(["linh", "nam", "vy", "mai"])}
+              onClick={() => runSales(["linh", "nam", "vy", "mai", "khoa"])}
               className="rounded-lg bg-navy-800 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
             >
-              Cả 4 người
+              Cả 5 người
             </button>
           </div>
           {live ? (
