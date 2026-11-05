@@ -20,6 +20,24 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "loai", label: "Đã loại" },
 ];
 
+const SALE_TABS = [
+  { id: "all", name: "", label: "Tất cả" },
+  { id: "linh", name: "Linh", label: "Linh · đặc sản Âu" },
+  { id: "nam", name: "Nam", label: "Nam · shop Việt kiều" },
+  { id: "vy", name: "Vy", label: "Vy · đại lý, CTV" },
+  { id: "mai", name: "Mai", label: "Mai · khách lẻ Âu" },
+  { id: "khoa", name: "Khoa", label: "Khoa · linh kiện Mỹ" },
+];
+
+const REJECT_REASONS = [
+  "Công ty quá lớn, đã có đối tác logistics",
+  "Là đối thủ vận chuyển, không phải khách",
+  "Sai thị trường",
+  "Không có nhu cầu gửi hàng đi nước ngoài",
+  "Liên hệ không dùng được",
+  "Không đúng chân dung khách của sale này",
+];
+
 function wordCount(s: string) {
   return s.trim().split(/\s+/).filter(Boolean).length;
 }
@@ -35,6 +53,9 @@ export default function OfficeLeadsPanel() {
   const [noteFor, setNoteFor] = useState<number | null>(null);
   const [noteText, setNoteText] = useState("");
   const [noteAssignee, setNoteAssignee] = useState<NoteItem["assignee"]>("muse");
+  const [sale, setSale] = useState("all");
+  const [rejectFor, setRejectFor] = useState<number | null>(null);
+  const [rejectText, setRejectText] = useState("");
 
   const load = useCallback(async () => {
     const r = await officeApi<LeadsResponse>(`leads?status=${filter}`);
@@ -52,11 +73,7 @@ export default function OfficeLeadsPanel() {
     return () => window.clearInterval(id);
   }, [load]);
 
-  async function act(lead: LeadItem, action: "approve" | "reject" | "undo" | "edit") {
-    if (action === "reject") {
-      const ok = await confirm(`Loại lead "${lead.company}"?`, { confirmLabel: "Loại", danger: true });
-      if (!ok) return;
-    }
+  async function act(lead: LeadItem, action: "approve" | "reject" | "undo" | "edit", note?: string) {
     if (action === "approve") {
       const phone = phoneOf(lead.contact);
       const ok = await confirm(
@@ -72,16 +89,21 @@ export default function OfficeLeadsPanel() {
       id: lead.id,
       action,
       draft: action === "edit" ? drafts[lead.id] : undefined,
+      note: action === "reject" ? note : undefined,
     });
     setBusy(null);
     if (!r.ok) {
       toast(r.error, "error");
     } else {
       toast(
-        action === "approve" ? "Đã duyệt" : action === "reject" ? "Đã loại" : action === "undo" ? "Đã hoàn tác" : "Đã lưu tin",
+        action === "approve" ? "Đã duyệt" : action === "reject" ? (note ? "Đã loại, sale sẽ học từ lý do này" : "Đã loại") : action === "undo" ? "Đã hoàn tác" : "Đã lưu tin",
         "success",
       );
       if (action === "edit") setDrafts((d) => { const n = { ...d }; delete n[lead.id]; return n; });
+      if (action === "reject") {
+        setRejectFor(null);
+        setRejectText("");
+      }
     }
     void load();
   }
@@ -101,6 +123,9 @@ export default function OfficeLeadsPanel() {
       setNoteText("");
     }
   }
+
+  const saleName = SALE_TABS.find((t) => t.id === sale)?.name;
+  const shownLeads = (data?.leads ?? []).filter((l) => sale === "all" || l.saleAgent === saleName);
 
   return (
     <div className="space-y-4">
@@ -123,18 +148,36 @@ export default function OfficeLeadsPanel() {
         <span className="text-xs text-slate-400">Tự cập nhật mỗi 15 giây. Duyệt = đồng ý gửi tin này qua Zalo (xem tab Gửi Zalo).</span>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        {SALE_TABS.map((t) => {
+          const n = t.id === "all" ? (data?.leads.length ?? 0) : (data?.leads.filter((l) => l.saleAgent === t.name).length ?? 0);
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setSale(t.id)}
+              className={`rounded-lg border px-3 py-1.5 text-sm font-bold ${
+                sale === t.id ? "border-teal-700 bg-teal-700 text-white" : "border-slate-200 bg-white text-teal-800 hover:bg-slate-50"
+              }`}
+            >
+              {t.label} ({n})
+            </button>
+          );
+        })}
+      </div>
+
       {error ? (
         <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">Không đọc được lead: {error}</p>
       ) : null}
 
-      {data && data.leads.length === 0 && !error ? (
+      {data && shownLeads.length === 0 && !error ? (
         <p className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-slate-500">
           Không có lead nào ở mục này.
         </p>
       ) : null}
 
       <ul className="grid gap-3 lg:grid-cols-2">
-        {data?.leads.map((l) => {
+        {shownLeads.map((l) => {
           const current = drafts[l.id] ?? l.draft;
           const changed = current !== l.draft;
           const editable = l.status === "cho_duyet";
@@ -209,7 +252,7 @@ export default function OfficeLeadsPanel() {
                     <button
                       type="button"
                       disabled={busy === l.id}
-                      onClick={() => act(l, "reject")}
+                      onClick={() => setRejectFor(rejectFor === l.id ? null : l.id)}
                       className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40"
                     >
                       Loại
@@ -234,6 +277,51 @@ export default function OfficeLeadsPanel() {
                   Báo lỗi / ghi chú
                 </button>
               </div>
+
+              {rejectFor === l.id ? (
+                <div className="space-y-2 rounded-lg bg-red-50 p-3">
+                  <p className="text-xs font-semibold text-red-800">
+                    Vì sao lead này không đạt? Lý do sẽ được ghi thành bài học cho {l.saleAgent}, lần sau sale tránh lỗi này.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {REJECT_REASONS.map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setRejectText(r)}
+                        className="rounded-full border border-red-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-100"
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={rejectText}
+                    onChange={(e) => setRejectText(e.target.value)}
+                    rows={2}
+                    maxLength={280}
+                    placeholder="Chọn lý do có sẵn hoặc tự viết. Càng cụ thể, sale càng học đúng."
+                    className="w-full rounded-lg border border-slate-300 p-2 text-sm outline-none focus:border-navy-800"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={busy === l.id}
+                      onClick={() => act(l, "reject", rejectText.trim())}
+                      className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-40"
+                    >
+                      {rejectText.trim().length >= 3 ? "Loại và dạy sale" : "Loại (không ghi lý do)"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRejectFor(null)}
+                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                </div>
+              ) : null}
 
               {noteFor === l.id ? (
                 <div className="space-y-2 rounded-lg bg-slate-50 p-3">
