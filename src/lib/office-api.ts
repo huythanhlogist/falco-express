@@ -215,6 +215,12 @@ export type OutreachResponse = {
   total: OutreachCounts;
   today: OutreachCounts;
   replyRate: number;
+  dailyTarget: number;
+  funnel: { leads: number; pending: number; approved: number; sent: number; replied: number; rejected: number; failed: number };
+  systems: {
+    zalo: { loggedIn: boolean | null; sentToday: number; dailyLimit: number };
+    whatsapp: { status: string; account: string };
+  };
   pending: number;
   approved: number;
   byChannel: ({ key: string } & OutreachCounts)[];
