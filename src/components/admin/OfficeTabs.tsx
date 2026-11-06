@@ -7,15 +7,17 @@ import OfficeQueuePanel from "@/components/admin/OfficeQueuePanel";
 import OfficeNotesPanel from "@/components/admin/OfficeNotesPanel";
 import OfficeZaloPanel from "@/components/admin/OfficeZaloPanel";
 import OfficeKnowledgePanel from "@/components/admin/OfficeKnowledgePanel";
+import OfficeOutreachPanel from "@/components/admin/OfficeOutreachPanel";
 import { officeApi, type KnowledgeResponse, type NotesResponse } from "@/lib/office-api";
 import type { OfficeLive } from "@/lib/office-agents";
 
-type Tab = "overview" | "leads" | "zalo" | "queue" | "knowledge" | "notes";
+type Tab = "overview" | "leads" | "zalo" | "outreach" | "queue" | "knowledge" | "notes";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Tổng quan" },
   { id: "leads", label: "Lead chờ duyệt" },
   { id: "zalo", label: "Gửi Zalo" },
+  { id: "outreach", label: "Thống kê gửi tin" },
   { id: "queue", label: "Giao việc & hàng đợi" },
   { id: "knowledge", label: "Kiến thức" },
   { id: "notes", label: "Ghi chú & lỗi" },
@@ -93,6 +95,7 @@ export default function OfficeTabs() {
       {tab === "overview" ? <OfficeScene /> : null}
       {tab === "leads" ? <OfficeLeadsPanel /> : null}
       {tab === "zalo" ? <OfficeZaloPanel /> : null}
+      {tab === "outreach" ? <OfficeOutreachPanel /> : null}
       {tab === "queue" ? <OfficeQueuePanel /> : null}
       {tab === "knowledge" ? <OfficeKnowledgePanel /> : null}
       {tab === "notes" ? <OfficeNotesPanel /> : null}

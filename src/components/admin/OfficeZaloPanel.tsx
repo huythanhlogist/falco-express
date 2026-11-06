@@ -92,7 +92,7 @@ export default function OfficeZaloPanel() {
             <div>
               <h2 className="font-bold text-navy-800">Gửi Zalo tự động</h2>
               <p className="text-xs text-slate-500">
-                Chỉ lead bạn đã bấm Duyệt mới được gửi. Mỗi lượt 1 tin, cách nhau ngẫu nhiên, T2 đến T7, 8h đến 19h.
+                Lead đạt kiểm tra (điểm từ 70, có SĐT Zalo) được duyệt tự động, lead khác chờ bạn duyệt. Mỗi lượt 1 tin, cách nhau ngẫu nhiên, T2 đến T7, 8h đến 19h, tối đa khoảng 30 tin mỗi ngày.
               </p>
             </div>
             <button
@@ -107,8 +107,7 @@ export default function OfficeZaloPanel() {
             </button>
           </div>
           <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800">
-            Zalo có thể khóa tài khoản nếu gửi chào hàng hàng loạt. Nên dùng số Zalo phụ, giữ 15 đến 20 tin mỗi ngày
-            lúc đầu và duyệt tay từng tin. Gặp lỗi lạ thì tắt công tắc này ngay.
+            Zalo có thể khóa tài khoản nếu gửi chào hàng hàng loạt. Nên dùng số Zalo phụ và theo dõi tab Thống kê gửi tin. Gặp lỗi lạ thì tắt công tắc này ngay.
           </p>
         </section>
 

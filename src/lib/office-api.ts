@@ -191,3 +191,41 @@ export const KNOWLEDGE_KIND_LABEL: Record<string, string> = {
   bai_hoc: "Bài học",
   khac: "Khác",
 };
+
+export type OutreachMessage = {
+  id: number;
+  company: string;
+  saleAgent: string;
+  channel: string;
+  status: "da_gui" | "da_phan_hoi" | "gui_loi" | string;
+  sentAt: string | null;
+  draft: string;
+  note: string;
+  replyText: string;
+  repliedAt: string | null;
+  score: number;
+  contact: string;
+  phone: string;
+};
+
+export type OutreachCounts = { sent: number; replied: number; failed: number };
+
+export type OutreachResponse = {
+  generatedAt: string;
+  total: OutreachCounts;
+  today: OutreachCounts;
+  replyRate: number;
+  pending: number;
+  approved: number;
+  byChannel: ({ key: string } & OutreachCounts)[];
+  bySale: ({ key: string } & OutreachCounts)[];
+  byDay: ({ day: string } & OutreachCounts)[];
+  messages: OutreachMessage[];
+};
+
+export const CHANNEL_LABEL: Record<string, string> = {
+  zalo: "Zalo",
+  whatsapp: "WhatsApp",
+  email: "Email",
+  facebook: "Facebook",
+};
