@@ -194,6 +194,7 @@ export const KNOWLEDGE_KIND_LABEL: Record<string, string> = {
 
 export type OutreachMessage = {
   id: number;
+  autoReply?: boolean;
   company: string;
   saleAgent: string;
   channel: string;
@@ -234,4 +235,32 @@ export const CHANNEL_LABEL: Record<string, string> = {
   whatsapp: "WhatsApp",
   email: "Email",
   facebook: "Facebook",
+};
+
+export type KpiBucket = {
+  tasks: number;
+  search: number;
+  learn: number;
+  strategy: number;
+  done: number;
+  failed: number;
+  minutes: number;
+  hours: number;
+  avgMinutes: number;
+  found: number;
+  passed: number;
+  passRate: number;
+  leads: number;
+  approved: number;
+  sent: number;
+  replied: number;
+  rejected: number;
+};
+
+export type KpiResponse = {
+  generatedAt: string;
+  days: string[];
+  logStartsAt: string | null;
+  totals: { today: KpiBucket; week: KpiBucket };
+  sales: { name: string; code: string; today: KpiBucket; week: KpiBucket; days: (KpiBucket & { day: string })[] }[];
 };

@@ -257,7 +257,12 @@ export default function OfficeOutreachPanel() {
                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${r.tone}`}>{r.text}</span>
                   </span>
                 </button>
-                {m.replyText ? (
+                {m.replyText && m.autoReply ? (
+                  <p className="mt-2 rounded-lg bg-slate-100 p-2 text-xs text-slate-600">
+                    <b>Tin tự động của khách (không tính là trả lời, bot không phản hồi):</b> {m.replyText}
+                  </p>
+                ) : null}
+                {m.replyText && !m.autoReply ? (
                   <p className="mt-2 rounded-lg bg-emerald-50 p-2 text-xs text-emerald-900">
                     <b>Khách nói{m.repliedAt ? ` (${fmtTime(m.repliedAt)})` : ""}:</b> {m.replyText}
                   </p>
