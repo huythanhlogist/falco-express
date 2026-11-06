@@ -38,12 +38,15 @@ export type LeadItem = {
   status: string;
   qaVerdict: string;
   qaNote: string;
+  dealStage?: "" | "bao_gia" | "chot_don";
+  dealAt?: string;
+  channel?: string;
   createdAt: string;
 };
 
 export type LeadsResponse = {
   status: string;
-  counts: { cho_duyet: number; da_duyet: number; loai: number };
+  counts: { cho_duyet: number; da_duyet: number; loai: number; da_gui: number };
   leads: LeadItem[];
 };
 
@@ -255,12 +258,15 @@ export type KpiBucket = {
   sent: number;
   replied: number;
   rejected: number;
+  quoted: number;
+  won: number;
 };
 
 export type KpiResponse = {
   generatedAt: string;
   days: string[];
   logStartsAt: string | null;
+  deals?: { sent: number; quoted: number; won: number };
   totals: { today: KpiBucket; week: KpiBucket };
   sales: { name: string; code: string; today: KpiBucket; week: KpiBucket; days: (KpiBucket & { day: string })[] }[];
 };

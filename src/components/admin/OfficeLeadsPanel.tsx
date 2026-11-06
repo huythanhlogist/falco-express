@@ -12,11 +12,12 @@ import {
   type NoteItem,
 } from "@/lib/office-api";
 
-type Filter = "cho_duyet" | "da_duyet" | "loai";
+type Filter = "cho_duyet" | "da_duyet" | "da_gui" | "loai";
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "cho_duyet", label: "Chờ duyệt" },
   { id: "da_duyet", label: "Đã duyệt" },
+  { id: "da_gui", label: "Đã gửi" },
   { id: "loai", label: "Đã loại" },
 ];
 
@@ -73,7 +74,7 @@ export default function OfficeLeadsPanel() {
     return () => window.clearInterval(id);
   }, [load]);
 
-  async function act(lead: LeadItem, action: "approve" | "reject" | "undo" | "edit", note?: string) {
+  async function act(lead: LeadItem, action: "approve" | "reject" | "undo" | "edit" | "quote" | "won" | "dealreset", note?: string) {
     if (action === "approve") {
       const phone = phoneOf(lead.contact);
       const ok = await confirm(
@@ -96,7 +97,19 @@ export default function OfficeLeadsPanel() {
       toast(r.error, "error");
     } else {
       toast(
-        action === "approve" ? "Đã duyệt" : action === "reject" ? (note ? "Đã loại, sale sẽ học từ lý do này" : "Đã loại") : action === "undo" ? "Đã hoàn tác" : "Đã lưu tin",
+        action === "approve"
+          ? "Đã duyệt"
+          : action === "reject"
+            ? note ? "Đã loại, sale sẽ học từ lý do này" : "Đã loại"
+            : action === "undo"
+              ? "Đã hoàn tác"
+              : action === "quote"
+                ? "Đã ghi: đã báo giá"
+                : action === "won"
+                  ? "Đã ghi: chốt đơn"
+                  : action === "dealreset"
+                    ? "Đã bỏ trạng thái"
+                    : "Đã lưu tin",
         "success",
       );
       if (action === "edit") setDrafts((d) => { const n = { ...d }; delete n[lead.id]; return n; });
@@ -213,8 +226,8 @@ export default function OfficeLeadsPanel() {
               <div>
                 <label className="mb-1 flex items-center justify-between text-xs font-semibold text-navy-800">
                   Tin Zalo nháp
-                  <span className={wordCount(current) > 40 ? "text-red-600" : "text-slate-400"}>
-                    {wordCount(current)} từ (tối đa 40)
+                  <span className={wordCount(current) > 150 ? "text-red-600" : "text-slate-400"}>
+                    {wordCount(current)} từ (tối đa 150)
                   </span>
                 </label>
                 <textarea
@@ -257,6 +270,51 @@ export default function OfficeLeadsPanel() {
                     >
                       Loại
                     </button>
+                  </>
+                ) : null}
+                {l.status === "da_gui" || l.status === "da_phan_hoi" ? (
+                  <>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                        l.dealStage === "chot_don"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : l.dealStage === "bao_gia"
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {l.dealStage === "chot_don" ? "Đã chốt đơn" : l.dealStage === "bao_gia" ? "Đã báo giá" : l.status === "da_phan_hoi" ? "Khách đã trả lời" : "Đã gửi tin"}
+                    </span>
+                    {l.dealStage !== "bao_gia" && l.dealStage !== "chot_don" ? (
+                      <button
+                        type="button"
+                        disabled={busy === l.id}
+                        onClick={() => act(l, "quote")}
+                        className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-50 disabled:opacity-40"
+                      >
+                        Đã báo giá
+                      </button>
+                    ) : null}
+                    {l.dealStage !== "chot_don" ? (
+                      <button
+                        type="button"
+                        disabled={busy === l.id}
+                        onClick={() => act(l, "won")}
+                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
+                      >
+                        Chốt đơn
+                      </button>
+                    ) : null}
+                    {l.dealStage ? (
+                      <button
+                        type="button"
+                        disabled={busy === l.id}
+                        onClick={() => act(l, "dealreset")}
+                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                      >
+                        Bỏ trạng thái
+                      </button>
+                    ) : null}
                   </>
                 ) : null}
                 {l.status === "da_duyet" ? (

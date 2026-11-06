@@ -9,6 +9,7 @@ type Range = "today" | "week";
 const TARGET_SENT_PER_DAY = 30; // tin chào gửi mỗi ngày (bằng trần Zalo)
 const TARGET_PASSED_PER_SALE = 6; // lead đạt mỗi sale mỗi ngày, 5 sale x 6 = 30 lead cho 30 tin
 const TARGET_REPLY_RATE = 20; // % khách trả lời trên tin đã gửi
+const TARGET_WIN_RATE = 5; // % lead đã gửi chốt thành đơn (tạm, chờ anh Huy chốt)
 
 function Goal({ label, value, target, unit, note }: { label: string; value: number; target: number; unit?: string; note?: string }) {
   const pct = target > 0 ? Math.min(100, Math.round((100 * value) / target)) : 0;
@@ -128,7 +129,7 @@ export default function OfficeKpiPanel() {
       <section className="rounded-2xl border border-slate-200 bg-white p-4">
         <h3 className="mb-1 text-base font-bold text-navy-800">So với mục tiêu ({label})</h3>
         <p className="mb-3 text-xs text-slate-500">
-          Mục tiêu tạm: {TARGET_SENT_PER_DAY} tin gửi mỗi ngày, {TARGET_PASSED_PER_SALE} lead đạt mỗi sale mỗi ngày, {TARGET_REPLY_RATE}% khách trả lời. Chưa đo được tỷ lệ chốt đơn vì hệ thống chưa ghi nhận đơn hàng.
+          Mục tiêu tạm: {TARGET_SENT_PER_DAY} tin gửi mỗi ngày, {TARGET_PASSED_PER_SALE} lead đạt mỗi sale mỗi ngày, {TARGET_REPLY_RATE}% khách trả lời. Chốt đơn do anh Huy bấm ở tab Lead, mục Đã gửi.
         </p>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Goal
@@ -139,6 +140,12 @@ export default function OfficeKpiPanel() {
           {range === "today" ? (
             <Goal label="Tin đã gửi hôm nay" value={out?.systems.zalo.sentToday ?? 0} target={TARGET_SENT_PER_DAY} note="Zalo; WhatsApp đang gửi rất ít" />
           ) : null}
+          <Goal
+            label="Đơn đã chốt"
+            value={data?.deals?.won ?? 0}
+            target={Math.max(1, Math.ceil(((data?.deals?.sent ?? 0) * TARGET_WIN_RATE) / 100))}
+            note={`${data?.deals?.won ?? 0}/${data?.deals?.sent ?? 0} lead đã gửi (${data?.deals?.sent ? Math.round((100 * (data.deals.won)) / data.deals.sent) : 0}%), ${data?.deals?.quoted ?? 0} đã báo giá. Mục tiêu tạm ${TARGET_WIN_RATE}%`}
+          />
           <Goal label="Tỷ lệ khách trả lời" value={out?.replyRate ?? 0} target={TARGET_REPLY_RATE} unit="%" note="tính trên mọi tin đã gửi" />
           {data?.sales.map((s) => (
             <Goal
