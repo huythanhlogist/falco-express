@@ -41,10 +41,11 @@ export default function OfficeTabs() {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      if (document.hidden) return;
       const [r, n, k] = await Promise.all([
         officeApi<OfficeLive>("status"),
         officeApi<NotesResponse>("notes"),
-        officeApi<KnowledgeResponse>("knowledge"),
+        officeApi<KnowledgeResponse>("knowledge?summary=1"),
       ]);
       if (cancelled) return;
       setBadges((prev) => ({
@@ -60,7 +61,7 @@ export default function OfficeTabs() {
       }));
     };
     void load();
-    const id = window.setInterval(load, 20000);
+    const id = window.setInterval(load, 30000);
     return () => {
       cancelled = true;
       window.clearInterval(id);
