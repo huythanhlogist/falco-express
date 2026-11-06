@@ -266,7 +266,7 @@ export type KpiResponse = {
   generatedAt: string;
   days: string[];
   logStartsAt: string | null;
-  deals?: { sent: number; quoted: number; won: number };
+  deals?: { sent: number; replied?: number; quoted: number; won: number };
   totals: { today: KpiBucket; week: KpiBucket };
   sales: { name: string; code: string; today: KpiBucket; week: KpiBucket; days: (KpiBucket & { day: string })[] }[];
 };

@@ -26,7 +26,7 @@ const SALE_TABS = [
   { id: "linh", name: "Linh", label: "Linh · đặc sản Âu" },
   { id: "nam", name: "Nam", label: "Nam · shop Việt kiều" },
   { id: "vy", name: "Vy", label: "Vy · đại lý, CTV" },
-  { id: "mai", name: "Mai", label: "Mai · khách lẻ Âu" },
+  { id: "mai", name: "Mai", label: "Mai · tiệm Việt ở Âu" },
   { id: "khoa", name: "Khoa", label: "Khoa · linh kiện Mỹ" },
 ];
 

@@ -146,7 +146,13 @@ export default function OfficeKpiPanel() {
             target={Math.max(1, Math.ceil(((data?.deals?.sent ?? 0) * TARGET_WIN_RATE) / 100))}
             note={`${data?.deals?.won ?? 0}/${data?.deals?.sent ?? 0} lead đã gửi (${data?.deals?.sent ? Math.round((100 * (data.deals.won)) / data.deals.sent) : 0}%), ${data?.deals?.quoted ?? 0} đã báo giá. Mục tiêu tạm ${TARGET_WIN_RATE}%`}
           />
-          <Goal label="Tỷ lệ khách trả lời" value={out?.replyRate ?? 0} target={TARGET_REPLY_RATE} unit="%" note="tính trên mọi tin đã gửi" />
+          <Goal
+            label="Tỷ lệ khách trả lời"
+            value={data?.deals?.sent ? Math.round((100 * (data.deals.replied ?? 0)) / data.deals.sent) : 0}
+            target={TARGET_REPLY_RATE}
+            unit="%"
+            note={`${data?.deals?.replied ?? 0}/${data?.deals?.sent ?? 0} lead đã gửi, không tính tin thử`}
+          />
           {data?.sales.map((s) => (
             <Goal
               key={s.name}
