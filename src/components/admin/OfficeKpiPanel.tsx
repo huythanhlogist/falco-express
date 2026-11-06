@@ -1,15 +1,41 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { officeApi, type KpiBucket, type KpiResponse } from "@/lib/office-api";
+import { officeApi, type KpiBucket, type KpiResponse, type OutreachResponse } from "@/lib/office-api";
 
 type Range = "today" | "week";
+
+// Mục tiêu tạm do hệ thống đặt (06/11) để có thước đo; chỉnh tại đây khi anh Huy chốt số khác.
+const TARGET_SENT_PER_DAY = 30; // tin chào gửi mỗi ngày (bằng trần Zalo)
+const TARGET_PASSED_PER_SALE = 6; // lead đạt mỗi sale mỗi ngày, 5 sale x 6 = 30 lead cho 30 tin
+const TARGET_REPLY_RATE = 20; // % khách trả lời trên tin đã gửi
+
+function Goal({ label, value, target, unit, note }: { label: string; value: number; target: number; unit?: string; note?: string }) {
+  const pct = target > 0 ? Math.min(100, Math.round((100 * value) / target)) : 0;
+  const tone = pct >= 100 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-400" : "bg-red-400";
+  return (
+    <div className="rounded-xl bg-slate-50 p-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-[11px] font-semibold text-slate-500">{label}</p>
+        <p className="text-[11px] font-bold text-slate-600">{pct}%</p>
+      </div>
+      <p className="text-xl font-extrabold text-navy-800">
+        {value}
+        {unit ?? ""} <span className="text-sm font-semibold text-slate-400">/ {target}{unit ?? ""}</span>
+      </p>
+      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-200">
+        <div className={`h-full ${tone}`} style={{ width: `${pct}%` }} />
+      </div>
+      {note ? <p className="mt-1 text-[11px] text-slate-400">{note}</p> : null}
+    </div>
+  );
+}
 
 const SALE_NOTE: Record<string, string> = {
   Linh: "Shop đặc sản",
   Nam: "Shop online Việt kiều",
   Vy: "Đại lý, cộng tác viên",
-  Mai: "Khách lẻ châu Âu",
+  Mai: "Tiệm và shop người Việt ở châu Âu",
   Khoa: "Linh kiện đi Mỹ",
 };
 
@@ -40,15 +66,17 @@ export default function OfficeKpiPanel() {
   const [data, setData] = useState<KpiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<Range>("today");
+  const [out, setOut] = useState<OutreachResponse | null>(null);
 
   const load = useCallback(async () => {
-    const r = await officeApi<KpiResponse>("kpi");
+    const [r, o] = await Promise.all([officeApi<KpiResponse>("kpi"), officeApi<OutreachResponse>("outreach")]);
     if (!r.ok) {
       setError(r.error);
       return;
     }
     setError(null);
     setData(r.data);
+    if (o.ok) setOut(o.data);
   }, []);
 
   useEffect(() => {
@@ -96,6 +124,32 @@ export default function OfficeKpiPanel() {
         <Metric label="Đã gửi tin" value={t?.sent ?? 0} sub={`${t?.approved ?? 0} đã duyệt`} />
         <Metric label="Khách trả lời" value={t?.replied ?? 0} sub={`${t?.rejected ?? 0} lead bị loại`} tone="text-emerald-700" />
       </div>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4">
+        <h3 className="mb-1 text-base font-bold text-navy-800">So với mục tiêu ({label})</h3>
+        <p className="mb-3 text-xs text-slate-500">
+          Mục tiêu tạm: {TARGET_SENT_PER_DAY} tin gửi mỗi ngày, {TARGET_PASSED_PER_SALE} lead đạt mỗi sale mỗi ngày, {TARGET_REPLY_RATE}% khách trả lời. Chưa đo được tỷ lệ chốt đơn vì hệ thống chưa ghi nhận đơn hàng.
+        </p>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Goal
+            label="Lead đạt (cả phòng)"
+            value={t?.passed ?? 0}
+            target={TARGET_PASSED_PER_SALE * (data?.sales.length ?? 5) * (range === "week" ? Math.max(1, data?.sales[0]?.days.filter((d) => d.tasks > 0).length ?? 1) : 1)}
+          />
+          {range === "today" ? (
+            <Goal label="Tin đã gửi hôm nay" value={out?.systems.zalo.sentToday ?? 0} target={TARGET_SENT_PER_DAY} note="Zalo; WhatsApp đang gửi rất ít" />
+          ) : null}
+          <Goal label="Tỷ lệ khách trả lời" value={out?.replyRate ?? 0} target={TARGET_REPLY_RATE} unit="%" note="tính trên mọi tin đã gửi" />
+          {data?.sales.map((s) => (
+            <Goal
+              key={s.name}
+              label={`${s.name}: lead đạt`}
+              value={s[range].passed}
+              target={TARGET_PASSED_PER_SALE * (range === "week" ? Math.max(1, s.days.filter((d) => d.tasks > 0).length) : 1)}
+            />
+          ))}
+        </div>
+      </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
         {data?.sales.map((s) => {
