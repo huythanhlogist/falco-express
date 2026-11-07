@@ -12,11 +12,12 @@ import { isFinalShipmentStatus, mapKangoStatus, type ShipmentStatus } from "./sh
 import { vnDateString } from "./vn-date";
 
 // Đơn đã giao/hoàn: dữ liệu không đổi nữa nên cache dùng mãi. Đơn đang đi: cron
-// làm mới mỗi ngày, quá 36h tức cron đã lỡ nên trang tra cứu thử gọi live lại.
-// Đơn Kango chưa có dữ liệu (payload null) hay có dữ liệu vào bất cứ lúc nào
+// làm mới mỗi giờ, nhưng khách tra giữa 2 lượt cron vẫn phải thấy mốc mới nhất nên
+// trang tra cứu chỉ tin cache 20 phút rồi gọi live lại (lỗi thì dùng cache cũ).
+// Đơn Kango chưa có dữ liệu (payload null) có thể có dữ liệu bất cứ lúc nào
 // nên chỉ tin cache ngắn hơn.
-const CACHE_FRESH_MS = 36 * 60 * 60 * 1000;
-const CACHE_FRESH_EMPTY_MS = 3 * 60 * 60 * 1000;
+const CACHE_FRESH_MS = 20 * 60 * 1000;
+const CACHE_FRESH_EMPTY_MS = 3 * 60 * 1000;
 
 export function isTrackingCacheFresh(cache: TrackingCacheRow, now = Date.now()): boolean {
   if (isFinalShipmentStatus(cache.shipment_status)) return true;

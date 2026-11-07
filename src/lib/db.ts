@@ -1249,9 +1249,13 @@ export async function upsertTrackingCache(entry: {
   await getPool().query(
     `INSERT INTO order_tracking_cache (order_id, awb, shipment_status, current_status, payload, fetched_at, last_error)
      VALUES (?, ?, ?, ?, ?, ?, NULL)
-     ON DUPLICATE KEY UPDATE awb = VALUES(awb), shipment_status = VALUES(shipment_status),
-       current_status = VALUES(current_status), payload = VALUES(payload),
-       fetched_at = VALUES(fetched_at), last_error = NULL`,
+     ON DUPLICATE KEY UPDATE awb = VALUES(awb),
+       -- Nguồn thỉnh thoảng trả rỗng dù đơn đã có hành trình: giữ bản cũ (và không đẩy fetched_at
+       -- để lượt sau thử lại sớm) thay vì ghi đè hành trình đã có bằng "chưa có dữ liệu".
+       shipment_status = IF(VALUES(payload) IS NULL AND payload IS NOT NULL, shipment_status, VALUES(shipment_status)),
+       current_status = IF(VALUES(payload) IS NULL AND payload IS NOT NULL, current_status, VALUES(current_status)),
+       fetched_at = IF(VALUES(payload) IS NULL AND payload IS NOT NULL, fetched_at, VALUES(fetched_at)),
+       payload = COALESCE(VALUES(payload), payload), last_error = NULL`,
     [
       entry.orderId,
       entry.awb,
