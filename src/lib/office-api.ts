@@ -40,6 +40,8 @@ export type LeadItem = {
   qaNote: string;
   dealStage?: "" | "bao_gia" | "chot_don";
   dealAt?: string;
+  dealValue?: number;
+  intent?: "" | "tu_choi" | "xin_bang_gia" | "hoi_gia" | "thu_tuc" | "khac";
   channel?: string;
   createdAt: string;
 };
@@ -266,7 +268,7 @@ export type KpiResponse = {
   generatedAt: string;
   days: string[];
   logStartsAt: string | null;
-  deals?: { sent: number; replied?: number; quoted: number; won: number };
+  deals?: { sent: number; replied?: number; interested?: number; quoted: number; won: number; value?: number; pending?: number };
   totals: { today: KpiBucket; week: KpiBucket };
   sales: { name: string; code: string; today: KpiBucket; week: KpiBucket; days: (KpiBucket & { day: string })[] }[];
 };

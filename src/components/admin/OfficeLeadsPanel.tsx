@@ -74,7 +74,7 @@ export default function OfficeLeadsPanel() {
     return () => window.clearInterval(id);
   }, [load]);
 
-  async function act(lead: LeadItem, action: "approve" | "reject" | "undo" | "edit" | "quote" | "won" | "dealreset", note?: string) {
+  async function act(lead: LeadItem, action: "approve" | "reject" | "undo" | "edit" | "quote" | "won" | "dealreset", note?: string, value?: number) {
     if (action === "approve") {
       const phone = phoneOf(lead.contact);
       const ok = await confirm(
@@ -91,6 +91,7 @@ export default function OfficeLeadsPanel() {
       action,
       draft: action === "edit" ? drafts[lead.id] : undefined,
       note: action === "reject" ? note : undefined,
+      value: action === "won" ? value : undefined,
     });
     setBusy(null);
     if (!r.ok) {
@@ -225,7 +226,7 @@ export default function OfficeLeadsPanel() {
 
               <div>
                 <label className="mb-1 flex items-center justify-between text-xs font-semibold text-navy-800">
-                  Tin Zalo nháp
+                  Tin nháp (gửi qua Zalo hoặc WhatsApp)
                   <span className={wordCount(current) > 150 ? "text-red-600" : "text-slate-400"}>
                     {wordCount(current)} từ (tối đa 150)
                   </span>
@@ -274,6 +275,15 @@ export default function OfficeLeadsPanel() {
                 ) : null}
                 {l.status === "da_gui" || l.status === "da_phan_hoi" ? (
                   <>
+                    {l.intent && l.intent !== "khac" ? (
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                          l.intent === "tu_choi" ? "bg-red-100 text-red-700" : "bg-sky-100 text-sky-800"
+                        }`}
+                      >
+                        {l.intent === "xin_bang_gia" ? "Khách xin bảng giá" : l.intent === "hoi_gia" ? "Khách hỏi giá" : l.intent === "thu_tuc" ? "Khách hỏi thủ tục" : "Khách từ chối"}
+                      </span>
+                    ) : null}
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-bold ${
                         l.dealStage === "chot_don"
@@ -283,7 +293,7 @@ export default function OfficeLeadsPanel() {
                             : "bg-slate-100 text-slate-500"
                       }`}
                     >
-                      {l.dealStage === "chot_don" ? "Đã chốt đơn" : l.dealStage === "bao_gia" ? "Đã báo giá" : l.status === "da_phan_hoi" ? "Khách đã trả lời" : "Đã gửi tin"}
+                      {l.dealStage === "chot_don" ? `Đã chốt đơn${l.dealValue ? " · " + l.dealValue.toLocaleString("vi-VN") + "đ" : ""}` : l.dealStage === "bao_gia" ? "Đã báo giá" : l.status === "da_phan_hoi" ? "Khách đã trả lời" : "Đã gửi tin"}
                     </span>
                     {l.dealStage !== "bao_gia" && l.dealStage !== "chot_don" ? (
                       <button
@@ -299,7 +309,11 @@ export default function OfficeLeadsPanel() {
                       <button
                         type="button"
                         disabled={busy === l.id}
-                        onClick={() => act(l, "won")}
+                        onClick={() => {
+                          const v = window.prompt("Giá trị đơn (VND). Bỏ trống nếu chưa biết:");
+                          if (v === null) return;
+                          void act(l, "won", undefined, Number(v.replace(/[^\d]/g, "")) || 0);
+                        }}
                         className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
                       >
                         Chốt đơn

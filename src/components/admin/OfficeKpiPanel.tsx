@@ -164,6 +164,23 @@ export default function OfficeKpiPanel() {
         </div>
       </section>
 
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Metric label="Khách quan tâm" value={data?.deals?.interested ?? 0} sub="hỏi giá, xin bảng giá, hỏi thủ tục" tone="text-sky-700" />
+        <Metric label="Đã báo giá" value={data?.deals?.quoted ?? 0} sub="do anh Huy bấm ở tab Lead" />
+        <Metric
+          label="Doanh thu đã chốt"
+          value={`${(data?.deals?.value ?? 0).toLocaleString("vi-VN")}đ`}
+          sub={`${data?.deals?.won ?? 0} đơn, tính từ khi có nút chốt đơn`}
+          tone="text-emerald-700"
+        />
+        <Metric
+          label="Lead đang chờ gửi"
+          value={data?.deals?.pending ?? 0}
+          sub={(data?.deals?.pending ?? 0) > 60 ? "nhiều hơn sức gửi, sale số quốc tế tạm dừng" : "trong sức gửi"}
+          tone={(data?.deals?.pending ?? 0) > 60 ? "text-amber-700" : "text-navy-800"}
+        />
+      </section>
+
       <div className="grid gap-4 lg:grid-cols-2">
         {data?.sales.map((s) => {
           const b = s[range];
