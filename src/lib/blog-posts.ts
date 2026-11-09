@@ -570,6 +570,82 @@ export const BLOG_POSTS: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "gui-qua-do-ca-nhan-cho-nguoi-than-chau-au-anh",
+    title:
+      "Gửi quà, đồ cá nhân cho người thân ở Anh, Đức, Pháp, Hà Lan, Séc, Ba Lan: đóng gói sao để không vỡ, không bị giữ hải quan?",
+    metaTitle: "Gửi quà cho người thân ở châu Âu, Anh đúng cách | Falco Express",
+    metaDescription:
+      "Quà tặng cá nhân gửi vào EU, Anh được miễn thuế nếu đúng giá trị và cách khai báo quy định — nhưng dễ vỡ, dễ bị giữ nếu đóng gói hay khai sai. Cách gửi quà, đồ cá nhân an toàn, kịp Tết, Noel sang Anh, Đức, Pháp, Hà Lan, Séc, Ba Lan.",
+    excerpt:
+      "Gửi quà cho người thân, đặc biệt vào mùa Tết, Noel, là nhu cầu quen thuộc nhưng dễ gặp rủi ro nhất: hàng vỡ trên đường đi, hoặc bị giữ lại vì khai báo sai. Cách đóng gói, khai báo đúng để quà đến tay người nhận nguyên vẹn, đúng dịp.",
+    publishedAt: "2026-11-09",
+    content: [
+      {
+        type: "p",
+        text: "Gửi quà cho người thân, con em du học, hoặc bạn bè đang sống ở Anh, Đức, Pháp, Hà Lan, Séc, Ba Lan là nhu cầu quen thuộc quanh năm, và tăng mạnh vào mùa Tết, Noel. Nhưng quà tặng cá nhân lại có quy định riêng về thuế, khai báo và cách đóng gói — khác với khi mua hàng online hay gửi hàng hoá thương mại. Hiểu đúng trước khi gửi giúp quà đến tay người nhận nguyên vẹn, đúng dịp và không bị phát sinh thuế ngoài dự tính.",
+      },
+      {
+        type: "h2",
+        text: "Quà tặng cá nhân có được miễn thuế không?",
+      },
+      {
+        type: "p",
+        text: "Có, nhưng chỉ khi đáp ứng đúng điều kiện. EU (áp dụng cho Đức, Pháp, Hà Lan, Séc, Ba Lan) có quy định riêng miễn thuế nhập khẩu và VAT cho quà tặng gửi giữa hai cá nhân — không phải mua bán — nếu mang tính không thường xuyên (ví dụ quà sinh nhật, Tết, Noel), không nhằm mục đích thương mại, và tổng giá trị hàng không vượt 45 euro. Anh áp dụng miễn VAT riêng cho quà tặng cá nhân giá trị không vượt 39 bảng Anh (đã nêu ở các trang tuyến của Falco). Đây là ngưỡng dành riêng cho quà tặng cá nhân, tách biệt với ngưỡng miễn thuế hàng hoá mua bán online.",
+      },
+      {
+        type: "note",
+        text: "Từ 1/7/2026, EU đã bỏ ngưỡng miễn thuế 150 euro áp dụng cho hàng hoá mua bán online giá trị thấp từ ngoài khối (cải cách hải quan thương mại). Đây là thay đổi riêng cho hàng hoá thương mại — kiểm tra lại các nguồn chính thức (zoll.de, revenue.ie, cập nhật 2026) cho thấy quy định miễn thuế 45 euro cho quà tặng cá nhân, phi thương mại giữa hai người không nằm trong phạm vi thay đổi này và vẫn áp dụng như trước. Mức thuế, ngưỡng miễn thuế cụ thể vẫn có thể thay đổi theo thời gian — đây là thông tin tham khảo chung tại thời điểm viết bài, không phải tư vấn thuế chính thức.",
+      },
+      {
+        type: "h2",
+        text: "Lưu ý khi khai báo để quà không bị giữ ở hải quan",
+      },
+      {
+        type: "list",
+        items: [
+          "Khai đúng là \"quà tặng\" (gift) trên tờ khai, không khai là hàng mua bán — nếu thông tin khai báo thiếu rõ ràng hoặc không ghi đúng tính chất quà tặng, đơn hàng vẫn có thể bị tính thuế dù thực tế đủ điều kiện miễn",
+          "Một món hàng có giá trị vượt ngưỡng miễn thuế không được \"chia nhỏ\" thành nhiều phần để né thuế — hải quan tính thuế trên giá trị thực của từng món hàng, không chia nhỏ được",
+          "Rượu, thuốc lá, nước hoa dù là quà tặng cũng không được miễn VAT và thuế tiêu thụ đặc biệt, chỉ được miễn thuế nhập khẩu trong hạn mức số lượng rất nhỏ — nên hạn chế chọn các mặt hàng này làm quà nếu không chắc về hạn mức áp dụng",
+          "Khai đúng giá trị thực tế của món quà, không khai thấp hơn để né thuế — đây là rủi ro pháp lý cho người nhận nếu bị phát hiện, không phải cách Falco tư vấn áp dụng",
+        ],
+      },
+      {
+        type: "h2",
+        text: "Đóng gói quà, đồ dễ vỡ để không hư hỏng trên đường vận chuyển",
+      },
+      {
+        type: "list",
+        items: [
+          "Dùng thùng carton chắc chắn (2-3 lớp cho đồ dễ vỡ hoặc nặng), không dùng lại thùng cũ đã giảm độ cứng — nhất là khi gửi gốm, sứ, chai thuỷ tinh, đồ trang trí Tết dễ vỡ",
+          "Bọc riêng từng món bằng xốp hơi hoặc giấy chống sốc, không để các món chạm trực tiếp vào nhau hoặc chạm vách thùng — nên cách vách thùng tối thiểu vài centimet",
+          "Lấp đầy mọi khoảng trống còn lại trong thùng bằng vật liệu chống sốc (xốp, giấy vụn, túi khí) để hàng không xô lệch khi vận chuyển và bốc dỡ",
+          "Với đồ rất dễ vỡ, nên đóng theo kiểu \"thùng trong thùng\": đặt thùng nhỏ chứa đồ vào giữa một thùng ngoài lớn hơn, đệm đều các mặt xung quanh",
+          "Dán nhãn \"hàng dễ vỡ\" (fragile) và mũi tên chỉ chiều để hàng lên mặt ngoài thùng, để nhân viên vận chuyển xử lý và sắp xếp đúng cách",
+        ],
+      },
+      {
+        type: "h2",
+        text: "Gửi quà kịp Tết, Noel: nên chuẩn bị từ khi nào?",
+      },
+      {
+        type: "p",
+        text: "Tết Nguyên Đán 2027 rơi vào đầu tháng 2/2027, cùng với mùa Noel và năm mới dương lịch, là giai đoạn nhu cầu gửi quà tăng cao nhất trong năm. Khối lượng hàng tăng mạnh ở cả phía gửi đi và thông quan tại nước nhận trong giai đoạn này, nên thời gian vận chuyển thực tế có thể lâu hơn ngày thường, đặc biệt với các mặt hàng cần đóng gói kỹ hoặc kiểm tra hải quan kỹ hơn. Falco khuyến nghị khách chủ động gửi sớm nếu quà cần đến đúng dịp lễ, và liên hệ trực tiếp để được báo thời gian vận chuyển ước tính thực tế theo từng tuyến trong giai đoạn cao điểm.",
+      },
+      {
+        type: "h2",
+        text: "Falco Express hỗ trợ gì khi gửi quà cho người thân?",
+      },
+      {
+        type: "p",
+        text: "Falco tư vấn cách đóng gói phù hợp theo từng loại quà (đồ dễ vỡ, thực phẩm, đồ gia dụng...), khai báo đúng là quà tặng cá nhân theo giá trị thực tế, và theo dõi đơn hàng xuyên suốt tới khi người nhận ký nhận — kể cả trong giai đoạn cao điểm Tết, Noel.",
+      },
+      {
+        type: "note",
+        text: "Thông tin về ngưỡng miễn thuế quà tặng cá nhân tham khảo từ trang hải quan chính thức của Đức (zoll.de) và Ireland (revenue.ie, cập nhật 2026), dựa trên Quy định (EC) số 1186/2009 của EU; thông tin về cải cách hải quan EU áp dụng từ 1/7/2026 tham khảo từ các nguồn tin ngành logistics quốc tế (cập nhật 2026); hướng dẫn đóng gói đồ dễ vỡ tham khảo từ DHL (cập nhật 2026). Mức thuế, ngưỡng miễn thuế cụ thể có thể thay đổi theo từng nước và từng thời điểm — đây là thông tin tham khảo chung, không phải tư vấn thuế hoặc hải quan chính thức. Nhắn Zalo hoặc gọi hotline Falco Express để được tư vấn cụ thể cho lô hàng của bạn.",
+      },
+    ],
+  },
 ];
 
 export function getBlogPost(slug: string) {
