@@ -43,6 +43,7 @@ export type LeadItem = {
   dealValue?: number;
   intent?: "" | "tu_choi" | "xin_bang_gia" | "hoi_gia" | "thu_tuc" | "khac";
   channel?: string;
+  sendNote?: string;
   createdAt: string;
 };
 

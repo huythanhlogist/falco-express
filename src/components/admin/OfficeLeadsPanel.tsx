@@ -224,9 +224,24 @@ export default function OfficeLeadsPanel() {
                     {l.saleAgent} · {l.product} · {l.markets} · {fmtTime(l.createdAt)}
                   </p>
                 </div>
-                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
-                  {l.score} điểm
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
+                    {l.score} điểm
+                  </span>
+                  {l.sendNote ? (
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                        l.sendNote.includes("đã gửi")
+                          ? "bg-sky-100 text-sky-800"
+                          : l.sendNote.includes("lỗi")
+                            ? "bg-red-100 text-red-700"
+                            : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      {l.sendNote.replace(" (ghi từ Sheet)", "")}
+                    </span>
+                  ) : null}
+                </div>
               </div>
 
               <p className="text-xs text-slate-600">
