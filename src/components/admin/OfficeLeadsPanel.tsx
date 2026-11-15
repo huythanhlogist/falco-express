@@ -12,9 +12,10 @@ import {
   type NoteItem,
 } from "@/lib/office-api";
 
-type Filter = "cho_duyet" | "da_duyet" | "da_gui" | "loai";
+type Filter = "giu_tay" | "cho_duyet" | "da_duyet" | "da_gui" | "loai";
 
 const FILTERS: { id: Filter; label: string }[] = [
+  { id: "giu_tay", label: "Gửi tay (từ 85 điểm)" },
   { id: "cho_duyet", label: "Chờ duyệt" },
   { id: "da_duyet", label: "Đã duyệt" },
   { id: "da_gui", label: "Đã gửi" },
@@ -39,6 +40,13 @@ const REJECT_REASONS = [
   "Không đúng chân dung khách của sale này",
 ];
 
+function phoneToCopy(contact: string): string {
+  const vn = phoneOf(contact);
+  if (vn) return vn;
+  const m = (contact || "").match(/(?:\+|00)\s*\d[\d\s.()\-]{8,16}\d/);
+  return m ? m[0].replace(/[\s.()\-]/g, "") : (contact || "").trim();
+}
+
 function wordCount(s: string) {
   return s.trim().split(/\s+/).filter(Boolean).length;
 }
@@ -46,7 +54,7 @@ function wordCount(s: string) {
 export default function OfficeLeadsPanel() {
   const toast = useToast();
   const confirm = useConfirm();
-  const [filter, setFilter] = useState<Filter>("cho_duyet");
+  const [filter, setFilter] = useState<Filter>("giu_tay");
   const [data, setData] = useState<LeadsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<number, string>>({});
@@ -57,6 +65,18 @@ export default function OfficeLeadsPanel() {
   const [sale, setSale] = useState("all");
   const [rejectFor, setRejectFor] = useState<number | null>(null);
   const [rejectText, setRejectText] = useState("");
+
+  const copyText = useCallback(
+    async (text: string, okMsg: string) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        toast(okMsg, "success");
+      } catch {
+        toast("Không copy được, hãy bôi đen và copy tay", "error");
+      }
+    },
+    [toast],
+  );
 
   const load = useCallback(async () => {
     const r = await officeApi<LeadsResponse>(`leads?status=${filter}`);
@@ -242,7 +262,21 @@ export default function OfficeLeadsPanel() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {l.status === "cho_duyet" ? (
+                <button
+                  type="button"
+                  onClick={() => copyText(phoneToCopy(l.contact), "Đã copy số: " + phoneToCopy(l.contact))}
+                  className="rounded-lg border border-teal-700 px-3 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-50"
+                >
+                  Copy số
+                </button>
+                <button
+                  type="button"
+                  onClick={() => copyText(current, "Đã copy tin nhắn")}
+                  className="rounded-lg bg-teal-700 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+                >
+                  Copy tin nhắn
+                </button>
+                {l.status === "cho_duyet" && filter !== "giu_tay" ? (
                   <>
                     <button
                       type="button"

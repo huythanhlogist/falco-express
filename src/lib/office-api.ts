@@ -48,7 +48,7 @@ export type LeadItem = {
 
 export type LeadsResponse = {
   status: string;
-  counts: { cho_duyet: number; da_duyet: number; loai: number; da_gui: number };
+  counts: { cho_duyet: number; da_duyet: number; loai: number; da_gui: number; giu_tay: number };
   leads: LeadItem[];
 };
 
