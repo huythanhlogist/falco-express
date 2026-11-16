@@ -646,6 +646,79 @@ export const BLOG_POSTS: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "gui-hang-qua-dhl-tu-lam-hay-dich-vu-gui-hang-ca-nhan",
+    title:
+      "Gửi hàng đi châu Âu, Anh: tự đặt DHL hay dùng dịch vụ gửi hàng cá nhân trọn gói — khác nhau thế nào?",
+    metaTitle: "Tự gửi DHL hay dịch vụ gửi hàng trọn gói? | Falco Express",
+    metaDescription:
+      "Tự đặt DHL, người nhận ở châu Âu, Anh có thể phải tự trả thuế khi hàng tới nếu không đăng ký trả trước. So sánh khác biệt về hải quan, thủ tục, trách nhiệm giữa tự gửi DHL và dịch vụ gửi hàng cá nhân trọn gói.",
+    excerpt:
+      "Nhiều người cân nhắc giữa tự đặt DHL và dùng dịch vụ gửi hàng cá nhân khi gửi quà, đồ dùng cho người thân ở châu Âu, Anh. Khác biệt lớn nhất không phải ở tốc độ, mà ở ai lo thủ tục hải quan và ai chịu rủi ro nếu khai sai.",
+    publishedAt: "2026-11-16",
+    content: [
+      {
+        type: "p",
+        text: "Gửi đồ cho người thân, du học sinh ở Anh, Đức, Pháp, Hà Lan, Séc, Ba Lan, nhiều người nghĩ đến việc tự ra bưu cục đặt DHL hoặc một hãng chuyển phát nhanh quốc tế tương tự, vì đây là tên tuổi quen thuộc. Cách này không sai, nhưng có vài điểm cần hiểu rõ trước — đặc biệt về việc ai lo thủ tục hải quan và ai phải trả thêm phí nếu khai báo chưa đúng — để không khiến người nhận ở nước ngoài bị bất ngờ.",
+      },
+      {
+        type: "h2",
+        text: "Ai trả thuế, phí hải quan khi hàng tới nơi?",
+      },
+      {
+        type: "p",
+        text: "Theo trang hỏi đáp chính thức của DHL Express về thuế và phí hải quan, việc trả thuế nhập khẩu khi hàng tới nước nhận \"thường là trách nhiệm của người nhận\": DHL tạm nộp các khoản này thay người nhận để hàng được thông quan, sau đó gửi hoá đơn đòi lại. Nếu người gửi muốn tự chịu toàn bộ chi phí này ngay từ đầu — để người thân ở nước ngoài không phải trả thêm gì khi nhận hàng — DHL có dịch vụ trả trước thuế, phí riêng, nhưng người gửi phải chủ động đăng ký khi tạo đơn, không phải mặc định.",
+      },
+      {
+        type: "note",
+        text: "DHL cũng nêu rõ: nhìn chung, hãng không giao được hàng nếu các khoản thuế, phí này chưa được thanh toán. Nghĩa là nếu người nhận chưa kịp trả, không đồng ý trả, hoặc không rõ vì sao phải trả thêm, đơn hàng có thể bị giữ lại chờ xử lý — đúng lúc người thân đang mong nhận quà.",
+      },
+      {
+        type: "p",
+        text: "Đây chính là khái niệm DDP (Delivered Duty Paid) Falco đã giải thích ở bài viết riêng về DDP. Điểm khác nhau trong thực tế: tự đặt DHL, người gửi phải tự biết để hỏi và đăng ký dịch vụ trả trước này mỗi lần gửi; dùng dịch vụ gửi hàng cá nhân trọn gói, việc này thường được xử lý sẵn trong quy trình ngay từ đầu nên người nhận không bị yêu cầu trả thêm khi hàng tới.",
+      },
+      {
+        type: "h2",
+        text: "Khai báo hải quan: ai làm, và dễ sai ở đâu nhất?",
+      },
+      {
+        type: "p",
+        text: "Tự đặt gửi qua DHL hoặc hãng chuyển phát nhanh quốc tế tương tự, người gửi tự điền mô tả hàng hoá, mã số hàng hoá và giá trị khai báo trên hệ thống — giao diện và phần hỗ trợ chủ yếu bằng tiếng Anh. Với hàng có hoá đơn mua bán rõ ràng, việc này không khó. Nhưng với hàng cá nhân không có hoá đơn — quà tặng, đồ dùng cá nhân mang theo khi đi học hoặc định cư — việc tự xác định nên khai là gì, giá trị bao nhiêu để đúng và không bị tính nhầm thuế lại là phần dễ sai nhất với người lần đầu gửi hàng quốc tế.",
+      },
+      {
+        type: "p",
+        text: "Dùng dịch vụ gửi hàng cá nhân trọn gói, nhân viên hỏi trực tiếp bằng tiếng Việt về loại hàng, mục đích gửi (quà tặng, đồ cá nhân, tài liệu...) rồi khai báo thay theo đúng tính chất lô hàng — giảm rủi ro khai sai dẫn tới bị giữ hàng hoặc phát sinh thuế ngoài dự tính mà người gửi không lường trước.",
+      },
+      {
+        type: "h2",
+        text: "Khi nào tự đặt DHL vẫn là lựa chọn hợp lý?",
+      },
+      {
+        type: "p",
+        text: "Không phải lúc nào dùng dịch vụ trọn gói cũng là lựa chọn duy nhất. Tự đặt DHL hoặc hãng chuyển phát nhanh quốc tế tương tự phù hợp hơn khi: hàng có hoá đơn mua bán rõ ràng (ví dụ mẫu hàng kinh doanh, hàng đã qua xử lý thương mại), người gửi đã quen thao tác khai hải quan quốc tế, cần gửi một món hàng gấp và không ngại tự theo dõi, tự liên hệ xử lý nếu có vướng mắc bằng tiếng Anh.",
+      },
+      {
+        type: "list",
+        items: [
+          "Dùng dịch vụ gửi hàng cá nhân trọn gói phù hợp hơn khi: gửi quà, thực phẩm, đồ cá nhân, đồ cho du học sinh hoặc người chuẩn bị định cư — loại hàng không có hoá đơn mua bán rõ ràng",
+          "Cần người hỗ trợ tiếng Việt từ lúc gửi tới khi người nhận ký nhận, không phải tự xử lý vướng mắc hải quan bằng tiếng Anh",
+          "Muốn biết trước sẽ xử lý DDP ra sao để người nhận không bị bất ngờ phải trả thêm thuế, phí khi hàng tới",
+        ],
+      },
+      {
+        type: "h2",
+        text: "Falco Express xử lý phần nào trong số này?",
+      },
+      {
+        type: "p",
+        text: "Falco hỏi và khai báo thay khách theo đúng tính chất lô hàng, theo dõi đơn xuyên suốt tới khi người nhận ký nhận, và trao đổi trực tiếp bằng tiếng Việt qua Zalo hoặc hotline nếu phía hải quan nước nhận cần làm rõ thêm điều gì.",
+      },
+      {
+        type: "note",
+        text: "Thông tin về trách nhiệm trả thuế, phí và dịch vụ trả trước thuế (DDP) tham khảo trực tiếp từ trang hỏi đáp chính thức của DHL Express về thuế và phí hải quan (mydhl.express.dhl, cập nhật 2026). Đây là quy định chung của DHL Express tại thời điểm viết bài, không đại diện cho mọi hãng chuyển phát nhanh quốc tế hoặc mọi thị trường, và không phải tư vấn hải quan chính thức. Nhắn Zalo hoặc gọi hotline Falco Express để được tư vấn cụ thể cho lô hàng của bạn.",
+      },
+    ],
+  },
 ];
 
 export function getBlogPost(slug: string) {
