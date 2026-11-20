@@ -57,6 +57,37 @@ export function ensureOrdersSchema(): Promise<void> {
   return schemaReady;
 }
 
+// Tự tạo bảng ảnh kiện + cột ghi chú cho khách của bill Kango khi web chạy lần đầu sau khi cập nhật
+// (idempotent, 1 lần mỗi tiến trình) — MySQL Hostinger chặn kết nối từ máy ngoài nên không chạy script tay được.
+let kangoBillSchemaReady: Promise<void> | null = null;
+export function ensureKangoBillSchema(): Promise<void> {
+  if (!kangoBillSchemaReady) {
+    kangoBillSchemaReady = (async () => {
+      const [cols] = await getPool().query("SHOW COLUMNS FROM kango_bills LIKE 'customer_note'");
+      if ((cols as unknown[]).length === 0) {
+        await getPool().query("ALTER TABLE kango_bills ADD COLUMN customer_note TEXT NULL");
+      }
+      await getPool().query(`
+        CREATE TABLE IF NOT EXISTS kango_bill_images (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          bill_id INT NOT NULL,
+          filename VARCHAR(255) NOT NULL,
+          mime_type VARCHAR(100) NOT NULL,
+          file_size INT NOT NULL,
+          data LONGBLOB NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_kango_bill_images_bill_id (bill_id),
+          FOREIGN KEY (bill_id) REFERENCES kango_bills(id) ON DELETE CASCADE
+        )
+      `);
+    })().catch((err) => {
+      kangoBillSchemaReady = null;
+      throw err;
+    });
+  }
+  return kangoBillSchemaReady;
+}
+
 export type PaymentStatus = "unpaid" | "collected_by_staff" | "collected_by_ctv" | "paid";
 export type OrderSource = "staff" | "ctv";
 export type OrderReviewStatus = "auto_approved" | "pending" | "approved" | "rejected";
@@ -914,17 +945,20 @@ export type NewKangoBill = {
 };
 
 export async function listKangoBills(): Promise<KangoBill[]> {
+  await ensureKangoBillSchema();
   const [rows] = await getPool().query("SELECT * FROM kango_bills ORDER BY id DESC");
   return rows as KangoBill[];
 }
 
 export async function findKangoBillById(id: number): Promise<KangoBill | null> {
+  await ensureKangoBillSchema();
   const [rows] = await getPool().query("SELECT * FROM kango_bills WHERE id = ? LIMIT 1", [id]);
   const list = rows as KangoBill[];
   return list[0] ?? null;
 }
 
 export async function insertKangoBill(data: NewKangoBill): Promise<number> {
+  await ensureKangoBillSchema();
   const [result] = await getPool().query(
     `INSERT INTO kango_bills
       (receiver_company_name, receiver_contact_name, receiver_telephone, receiver_country,
@@ -1007,6 +1041,7 @@ const KANGO_BILL_FIELD_COLUMNS: Record<keyof KangoBillEditableFields, string> = 
 };
 
 export async function updateKangoBill(id: number, fields: KangoBillEditableFields): Promise<boolean> {
+  await ensureKangoBillSchema();
   const entries = Object.entries(fields) as [keyof KangoBillEditableFields, unknown][];
   if (entries.length === 0) return false;
   const setClause = entries.map(([key]) => `${KANGO_BILL_FIELD_COLUMNS[key]} = ?`).join(", ");
@@ -1031,6 +1066,7 @@ export async function markKangoBillSent(
   id: number,
   data: { sentBy: string; kangoBillId: string; hawbs: string[]; redirectUrl: string }
 ): Promise<void> {
+  await ensureKangoBillSchema();
   await getPool().query(
     `UPDATE kango_bills
      SET status = 'sent', sent_by = ?, sent_at = NOW(), kango_bill_id = ?, kango_hawbs_json = ?, kango_redirect_url = ?, send_error = NULL
@@ -1101,6 +1137,7 @@ export async function insertKangoBillImages(
   billId: number,
   files: NewKangoBillImage[]
 ): Promise<number[]> {
+  await ensureKangoBillSchema();
   const pool = getPool();
   const ids: number[] = [];
   for (const file of files) {
@@ -1115,6 +1152,7 @@ export async function insertKangoBillImages(
 }
 
 export async function listKangoBillImages(billId: number): Promise<KangoBillImageMeta[]> {
+  await ensureKangoBillSchema();
   const [rows] = await getPool().query(
     `SELECT id, bill_id, filename, mime_type, file_size, created_at
      FROM kango_bill_images
@@ -1126,6 +1164,7 @@ export async function listKangoBillImages(billId: number): Promise<KangoBillImag
 }
 
 export async function findKangoBillImageById(id: number): Promise<KangoBillImage | null> {
+  await ensureKangoBillSchema();
   const [rows] = await getPool().query(
     `SELECT id, bill_id, filename, mime_type, file_size, data, created_at
      FROM kango_bill_images
@@ -1138,6 +1177,7 @@ export async function findKangoBillImageById(id: number): Promise<KangoBillImage
 }
 
 export async function deleteKangoBillImage(id: number): Promise<boolean> {
+  await ensureKangoBillSchema();
   const [result] = await getPool().query("DELETE FROM kango_bill_images WHERE id = ?", [id]);
   return (result as mysql.ResultSetHeader).affectedRows > 0;
 }
