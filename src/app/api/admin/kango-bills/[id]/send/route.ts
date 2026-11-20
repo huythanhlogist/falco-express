@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentAdminSession } from "@/lib/auth";
 import { findKangoBillById, markKangoBillSendFailed, markKangoBillSent } from "@/lib/db";
 import { submitKangoBill } from "@/lib/kango-bill-api";
+import { notifyN8nKangoBillSent } from "@/lib/n8n-webhook";
 
 // Agent (n8n) được phép gửi khi có AGENT_API_KEY đúng, nhưng CHỈ với bill do chính agent tạo
 // (createdBy = AGENT_CREATED_BY). Bill nhân viên tạo tay vẫn phải do nhân viên đăng nhập duyệt.
@@ -37,11 +38,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: result.error }, { status: 502 });
   }
 
+  const sentBy = session ? session.email : AGENT_CREATED_BY;
   await markKangoBillSent(bill.id, {
-    sentBy: session ? session.email : AGENT_CREATED_BY,
+    sentBy,
     kangoBillId: result.billId,
     hawbs: result.hawbs,
     redirectUrl: result.redirectUrl,
+  });
+
+  await notifyN8nKangoBillSent({
+    billId: bill.id,
+    kangoBillId: result.billId,
+    hawbs: result.hawbs,
+    receiverName: bill.receiver_contact_name,
+    sentBy,
   });
 
   return NextResponse.json({ ok: true, billId: result.billId, hawbs: result.hawbs, redirectUrl: result.redirectUrl });

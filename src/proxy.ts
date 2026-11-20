@@ -18,6 +18,11 @@ const PUBLIC_CTV_PATHS = ["/fwd/login", "/api/ctv/login"];
  */
 const AGENT_ALLOWED_ROUTES: { method: string; pattern: RegExp }[] = [
   { method: "POST", pattern: /^\/api\/admin\/kango-bills$/ },
+  { method: "PATCH", pattern: /^\/api\/admin\/kango-bills\/\d+$/ },
+  { method: "GET", pattern: /^\/api\/admin\/kango-bills\/\d+\/images$/ },
+  { method: "POST", pattern: /^\/api\/admin\/kango-bills\/\d+\/images$/ },
+  { method: "GET", pattern: /^\/api\/admin\/kango-bills\/images\/\d+$/ },
+  { method: "GET", pattern: /^\/api\/admin\/kango-bills\/\d+\/face$/ },
   { method: "GET", pattern: /^\/api\/admin\/ai-intake$/ },
   { method: "GET", pattern: /^\/api\/admin\/ai-intake\/\d+\/images$/ },
   { method: "GET", pattern: /^\/api\/admin\/ai-intake\/image\/\d+$/ },

@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { getCurrentAdminSession } from "@/lib/auth";
 import { deleteKangoBill, findKangoBillById, updateKangoBill, type KangoBillEditableFields } from "@/lib/db";
-import { validateKangoInvoices, validateKangoPackages } from "@/lib/kango-bill-validate";
+import { validateCustomerNote, validateKangoInvoices, validateKangoPackages } from "@/lib/kango-bill-validate";
+
+function isValidAgentKey(request: Request): boolean {
+  const key = request.headers.get("x-agent-api-key");
+  const expected = process.env.AGENT_API_KEY;
+  return Boolean(key && expected && key === expected);
+}
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getCurrentAdminSession();
@@ -15,7 +21,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getCurrentAdminSession();
-  if (!session) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  const isAgent = !session && isValidAgentKey(request);
+  if (!session && !isAgent) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const { id } = await params;
   const body = await request.json();
@@ -71,6 +78,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const parsed = validateKangoInvoices(body.invoices);
     if (parsed === null) return NextResponse.json({ error: "Thông tin invoice không hợp lệ" }, { status: 400 });
     fields.invoices = parsed;
+  }
+  if (body.customerNote !== undefined) {
+    const parsed = validateCustomerNote(body.customerNote);
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    fields.customerNote = parsed.value;
   }
 
   const ok = await updateKangoBill(Number(id), fields);

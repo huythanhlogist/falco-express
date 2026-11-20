@@ -415,6 +415,42 @@ curl -X POST https://falcoexpress.com/api/admin/kango-bills \
   }'
 ```
 
+### Ảnh kiện & webhook n8n
+
+- **Bảng MySQL mới** `kango_bill_images` (lưu ảnh kiện hàng đã đóng dạng `LONGBLOB`, gắn `bill_id` với `ON DELETE CASCADE`, tối đa 6 ảnh/bill, JPEG/PNG/WebP ≤ 5 MB/ảnh). Chạy 1 lần:
+
+  ```bash
+  npx tsx scripts/setup-kango-bill-images-table.ts
+  ```
+
+- **Cột ghi chú cho khách** `kango_bills.customer_note` (`TEXT NULL`, tối đa 500 ký tự, chỉ lưu nội bộ và in lên mặt bill — không gửi lên Kango). Chạy 1 lần: `npx tsx scripts/alter-kango-bills-add-customer-note.ts`.
+
+- **API ảnh kiện & mặt bill** (xác thực bằng phiên admin hoặc `x-agent-api-key`, riêng `DELETE` chỉ phiên admin):
+  - `POST /api/admin/kango-bills/[id]/images` (multipart field `images`) — tải ảnh kiện lên, trả `{ images: [{ id, filename, mime_type, url }] }`.
+  - `GET /api/admin/kango-bills/[id]/images` — danh sách ảnh của bill.
+  - `GET /api/admin/kango-bills/images/[imageId]` — trả binary ảnh đúng `Content-Type`.
+  - `DELETE /api/admin/kango-bills/images/[imageId]` — xoá ảnh (chỉ phiên admin).
+  - `GET /api/admin/kango-bills/[id]/face` — xuất ảnh PNG mặt bill (`next/og`, `Cache-Control: no-store`).
+
+- **Biến môi trường mới** (trong `.env.local` và Environment variables trên hPanel) — để trống thì không gọi n8n:
+
+  ```
+  N8N_BILL_SENT_WEBHOOK_URL=https://n8n.falcoexpress.com/webhook/kango/bill-sent
+  ```
+
+- **Payload webhook**: ngay sau khi `POST /api/admin/kango-bills/[id]/send` gửi Kango thành công và đánh dấu `sent`, server `POST` JSON tới `N8N_BILL_SENT_WEBHOOK_URL` kèm header `x-agent-api-key: <AGENT_API_KEY>` (n8n kiểm tra bằng credential "Falco Agent Key"; workflow "Kango 7 - bill da gui -> Zalo kho") (timeout 5 giây; nếu lỗi chỉ ghi `console.error`, không làm hỏng phản hồi gửi bill):
+
+  ```json
+  {
+    "event": "kango_bill_sent",
+    "billId": 123,
+    "kangoBillId": "KB123456",
+    "hawbs": ["HAWB001", "HAWB002"],
+    "receiverName": "Nguyen Van A",
+    "sentBy": "admin@falcoexpress.com"
+  }
+  ```
+
 ## Nhập đơn cho AI tạo bill
 
 `/admin/ai-nhap-don` — nhân viên dán ghi chú đơn hàng (tên/SĐT/địa chỉ
@@ -596,8 +632,9 @@ Hostinger mà không cần cài lại `node_modules` đầy đủ trên server.
    `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` (xem mục "Tra cứu vận đơn:
    MySQL + API Kango"), `ADMIN_SESSION_SECRET` (xem mục "Trang quản trị
    (admin)"), `CTV_SESSION_SECRET` (xem mục "Tài khoản CTV"),
-   `KANGO_CREATE_BILL_API_URL`, `AGENT_API_KEY` (xem mục "Tạo bill"),
-   `CRON_SECRET` (xem mục "Cache trạng thái vận chuyển").
+   `KANGO_CREATE_BILL_API_URL`, `AGENT_API_KEY`, `N8N_BILL_SENT_WEBHOOK_URL`,
+   `N8N_WEBHOOK_SECRET` (xem mục "Tạo bill"), `CRON_SECRET` (xem mục "Cache
+   trạng thái vận chuyển").
 6. **Khởi động ứng dụng**: dùng nút Restart trong hPanel Node.js, hoặc trỏ
    startup file tới `server.js` dưới đây nếu Hostinger yêu cầu một entry
    point cố định:

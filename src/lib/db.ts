@@ -876,6 +876,7 @@ export type KangoBill = {
   shipment_export_as: number;
   packages_json: string;
   invoices_json: string | null;
+  customer_note: string | null;
   status: KangoBillStatus;
   kango_bill_id: string | null;
   kango_hawbs_json: string | null;
@@ -908,6 +909,7 @@ export type NewKangoBill = {
   shipmentExportAs: number;
   packages: KangoPackage[];
   invoices: KangoInvoiceItem[];
+  customerNote: string | null;
   createdBy: string;
 };
 
@@ -929,8 +931,8 @@ export async function insertKangoBill(data: NewKangoBill): Promise<number> {
        receiver_state_name, receiver_city, receiver_postal_code, receiver_address_1,
        receiver_address_2, receiver_address_3, shipment_service, shipment_signature_flg,
        shipment_branch, shipment_reference_code, shipment_goods_name, shipment_value,
-       shipment_export_as, packages_json, invoices_json, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       shipment_export_as, packages_json, invoices_json, customer_note, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       data.receiverCompanyName,
       data.receiverContactName,
@@ -951,6 +953,7 @@ export async function insertKangoBill(data: NewKangoBill): Promise<number> {
       data.shipmentExportAs,
       JSON.stringify(data.packages),
       JSON.stringify(data.invoices),
+      data.customerNote,
       data.createdBy,
     ]
   );
@@ -977,6 +980,7 @@ export type KangoBillEditableFields = Partial<{
   shipmentExportAs: number;
   packages: KangoPackage[];
   invoices: KangoInvoiceItem[];
+  customerNote: string | null;
 }>;
 
 const KANGO_BILL_FIELD_COLUMNS: Record<keyof KangoBillEditableFields, string> = {
@@ -999,6 +1003,7 @@ const KANGO_BILL_FIELD_COLUMNS: Record<keyof KangoBillEditableFields, string> = 
   shipmentExportAs: "shipment_export_as",
   packages: "packages_json",
   invoices: "invoices_json",
+  customerNote: "customer_note",
 };
 
 export async function updateKangoBill(id: number, fields: KangoBillEditableFields): Promise<boolean> {
@@ -1072,6 +1077,69 @@ export async function listRecentKangoReceivers(): Promise<KangoRecentReceiver[]>
      LIMIT 50`
   );
   return rows as KangoRecentReceiver[];
+}
+
+export type KangoBillImage = {
+  id: number;
+  bill_id: number;
+  filename: string;
+  mime_type: string;
+  file_size: number;
+  data: Buffer;
+  created_at: string;
+};
+
+export type KangoBillImageMeta = Omit<KangoBillImage, "data">;
+
+export type NewKangoBillImage = {
+  filename: string;
+  mimeType: string;
+  buffer: Buffer;
+};
+
+export async function insertKangoBillImages(
+  billId: number,
+  files: NewKangoBillImage[]
+): Promise<number[]> {
+  const pool = getPool();
+  const ids: number[] = [];
+  for (const file of files) {
+    const [result] = await pool.query(
+      `INSERT INTO kango_bill_images (bill_id, filename, mime_type, file_size, data)
+       VALUES (?, ?, ?, ?, ?)`,
+      [billId, file.filename, file.mimeType, file.buffer.length, file.buffer]
+    );
+    ids.push((result as mysql.ResultSetHeader).insertId);
+  }
+  return ids;
+}
+
+export async function listKangoBillImages(billId: number): Promise<KangoBillImageMeta[]> {
+  const [rows] = await getPool().query(
+    `SELECT id, bill_id, filename, mime_type, file_size, created_at
+     FROM kango_bill_images
+     WHERE bill_id = ?
+     ORDER BY id ASC`,
+    [billId]
+  );
+  return rows as KangoBillImageMeta[];
+}
+
+export async function findKangoBillImageById(id: number): Promise<KangoBillImage | null> {
+  const [rows] = await getPool().query(
+    `SELECT id, bill_id, filename, mime_type, file_size, data, created_at
+     FROM kango_bill_images
+     WHERE id = ?
+     LIMIT 1`,
+    [id]
+  );
+  const list = rows as KangoBillImage[];
+  return list[0] ?? null;
+}
+
+export async function deleteKangoBillImage(id: number): Promise<boolean> {
+  const [result] = await getPool().query("DELETE FROM kango_bill_images WHERE id = ?", [id]);
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
 }
 
 // ---------- Admin: quản lý đơn hàng ----------

@@ -53,3 +53,22 @@ export function validateKangoInvoices(invoices: unknown): KangoInvoiceItem[] | n
   }
   return parsed;
 }
+
+export const MAX_CUSTOMER_NOTE_LENGTH = 500;
+
+export function validateCustomerNote(
+  raw: unknown
+): { ok: true; value: string | null } | { ok: false; error: string } {
+  if (raw === undefined || raw === null) return { ok: true, value: null };
+  if (typeof raw !== "string") {
+    return { ok: false, error: "Ghi chú cho khách không hợp lệ" };
+  }
+  const trimmed = raw.trim();
+  if (trimmed.length > MAX_CUSTOMER_NOTE_LENGTH) {
+    return {
+      ok: false,
+      error: `Ghi chú cho khách không được vượt quá ${MAX_CUSTOMER_NOTE_LENGTH} ký tự`,
+    };
+  }
+  return { ok: true, value: trimmed || null };
+}

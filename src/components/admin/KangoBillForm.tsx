@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import { TrashIcon } from "@/components/icons";
+import { CloseIcon, TrashIcon } from "@/components/icons";
+import { useToast } from "@/components/ui/Toast";
+
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_BILL_IMAGES = 6;
 
 const BRANCH_OPTIONS = [
   { value: "HCM", label: "TP. Hồ Chí Minh (HCM)" },
@@ -63,6 +68,7 @@ type FormState = {
   shipmentGoodsName: string;
   shipmentValue: string;
   shipmentExportAs: number;
+  customerNote: string;
 };
 
 const EMPTY_PACKAGE: PackageRow = {
@@ -100,6 +106,7 @@ const EMPTY_FORM: FormState = {
   shipmentGoodsName: "",
   shipmentValue: "",
   shipmentExportAs: 0,
+  customerNote: "",
 };
 
 type RecentReceiver = {
@@ -119,10 +126,15 @@ export type KangoBillInitial = FormState & { id: number; packages: PackageRow[];
 
 export default function KangoBillForm({ initial }: { initial?: KangoBillInitial }) {
   const router = useRouter();
+  const toast = useToast();
   const [form, setForm] = useState<FormState>(initial ?? EMPTY_FORM);
   const [packages, setPackages] = useState<PackageRow[]>(initial?.packages ?? [{ ...EMPTY_PACKAGE }]);
   const [invoices, setInvoices] = useState<InvoiceRow[]>(initial?.invoices ?? []);
   const [recentReceivers, setRecentReceivers] = useState<RecentReceiver[]>([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [imageError, setImageError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -132,6 +144,40 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
       .then((json) => setRecentReceivers(json.receivers ?? []))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const urls = imageFiles.map((f) => URL.createObjectURL(f));
+    setImagePreviews(urls);
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, [imageFiles]);
+
+  function handleImageSelect(e: ChangeEvent<HTMLInputElement>) {
+    setImageError("");
+    const picked = Array.from(e.target.files ?? []);
+    if (picked.length === 0) return;
+
+    if (imageFiles.length + picked.length > MAX_BILL_IMAGES) {
+      setImageError(`Tối đa ${MAX_BILL_IMAGES} ảnh mỗi bill (đã chọn ${imageFiles.length} ảnh)`);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    for (const file of picked) {
+      if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+        setImageError(`"${file.name}" không đúng định dạng (chỉ nhận JPEG, PNG, WebP)`);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+      if (file.size > MAX_IMAGE_BYTES) {
+        setImageError(`Ảnh "${file.name}" vượt quá 5 MB`);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+    }
+
+    setImageFiles((prev) => [...prev, ...picked]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
   function applyReceiver(r: RecentReceiver) {
     setForm((f) => ({
@@ -177,6 +223,10 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
       setError("Vui lòng nhập đủ kích thước/cân nặng cho mọi kiện hàng");
       return;
     }
+    if (form.customerNote.trim().length > 500) {
+      setError("Ghi chú cho khách không được vượt quá 500 ký tự");
+      return;
+    }
 
     const payload = {
       receiverCompanyName: form.receiverCompanyName,
@@ -213,6 +263,7 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
           invoicePrice: Number(i.invoicePrice) || 0,
           invoiceTotalPrice: Number(i.invoiceTotalPrice) || 0,
         })),
+      customerNote: form.customerNote.trim() || null,
     };
 
     setSaving(true);
@@ -233,7 +284,38 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
         setError(json.error || "Có lỗi xảy ra");
         return;
       }
-      router.push(initial ? `/admin/kango-bills/${initial.id}` : `/admin/kango-bills/${json.id}`);
+
+      if (initial) {
+        router.push(`/admin/kango-bills/${initial.id}`);
+        router.refresh();
+        return;
+      }
+
+      const newBillId = json.id as number;
+      let uploadWarning = "";
+      if (imageFiles.length > 0) {
+        try {
+          const formData = new FormData();
+          for (const file of imageFiles) formData.append("images", file);
+          const uploadRes = await fetch(`/api/admin/kango-bills/${newBillId}/images`, {
+            method: "POST",
+            body: formData,
+          });
+          if (!uploadRes.ok) {
+            const uploadJson = await uploadRes.json().catch(() => null);
+            uploadWarning = uploadJson?.error || "Không tải được ảnh kiện hàng";
+          }
+        } catch {
+          uploadWarning = "Lỗi mạng khi tải ảnh kiện hàng";
+        }
+      }
+
+      if (uploadWarning) {
+        toast(`Bill #${newBillId} đã tạo nhưng tải ảnh lỗi: ${uploadWarning}`, "error");
+        router.push(`/admin/kango-bills/${newBillId}?imageUploadError=${encodeURIComponent(uploadWarning)}`);
+      } else {
+        router.push(`/admin/kango-bills/${newBillId}`);
+      }
       router.refresh();
     } finally {
       setSaving(false);
@@ -445,6 +527,61 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
           ))}
           {invoices.length === 0 && <p className="text-xs text-ink/45">Không bắt buộc — chỉ cần khi có yêu cầu khai invoice chi tiết.</p>}
         </div>
+      </section>
+
+      {!initial && (
+        <section className="rounded-xl border border-line bg-white p-4">
+          <p className="font-display text-sm font-bold text-navy-900">
+            Ảnh kiện hàng (tuỳ chọn) ({imageFiles.length}/{MAX_BILL_IMAGES})
+          </p>
+          <p className="mt-1 text-xs text-ink/50">
+            Chọn ảnh kiện hàng đã đóng (JPEG, PNG, WebP · ≤ 5 MB/ảnh · tối đa {MAX_BILL_IMAGES} ảnh). Ảnh sẽ tự tải lên ngay sau khi lưu bill.
+          </p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            disabled={saving || imageFiles.length >= MAX_BILL_IMAGES}
+            onChange={handleImageSelect}
+            className="mt-2.5 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-flame-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-flame-700 disabled:opacity-50"
+          />
+          {imageError && <p className="mt-2 text-xs font-medium text-flame-700">{imageError}</p>}
+          {imagePreviews.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2.5">
+              {imagePreviews.map((src, idx) => (
+                <div key={src} className="relative h-20 w-20 overflow-hidden rounded-lg border border-line">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={src} alt={imageFiles[idx]?.name ?? ""} className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setImageFiles((prev) => prev.filter((_, i) => i !== idx))}
+                    title="Bỏ ảnh này"
+                    className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-ink/70 shadow-sm hover:bg-flame-600 hover:text-white"
+                  >
+                    <CloseIcon className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      <section className="rounded-xl border border-line bg-white p-4">
+        <label htmlFor="customer-note" className="font-display text-sm font-bold text-navy-900">
+          Ghi chú cho khách (in lên mặt bill)
+        </label>
+        <textarea
+          id="customer-note"
+          rows={3}
+          maxLength={500}
+          value={form.customerNote}
+          onChange={(e) => setForm({ ...form, customerNote: e.target.value })}
+          placeholder="Vd: Thiếu tên tiệm và SĐT người nhận – anh/chị bổ sung giúp Falco"
+          className="mt-2 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink focus:border-flame-400 focus:outline-none focus:ring-2 focus:ring-flame-100"
+        />
+        <p className="mt-1 text-right text-xs text-ink/45">{form.customerNote.length}/500</p>
       </section>
 
       {error && <p className="text-sm font-medium text-flame-700">{error}</p>}

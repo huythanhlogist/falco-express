@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentAdminSession } from "@/lib/auth";
 import { insertKangoBill, listKangoBills } from "@/lib/db";
-import { validateKangoInvoices, validateKangoPackages } from "@/lib/kango-bill-validate";
+import { validateCustomerNote, validateKangoInvoices, validateKangoPackages } from "@/lib/kango-bill-validate";
 
 export async function GET() {
   const bills = await listKangoBills();
@@ -42,6 +42,7 @@ export async function POST(request: Request) {
     shipmentExportAs,
     packages,
     invoices,
+    customerNote,
   } = body ?? {};
 
   const requiredStrings: Record<string, unknown> = {
@@ -74,6 +75,10 @@ export async function POST(request: Request) {
   if (parsedInvoices === null) {
     return NextResponse.json({ error: "Thông tin invoice không hợp lệ" }, { status: 400 });
   }
+  const parsedCustomerNote = validateCustomerNote(customerNote);
+  if (!parsedCustomerNote.ok) {
+    return NextResponse.json({ error: parsedCustomerNote.error }, { status: 400 });
+  }
 
   const id = await insertKangoBill({
     receiverCompanyName: receiverCompanyName.trim(),
@@ -96,6 +101,7 @@ export async function POST(request: Request) {
     shipmentExportAs: Number.isFinite(Number(shipmentExportAs)) ? Number(shipmentExportAs) : 0,
     packages: parsedPackages,
     invoices: parsedInvoices,
+    customerNote: parsedCustomerNote.value,
     createdBy: session ? session.email : "agent (API key)",
   });
 
