@@ -719,6 +719,72 @@ export const BLOG_POSTS: BlogPost[] = [
       },
     ],
   },
+  {
+    slug: "gui-hang-cho-shop-online-ban-hang-o-chau-au-can-biet-gi",
+    title:
+      "Gửi hàng cho shop online bán hàng ở châu Âu, Anh: khác gửi quà cá nhân thế nào, cần biết gì về thuế?",
+    metaTitle: "Gửi hàng cho shop online ở châu Âu, Anh | Falco Express",
+    metaDescription:
+      "Hàng gửi cho shop online để bán lại không được hưởng mức miễn thuế quà tặng cá nhân, và từ 2026 EU đã bỏ thêm ngưỡng miễn thuế nhập khẩu cho lô hàng giá trị thấp. Những gì người bán hàng Việt ở châu Âu, Anh cần biết trước khi gửi hàng định kỳ từ Việt Nam.",
+    excerpt:
+      "Gửi hàng cho shop online để bán lại ở nước ngoài khác hẳn gửi quà cho người thân: không được hưởng mức miễn thuế quà tặng cá nhân, và từ 2026 EU đã bỏ thêm ngưỡng miễn thuế nhập khẩu cho lô hàng giá trị thấp. Đây là những gì người bán hàng Việt ở châu Âu, Anh cần biết trước khi gửi hàng định kỳ.",
+    publishedAt: "2026-11-23",
+    content: [
+      {
+        type: "p",
+        text: "Ngày càng nhiều người Việt bán hàng online ở Anh, Đức, Pháp, Hà Lan, Séc, Ba Lan — quần áo, mỹ phẩm, đồ gia dụng, đồ ăn đóng gói — cần nguồn hàng gửi đều đặn từ Việt Nam sang để bán lại. Nhu cầu này khác hẳn gửi quà cho người thân một lần: lặp lại theo lô, số lượng lớn hơn, và quan trọng nhất — hải quan nước nhận coi đây là hàng hoá mang tính thương mại, không phải quà tặng cá nhân, nên áp dụng quy định hoàn toàn khác.",
+      },
+      {
+        type: "h2",
+        text: "Khác biệt quan trọng nhất: không có mức miễn thuế như quà tặng cá nhân",
+      },
+      {
+        type: "p",
+        text: "Falco đã có bài viết riêng về mức miễn thuế dành cho quà tặng cá nhân (45 EUR ở EU, 39 GBP ở Anh) — nhưng mức miễn này chỉ áp dụng cho quà tặng không mang tính thương mại, gửi không thường xuyên giữa hai cá nhân, người gửi không nhận lại tiền. Hàng gửi cho một shop online để bán lại, dù đóng gói nhỏ lẻ hay giá trị thấp, về bản chất vẫn là hàng hoá thương mại — không đủ điều kiện hưởng mức miễn thuế quà tặng này, kể cả khi khai báo là \"quà\" trên vận đơn.",
+      },
+      {
+        type: "note",
+        text: "Khai báo một lô hàng mang tính thương mại là \"quà tặng\" để né thuế là rủi ro thực sự, không chỉ về mặt thủ tục: hải quan có thể giữ hàng để kiểm tra lại khi phát hiện dấu hiệu bất thường (nhiều kiện cùng người nhận, cùng loại hàng, gửi lặp lại đều đặn), dẫn tới chậm trễ và phát sinh chi phí ngoài dự tính.",
+      },
+      {
+        type: "h2",
+        text: "EU và Anh đã bỏ mức miễn thuế cho hàng hoá thương mại giá trị thấp",
+      },
+      {
+        type: "p",
+        text: "Từ 1/7/2021, Liên minh châu Âu bỏ mức miễn thuế VAT nhập khẩu từng áp dụng cho các kiện hàng thương mại giá trị dưới 22 EUR — từ thời điểm này, VAT nhập khẩu phải được tính trên mọi lô hàng thương mại vào EU, bất kể giá trị bao nhiêu. Anh cũng bỏ mức miễn thuế tương tự (Low Value Consignment Relief) từ 1/1/2021. Falco đã xác nhận ở các bài viết trước: từ giữa năm 2026, EU bỏ thêm ngưỡng miễn thuế nhập khẩu (import duty, khác với VAT) 150 EUR từng áp dụng cho hàng hoá thương mại giá trị thấp — nghĩa là hàng cho shop online gửi vào EU hiện không còn ngưỡng giá trị nào được miễn hoàn toàn cả VAT lẫn thuế nhập khẩu.",
+      },
+      {
+        type: "note",
+        text: "Thông tin về thay đổi VAT/thuế nhập khẩu tham khảo từ trang chính sách thuế của Uỷ ban châu Âu (taxation-customs.ec.europa.eu), gov.uk và các bài viết trước của Falco đã xác minh qua zoll.de, revenue.ie — mang tính tổng quan, không phải tư vấn thuế/hải quan. Quy định chi tiết (ngưỡng tính thuế, mã HS, mức thuế suất) khác nhau theo loại hàng và có thể thay đổi — liên hệ Falco để được tư vấn cụ thể cho lô hàng của bạn.",
+      },
+      {
+        type: "h2",
+        text: "Gửi hàng cho shop online cần chuẩn bị gì khác gửi quà cá nhân?",
+      },
+      {
+        type: "list",
+        items: [
+          "Khai báo đúng tính chất thương mại của lô hàng, có bảng kê/hoá đơn giá trị hàng rõ ràng theo từng loại sản phẩm — không khai là quà tặng để né thuế",
+          "Mô tả hàng hoá rõ ràng theo từng nhóm (quần áo, mỹ phẩm, phụ kiện, đồ gia dụng...) để tính đúng thuế nhập khẩu và VAT theo đúng loại hàng",
+          "Tính thêm VAT và thuế nhập khẩu vào chi phí vốn khi định giá bán lại, vì từ 2026 không còn lô nào ở EU được miễn hoàn toàn hai khoản này",
+          "Với lô gửi định kỳ, số lượng lớn, cước thường được báo theo kg/sản lượng cả lô — khác với gửi quà cá nhân từng kiện nhỏ lẻ",
+        ],
+      },
+      {
+        type: "h2",
+        text: "Falco Express hỗ trợ gì cho người bán hàng online",
+      },
+      {
+        type: "p",
+        text: "Falco Express có dịch vụ riêng cho nhóm khách này — nhận gửi lô định kỳ cho người bán hàng Việt ở nước ngoài, báo giá theo sản lượng thay vì tính theo từng kiện nhỏ lẻ như gửi quà cá nhân. Đội ngũ Falco tư vấn khai báo đúng tính chất thương mại của lô hàng và báo trước các khoản thuế, phí dự kiến để người bán chủ động tính vào giá vốn, tránh bị động khi hàng đã tới nơi.",
+      },
+      {
+        type: "note",
+        text: "Thông tin trong bài mang tính tham khảo chung, không phải tư vấn thuế/pháp lý — mức thuế, thủ tục cụ thể còn tuỳ loại hàng, giá trị lô hàng và quy định hiện hành của từng nước. Nhắn Zalo hoặc gọi hotline Falco Express để được báo giá và tư vấn cụ thể cho lô hàng shop online của bạn.",
+      },
+    ],
+  },
 ];
 
 export function getBlogPost(slug: string) {
