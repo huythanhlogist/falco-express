@@ -169,24 +169,32 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
     if (picked.length === 0) return;
 
     if (imageFiles.length + picked.length > MAX_KANGO_BILL_IMAGES) {
-      setImageError(`Tối đa ${MAX_KANGO_BILL_IMAGES} ảnh mỗi bill (đã chọn ${imageFiles.length} ảnh)`);
+      const msg = `Tối đa ${MAX_KANGO_BILL_IMAGES} ảnh mỗi bill (đã chọn ${imageFiles.length} ảnh)`;
+      setImageError(msg);
+      toast(msg, "error");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
     for (const file of picked) {
       if (!ALLOWED_KANGO_IMAGE_TYPES.has(file.type)) {
-        setImageError(`"${file.name}" không đúng định dạng (chỉ nhận JPEG, PNG, WebP)`);
+        const msg = `"${file.name}" không đúng định dạng (chỉ nhận JPEG, PNG, WebP)`;
+        setImageError(msg);
+        toast(msg, "error");
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
       if (file.size === 0) {
-        setImageError(`Ảnh "${file.name}" không có dữ liệu`);
+        const msg = `Ảnh "${file.name}" không có dữ liệu`;
+        setImageError(msg);
+        toast(msg, "error");
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
       if (file.size > MAX_KANGO_IMAGE_BYTES) {
-        setImageError(`Ảnh "${file.name}" vượt quá 5 MB`);
+        const msg = `Ảnh "${file.name}" vượt quá 5 MB`;
+        setImageError(msg);
+        toast(msg, "error");
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
@@ -246,6 +254,11 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
     Number.isFinite(shipmentValueNum) &&
     Math.abs(invoiceSum - shipmentValueNum) > 0.01;
 
+  function failValidation(msg: string) {
+    setError(msg);
+    toast(msg, "error");
+  }
+
   async function submit() {
     setError("");
     if (
@@ -260,18 +273,18 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
       !form.shipmentService.trim() ||
       !form.shipmentGoodsName.trim()
     ) {
-      setError("Vui lòng nhập đủ các trường bắt buộc (đánh dấu *)");
+      failValidation("Vui lòng nhập đủ các trường bắt buộc (đánh dấu *)");
       return;
     }
 
     const parsedShipmentValue = form.shipmentValue.trim() ? Number(form.shipmentValue) : NaN;
     if (!Number.isFinite(parsedShipmentValue) || parsedShipmentValue <= 0) {
-      setError("Giá trị kiện hàng (USD) bắt buộc và phải lớn hơn 0");
+      failValidation("Giá trị kiện hàng (USD) bắt buộc và phải lớn hơn 0");
       return;
     }
 
     if (packages.length === 0) {
-      setError("Vui lòng thêm ít nhất 1 kiện hàng");
+      failValidation("Vui lòng thêm ít nhất 1 kiện hàng");
       return;
     }
     for (let idx = 0; idx < packages.length; idx++) {
@@ -282,7 +295,7 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
       const hei = p.packageHeight.trim() ? Number(p.packageHeight) : NaN;
       const wgt = p.packageWeight.trim() ? Number(p.packageWeight) : NaN;
       if (!Number.isInteger(qty) || qty < 1) {
-        setError(`Kiện ${idx + 1}: số lượng (SL) phải là số nguyên ≥ 1`);
+        failValidation(`Kiện ${idx + 1}: số lượng (SL) phải là số nguyên ≥ 1`);
         return;
       }
       if (
@@ -295,7 +308,7 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
         !Number.isFinite(wgt) ||
         wgt <= 0
       ) {
-        setError(`Kiện ${idx + 1}: kích thước (Dài, Rộng, Cao) và Cân nặng phải lớn hơn 0`);
+        failValidation(`Kiện ${idx + 1}: kích thước (Dài, Rộng, Cao) và Cân nặng phải lớn hơn 0`);
         return;
       }
     }
@@ -310,11 +323,11 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
         : formatCalcTotal(inv.invoiceQuantity, inv.invoicePrice);
       const total = totalRaw ? Number(totalRaw) : NaN;
       if (!Number.isInteger(qty) || qty < 1) {
-        setError(`Invoice dòng ${idx + 1}: số lượng phải là số nguyên ≥ 1`);
+        failValidation(`Invoice dòng ${idx + 1}: số lượng phải là số nguyên ≥ 1`);
         return;
       }
       if (!Number.isFinite(price) || price < 0 || !Number.isFinite(total) || total < 0) {
-        setError(`Invoice dòng ${idx + 1}: đơn giá và tổng tiền phải là số ≥ 0`);
+        failValidation(`Invoice dòng ${idx + 1}: đơn giá và tổng tiền phải là số ≥ 0`);
         return;
       }
       normalizedInvoices.push({
@@ -327,7 +340,7 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
     }
 
     if (form.customerNote.trim().length > MAX_CUSTOMER_NOTE_LENGTH) {
-      setError(`Ghi chú cho khách không được vượt quá ${MAX_CUSTOMER_NOTE_LENGTH} ký tự`);
+      failValidation(`Ghi chú cho khách không được vượt quá ${MAX_CUSTOMER_NOTE_LENGTH} ký tự`);
       return;
     }
 
@@ -383,7 +396,7 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
       }
 
       if (initial) {
-        toast("Đã lưu thay đổi bill");
+        toast("Đã lưu thay đổi bill", "success");
         router.push(`/admin/kango-bills/${initial.id}`);
         router.refresh();
         return;
@@ -412,7 +425,7 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
         toast(`Bill #${newBillId} đã tạo nhưng tải ảnh lỗi: ${uploadWarning}`, "error");
         router.push(`/admin/kango-bills/${newBillId}?imageUploadError=${encodeURIComponent(uploadWarning)}`);
       } else {
-        toast(`Đã tạo bill nháp #${newBillId}`);
+        toast(`Đã tạo bill nháp #${newBillId}`, "success");
         router.push(`/admin/kango-bills/${newBillId}`);
       }
       router.refresh();
@@ -568,8 +581,11 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
                 {packages.length > 1 && (
                   <button
                     type="button"
+                    disabled={saving}
                     onClick={() => setPackages((prev) => prev.filter((_, idx) => idx !== i))}
-                    className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/40 hover:bg-flame-50 hover:text-flame-700"
+                    title="Xoá kiện hàng"
+                    aria-label={`Xoá kiện hàng ${i + 1}`}
+                    className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/40 hover:bg-flame-50 hover:text-flame-700 disabled:opacity-40"
                   >
                     <TrashIcon className="h-4 w-4" />
                   </button>
@@ -622,8 +638,11 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
                 <NumField label="Tổng tiền" min="0" step="any" value={inv.invoiceTotalPrice} onChange={(v) => updateInvoice(i, { invoiceTotalPrice: v })} />
                 <button
                   type="button"
+                  disabled={saving}
                   onClick={() => setInvoices((prev) => prev.filter((_, idx) => idx !== i))}
-                  className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/40 hover:bg-flame-50 hover:text-flame-700"
+                  title="Xoá dòng invoice"
+                  aria-label={`Xoá dòng invoice ${i + 1}`}
+                  className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/40 hover:bg-flame-50 hover:text-flame-700 disabled:opacity-40"
                 >
                   <TrashIcon className="h-4 w-4" />
                 </button>
@@ -665,9 +684,11 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
                   <img src={src} alt={imageFiles[idx]?.name ?? ""} className="h-full w-full object-cover" />
                   <button
                     type="button"
+                    disabled={saving}
                     onClick={() => setImageFiles((prev) => prev.filter((_, i) => i !== idx))}
                     title="Bỏ ảnh này"
-                    className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-ink/70 shadow-sm hover:bg-flame-600 hover:text-white"
+                    aria-label={`Bỏ ảnh ${imageFiles[idx]?.name ?? idx + 1}`}
+                    className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white/90 text-ink/70 shadow-sm hover:bg-flame-600 hover:text-white disabled:opacity-40"
                   >
                     <CloseIcon className="h-3 w-3" />
                   </button>
@@ -696,13 +717,30 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
         </p>
       </section>
 
-      {error && <p className="text-sm font-medium text-flame-700">{error}</p>}
+      {error && (
+        <p
+          role="alert"
+          className="rounded-xl border border-flame-200 bg-flame-50 px-4 py-2.5 text-sm font-medium text-flame-800"
+        >
+          {error}
+        </p>
+      )}
 
-      <div className="flex gap-2">
-        <button type="button" onClick={submit} disabled={saving} className="btn-primary !px-5 !py-2.5 text-sm disabled:opacity-50">
-          {saving ? "Đang lưu..." : initial ? "Lưu thay đổi" : "Lưu bill (nháp)"}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={submit}
+          disabled={saving}
+          className="btn-primary !px-5 !py-2.5 text-sm disabled:opacity-50"
+        >
+          {saving ? "Đang lưu…" : initial ? "Lưu thay đổi" : "Lưu bill (nháp)"}
         </button>
-        <button type="button" onClick={() => router.back()} className="btn-outline !px-5 !py-2.5 text-sm">
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => router.back()}
+          className="btn-outline !px-5 !py-2.5 text-sm disabled:opacity-50"
+        >
           Huỷ
         </button>
       </div>

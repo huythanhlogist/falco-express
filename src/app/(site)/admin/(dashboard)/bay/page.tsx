@@ -5,15 +5,17 @@ export const dynamic = "force-dynamic";
 
 export default function BayPage() {
   return (
-    <div>
-      <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">BayOnline</h1>
-      <p className="mt-1 text-sm text-ink/55">
-        Vận đơn gửi qua BayOnline (Partner API): trạng thái, hành trình hãng vận chuyển và ảnh kho chụp lúc nhận,
-        kiểm, cân.
-      </p>
-      <div className="mt-6">
-        <BayDashboard configured={isBayConfigured()} />
+    <div className="space-y-4">
+      <div>
+        <h1 className="font-display text-xl font-bold tracking-tight text-[#132440] sm:text-2xl">
+          BayOnline
+        </h1>
+        <p className="mt-1 text-sm text-[#6b7280]">
+          Theo dõi vận đơn gửi qua BayOnline, xem hành trình hãng vận chuyển, ảnh kho và tạo đơn mới ngay trên một
+          màn hình.
+        </p>
       </div>
+      <BayDashboard configured={isBayConfigured()} />
     </div>
   );
 }

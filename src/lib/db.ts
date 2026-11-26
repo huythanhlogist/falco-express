@@ -863,7 +863,10 @@ const CTV_FIELD_COLUMNS: Record<keyof CtvEditableFields, string> = {
  * route handler gọi hàm này, không phải ở đây.
  */
 export async function updateCtvUser(id: number, fields: CtvEditableFields): Promise<boolean> {
-  const entries = Object.entries(fields) as [keyof CtvEditableFields, unknown][];
+  // Bỏ trường undefined (vd nút bật/tắt chỉ gửi status) — nếu không sẽ ghi NULL đè lên hồ sơ FWD.
+  const entries = (Object.entries(fields) as [keyof CtvEditableFields, unknown][]).filter(
+    ([key, value]) => value !== undefined && key in CTV_FIELD_COLUMNS
+  );
   if (entries.length === 0) return false;
   const setClause = entries.map(([key]) => `${CTV_FIELD_COLUMNS[key]} = ?`).join(", ");
   const values = entries.map(([, value]) => value);
@@ -915,7 +918,11 @@ export async function updateCtvContentItem(
   id: number,
   fields: Partial<{ title: string; content: string; position: number }>
 ): Promise<boolean> {
-  const entries = Object.entries(fields) as [keyof typeof fields, unknown][];
+  // Chỉ nhận đúng 3 cột cho phép và bỏ undefined (tránh ghi NULL / tên cột lạ vào SQL).
+  const allowed = new Set(["title", "content", "position"]);
+  const entries = (Object.entries(fields) as [keyof typeof fields, unknown][]).filter(
+    ([key, value]) => value !== undefined && allowed.has(key)
+  );
   if (entries.length === 0) return false;
   const setClause = entries.map(([key]) => `${key} = ?`).join(", ");
   const values = entries.map(([, value]) => value);

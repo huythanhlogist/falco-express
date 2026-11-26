@@ -11,8 +11,8 @@ export default async function KangoBillsPage() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Tạo bill</h1>
-          <p className="mt-1 text-sm text-ink/55">
+          <h1 className="font-display text-xl font-bold tracking-tight text-[#132440] sm:text-2xl">Tạo bill</h1>
+          <p className="mt-1 text-sm text-[#8b8d93]">
             Khởi tạo shipment gửi lên Kango — lưu nháp, sửa/xoá thoải mái, chỉ thật sự gửi khi bấm &quot;Duyệt &amp;
             Gửi Kango&quot;.
           </p>
@@ -22,7 +22,7 @@ export default async function KangoBillsPage() {
         </Link>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-5">
         <KangoBillsTable initialBills={bills} />
       </div>
     </div>

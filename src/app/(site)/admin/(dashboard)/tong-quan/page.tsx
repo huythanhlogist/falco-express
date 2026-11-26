@@ -1,6 +1,7 @@
 import DeliveryFunnelCard from "@/components/admin/dashboard/DeliveryFunnelCard";
 import KpiStack from "@/components/admin/dashboard/KpiStack";
 import RangeSelector from "@/components/admin/dashboard/RangeSelector";
+import MonthlyOrdersChart from "@/components/admin/dashboard/MonthlyOrdersChart";
 import MonthSelect from "@/components/admin/dashboard/MonthSelect";
 import RoutesBreakdownCard from "@/components/admin/dashboard/RoutesBreakdownCard";
 import TodayCard from "@/components/admin/dashboard/TodayCard";
@@ -52,6 +53,8 @@ export default async function AdminTongQuanPage({
         <WeeklyWaffleChart weeks={data.weekly} subtitle={data.weeklyLabel} />
         <KpiStack kpis={data.kpis} selectedMonth={data.selectedMonth} />
       </section>
+
+      <MonthlyOrdersChart months={data.monthly} />
 
       {/* Hàng 2: Đơn theo tuyến + Từ nhận hàng đến giao (áp theo ?range=) */}
       <section className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[1.42fr_1fr]">

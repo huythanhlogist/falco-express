@@ -90,6 +90,8 @@ export type DashboardData = {
     attentionFailed: number;
   };
   weekly: WeeklyWafflePoint[];
+  /** 12 tháng gần nhất (kết thúc ở tháng đang lọc hoặc tháng hiện tại) — số đơn + % so với tháng trước */
+  monthly: { ym: string; label: string; count: number; deltaPct: number | null; isSelected: boolean }[];
   /** "YYYY-MM" khi đang lọc theo 1 tháng (áp cho cả trang trừ card "Hôm nay"), ngược lại null */
   selectedMonth: string | null;
   weeklyLabel: string;
@@ -955,6 +957,26 @@ export async function getDashboardData(rangeInput?: string): Promise<DashboardDa
   const dismissedP = loadAlertDismissals();
   dismissedP.catch(() => {}); // lỗi xử lý trong applyDismissals
 
+  // Biểu đồ 12 tháng (lấy thêm 1 tháng trước đó để tính % của cột đầu)
+  const monthlyEnd = selectedMonth ?? todayVn.slice(0, 7);
+  const monthKeys: string[] = [];
+  {
+    const [ey, em] = monthlyEnd.split("-").map(Number);
+    for (let i = 12; i >= 0; i--) {
+      const d = new Date(Date.UTC(ey, em - 1 - i, 1));
+      monthKeys.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`);
+    }
+  }
+  const monthlyRowsP = pool.query(
+    `SELECT DATE_FORMAT(COALESCE(received_date, DATE(created_at)), '%Y-%m') AS ym, COUNT(*) AS n
+     FROM orders
+     WHERE review_status <> 'rejected'
+       AND COALESCE(received_date, DATE(created_at)) >= ?
+       AND COALESCE(received_date, DATE(created_at)) <= ?
+     GROUP BY ym`,
+    [`${monthKeys[0]}-01`, `${monthlyEnd}-31`]
+  );
+
   const weeklyRowsP = pool.query(
     `SELECT
        DATE_FORMAT(COALESCE(o.received_date, DATE(o.created_at)), '%Y-%m-%d') AS order_date,
@@ -1217,6 +1239,22 @@ export async function getDashboardData(rangeInput?: string): Promise<DashboardDa
       attentionFailed: kpiAttention.failedOrReturnedCount,
     },
     weekly,
+    monthly: await (async () => {
+      const [mrows] = await monthlyRowsP;
+      const counts = new Map((mrows as { ym: string; n: number | string }[]).map((r) => [r.ym, Number(r.n)]));
+      return monthKeys.slice(1).map((ym, i) => {
+        const count = counts.get(ym) ?? 0;
+        const prev = counts.get(monthKeys[i]) ?? 0;
+        const [y, m] = ym.split("-").map(Number);
+        return {
+          ym,
+          label: `${String(m).padStart(2, "0")}/${String(y).slice(2)}`,
+          count,
+          deltaPct: prev > 0 ? Math.round(((count - prev) / prev) * 100) : null,
+          isSelected: ym === monthlyEnd,
+        };
+      });
+    })(),
     selectedMonth,
     weeklyLabel: selectedMonth
       ? `${rangeBounds.label} · ${weekStarts.length} tuần · Đơn / tuần`

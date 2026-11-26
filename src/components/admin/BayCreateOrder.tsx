@@ -1,7 +1,8 @@
 "use client";
 
-import { useConfirm, useToast } from "@/components/ui/Toast";
 import { useCallback, useEffect, useRef, useState } from "react";
+import Modal from "@/components/ui/Modal";
+import { useConfirm, useToast } from "@/components/ui/Toast";
 import type { BayDraftOrderInput, BayWarehouse } from "@/lib/bay-api";
 import { BAY_SERVICE_LABELS } from "@/lib/bay-labels";
 
@@ -32,6 +33,32 @@ const INITIAL_FORM = {
   countryCode: "DE",
 };
 
+const COUNTRY_SUGGESTIONS: [string, string][] = [
+  ["DE", "Đức"],
+  ["PL", "Ba Lan"],
+  ["FR", "Pháp"],
+  ["GB", "Anh"],
+  ["CZ", "Séc"],
+  ["SK", "Slovakia"],
+  ["NL", "Hà Lan"],
+  ["ES", "Tây Ban Nha"],
+  ["IT", "Ý"],
+  ["AT", "Áo"],
+  ["BE", "Bỉ"],
+  ["SE", "Thụy Điển"],
+  ["DK", "Đan Mạch"],
+  ["IE", "Ireland"],
+  ["PT", "Bồ Đào Nha"],
+  ["HU", "Hungary"],
+  ["RO", "Romania"],
+  ["CH", "Thụy Sĩ"],
+  ["NO", "Na Uy"],
+  ["FI", "Phần Lan"],
+  ["US", "Mỹ"],
+  ["CA", "Canada"],
+  ["AU", "Úc"],
+];
+
 const emptyParcel = (): ParcelForm => ({
   items: [{ description: "", quantity: "1" }],
   weight: "",
@@ -42,8 +69,9 @@ const emptyParcel = (): ParcelForm => ({
   imagesChecked: "",
 });
 
-const input = "w-full rounded-lg border border-line bg-white px-3 py-2 text-sm";
-const label = "block text-xs font-semibold text-ink/55";
+const inputCls =
+  "w-full rounded-xl border border-[#e7e7e3] bg-white px-3 py-2 text-sm text-[#14181f] placeholder:text-[#9ca3af] focus:border-[#132440] focus:outline-none focus:ring-2 focus:ring-[#132440]/10";
+const labelCls = "mb-1 block text-xs font-semibold text-[#52525b]";
 const lines = (s: string) => s.split("\n").map((x) => x.trim()).filter(Boolean);
 
 function isValidHttpsUrl(raw: string): boolean {
@@ -68,7 +96,10 @@ class BayClientError extends Error {
 async function bayPost<T>(path: string, body: unknown, idempotencyKey?: string): Promise<T> {
   const res = await fetch(`/api/admin/bay/${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
     body: JSON.stringify(body),
   });
   const json = await res.json().catch(() => null);
@@ -234,7 +265,7 @@ export default function BayCreateOrder({ onChanged }: { onChanged: () => void })
     try {
       const created = await bayPost<{ reference: string }>("draft-orders", payload, idemKey.current);
       setDraft(created);
-      toast(`Đã tạo đơn nháp ${created.reference}`);
+      toast(`Đã tạo đơn nháp ${created.reference}`, "success");
       onChanged();
     } catch (e) {
       // Lỗi 4xx (validate input từ Bay): reset Idempotency-Key để sửa form gửi lại không bị kẹt 409/422.
@@ -268,7 +299,7 @@ export default function BayCreateOrder({ onChanged }: { onChanged: () => void })
       );
       const refs = Array.isArray(j.shipments) ? j.shipments.map((s) => s.reference) : [];
       setConfirmed(refs);
-      toast(`Đã xác nhận đơn BayOnline (${refs.join(", ")})`);
+      toast(`Đã xác nhận đơn BayOnline (${refs.join(", ")})`, "success");
       // Đồng bộ ngay để vận đơn vừa sinh có mã FEB… và khách tra cứu được trên web.
       await fetch("/api/admin/bay/sync?force=1", { method: "POST" }).catch(() => undefined);
       onChanged();
@@ -281,226 +312,373 @@ export default function BayCreateOrder({ onChanged }: { onChanged: () => void })
     }
   }
 
-  function reset() {
+  const reset = useCallback(() => {
     setF(INITIAL_FORM);
     setDraft(null);
     setConfirmed(null);
     setError("");
     setParcels([emptyParcel()]);
     idemKey.current = "";
-  }
+  }, []);
 
-  if (!open) {
-    return (
-      <button type="button" onClick={() => setOpen(true)} className="btn-primary !px-4 !py-2 text-sm">
-        Tạo đơn mới
-      </button>
-    );
-  }
+  const handleClose = useCallback(() => {
+    if (busy) return;
+    if (confirmed) reset();
+    setOpen(false);
+  }, [busy, confirmed, reset]);
 
-  return (
-    <div className="mt-4 w-full rounded-xl border border-line bg-white p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-navy-900">Tạo đơn nháp BayOnline</h2>
-        <button type="button" onClick={() => setOpen(false)} className="text-sm text-ink/50 hover:text-ink/80">
+  const modalTitle = confirmed
+    ? "Đã xác nhận vận đơn BayOnline"
+    : draft
+      ? `Xác nhận đơn nháp ${draft.reference}`
+      : "Tạo đơn nháp BayOnline";
+
+  const modalSubtitle = confirmed
+    ? "Vận đơn thật đã được tạo bên BayOnline và đồng bộ mã FEB."
+    : draft
+      ? "Bước 2/2 · Chọn kho tiếp nhận và xác nhận để book tem."
+      : "Bước 1/2 · Chưa tạo vận đơn thật — chỉ sinh vận đơn khi xác nhận ở bước sau.";
+
+  const modalFooter = draft ? (
+    confirmed ? (
+      <>
+        <button type="button" onClick={reset} className="btn-outline !px-4 !py-2 text-sm">
+          Tạo đơn khác
+        </button>
+        <button type="button" onClick={handleClose} className="btn-navy">
+          Hoàn tất
+        </button>
+      </>
+    ) : (
+      <>
+        <button type="button" onClick={reset} disabled={busy} className="mr-auto text-xs font-semibold text-[#52525b] underline hover:text-[#132440] disabled:opacity-50">
+          Tạo đơn khác
+        </button>
+        <button type="button" onClick={handleClose} disabled={busy} className="btn-outline !px-4 !py-2 text-sm disabled:opacity-50">
           Đóng
         </button>
-      </div>
+        <button
+          type="button"
+          onClick={() => void confirmDraft()}
+          disabled={busy || !warehouse}
+          className="btn-primary !px-4 !py-2 text-sm disabled:opacity-50"
+        >
+          {busy ? "Đang xác nhận…" : "Xác nhận (book tem)"}
+        </button>
+      </>
+    )
+  ) : (
+    <>
+      <button type="button" onClick={handleClose} disabled={busy} className="btn-outline !px-4 !py-2 text-sm disabled:opacity-50">
+        Huỷ
+      </button>
+      <button
+        type="button"
+        onClick={() => void createDraft()}
+        disabled={busy}
+        className="btn-primary !px-4 !py-2 text-sm disabled:opacity-50"
+      >
+        {busy ? "Đang tạo…" : "Tạo đơn nháp"}
+      </button>
+    </>
+  );
 
-      {draft ? (
-        <div className="mt-3 space-y-3 text-sm">
-          <p>
-            Đã tạo đơn nháp <b>{draft.reference}</b>. Đơn nháp chưa phải vận đơn — chọn kho rồi xác nhận để book tem.
-          </p>
-          {confirmed ? (
-            <p className="text-emerald-700">
-              Đã xác nhận. Vận đơn: <b>{confirmed.join(", ")}</b> (chờ kho nhận hàng). Mã đơn FEB… hiện ở bảng vận đơn sau khi làm mới.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <select
-                  value={warehouse}
-                  onChange={(e) => setWarehouse(e.target.value)}
-                  disabled={warehousesLoading || warehouses.length === 0}
-                  className="rounded-lg border border-line bg-white px-3 py-2 disabled:opacity-50"
-                >
-                  {warehouses.length === 0 ? (
-                    <option value="">{warehousesLoading ? "Đang tải danh sách kho…" : "Chưa tải được danh sách kho"}</option>
-                  ) : (
-                    warehouses.map((w) => (
-                      <option key={w.code} value={w.code}>
-                        {w.code} — {w.address}
-                      </option>
-                    ))
-                  )}
-                </select>
-                {warehouses.length === 0 && (
-                  <button
-                    type="button"
-                    onClick={() => void loadWarehouses()}
-                    disabled={warehousesLoading}
-                    className="rounded-lg border border-line px-3 py-2 text-xs font-semibold text-navy-800 hover:bg-mist/60 disabled:opacity-50"
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="btn-primary !px-4 !py-2 text-sm whitespace-nowrap"
+      >
+        + Tạo đơn mới
+      </button>
+
+      <Modal
+        open={open}
+        onClose={handleClose}
+        title={modalTitle}
+        subtitle={modalSubtitle}
+        size="xl"
+        busy={busy}
+        footer={modalFooter}
+      >
+        {draft ? (
+          <div className="space-y-4 text-sm">
+            <div className="rounded-2xl border border-[#ecece8] bg-[#fafaf8] p-4">
+              <p className="text-[#14181f]">
+                Đã tạo đơn nháp <b className="text-[#132440]">{draft.reference}</b>. Đơn nháp chưa phải vận đơn —
+                chọn kho tiếp nhận rồi bấm xác nhận để book tem.
+              </p>
+            </div>
+
+            {confirmed ? (
+              <div className="rounded-2xl border border-emerald-200 bg-[#e8f6ee] p-4 text-emerald-900">
+                <p className="font-semibold">Đã xác nhận thành công!</p>
+                <p className="mt-1">
+                  Vận đơn BayOnline: <b>{confirmed.join(", ")}</b> (chờ kho nhận hàng). Mã đơn FEB… sẽ hiển thị ở bảng
+                  vận đơn ngay sau khi tải lại.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                <label htmlFor="bay-warehouse-select" className={labelCls}>
+                  Kho tiếp nhận *
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    id="bay-warehouse-select"
+                    value={warehouse}
+                    onChange={(e) => setWarehouse(e.target.value)}
+                    disabled={warehousesLoading || warehouses.length === 0}
+                    className={`${inputCls} min-w-[260px] flex-1 disabled:opacity-50`}
                   >
-                    {warehousesLoading ? "Đang tải…" : "Thử tải lại kho"}
-                  </button>
-                )}
-                <button type="button" onClick={confirmDraft} disabled={busy || !warehouse} className="btn-primary !px-4 !py-2 disabled:opacity-50">
-                  {busy ? "Đang xác nhận…" : "Xác nhận (book tem)"}
-                </button>
-              </div>
-              {warehousesError && <p className="text-xs text-rose-600">{warehousesError}</p>}
-            </div>
-          )}
-          <button type="button" onClick={reset} className="text-ink/60 underline">
-            Tạo đơn khác
-          </button>
-        </div>
-      ) : (
-        <div className="mt-3 space-y-4">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <label className={label}>Mã tham chiếu của bạn</label>
-              <input className={input} value={f.partnerReference} onChange={(e) => set("partnerReference", e.target.value)} placeholder="vd FL261024001" />
-            </div>
-            <div>
-              <label className={label}>Loại hàng</label>
-              <select className={input} value={f.serviceType} onChange={(e) => set("serviceType", e.target.value)}>
-                {Object.entries(BAY_SERVICE_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={label}>Ghi chú cho Bay</label>
-              <input className={input} value={f.note} onChange={(e) => set("note", e.target.value)} />
-            </div>
-            <div>
-              <label className={label}>Người gửi (tuỳ chọn)</label>
-              <input className={input} value={f.senderName} onChange={(e) => set("senderName", e.target.value)} placeholder="Tên" />
-            </div>
-            <div>
-              <label className={label}>SĐT người gửi</label>
-              <input className={input} value={f.senderPhone} onChange={(e) => set("senderPhone", e.target.value)} />
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            {(
-              [
-                ["name", "Tên người nhận *"],
-                ["phone", "SĐT người nhận *"],
-                ["email", "Email người nhận *"],
-                ["company", "Công ty"],
-                ["line1", "Đường / địa chỉ *"],
-                ["houseNumber", "Số nhà"],
-                ["city", "Thành phố *"],
-                ["postalCode", "Mã bưu điện *"],
-                ["countryCode", "Mã nước (2 chữ) *"],
-              ] as const
-            ).map(([k, t]) => (
-              <div key={k}>
-                <label className={label}>{t}</label>
-                <input className={input} value={f[k]} onChange={(e) => set(k, e.target.value)} />
-              </div>
-            ))}
-          </div>
-
-          {parcels.map((p, i) => (
-            <div key={i} className="rounded-lg border border-line p-3">
-              <div className="flex items-center justify-between">
-                <b className="text-sm">Kiện {i + 1}</b>
-                {parcels.length > 1 && (
-                  <button type="button" onClick={() => setParcels(parcels.filter((_, j) => j !== i))} className="text-xs text-rose-600">
-                    Xoá kiện
-                  </button>
-                )}
-              </div>
-              {p.items.map((it, k) => (
-                <div key={k} className="mt-2 flex items-center gap-2">
-                  <input
-                    className={input}
-                    value={it.description}
-                    placeholder="Mô tả hàng"
-                    onChange={(e) =>
-                      setParcel(i, {
-                        items: p.items.map((x, j) => (j === k ? { ...x, description: e.target.value } : x)),
-                      })
-                    }
-                  />
-                  <input
-                    className="w-24 shrink-0 rounded-lg border border-line bg-white px-3 py-2 text-sm"
-                    value={it.quantity}
-                    inputMode="numeric"
-                    onChange={(e) =>
-                      setParcel(i, {
-                        items: p.items.map((x, j) => (j === k ? { ...x, quantity: e.target.value } : x)),
-                      })
-                    }
-                  />
-                  {p.items.length > 1 && (
+                    {warehouses.length === 0 ? (
+                      <option value="">
+                        {warehousesLoading ? "Đang tải danh sách kho…" : "Chưa tải được danh sách kho"}
+                      </option>
+                    ) : (
+                      warehouses.map((w) => (
+                        <option key={w.code} value={w.code}>
+                          {w.code} — {w.address}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  {warehouses.length === 0 && (
                     <button
                       type="button"
-                      onClick={() => setParcel(i, { items: p.items.filter((_, j) => j !== k) })}
-                      className="shrink-0 text-xs text-rose-600 hover:underline"
+                      onClick={() => void loadWarehouses()}
+                      disabled={warehousesLoading}
+                      className="rounded-xl border border-[#e7e7e3] bg-white px-3.5 py-2 text-xs font-semibold text-[#132440] hover:bg-[#f5f5f3] disabled:opacity-50"
                     >
-                      Xoá
+                      {warehousesLoading ? "Đang tải…" : "Thử tải lại kho"}
                     </button>
                   )}
                 </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => setParcel(i, { items: [...p.items, { description: "", quantity: "1" }] })}
-                className="mt-1 text-xs text-navy-800 underline"
-              >
-                + Thêm dòng hàng
-              </button>
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {warehousesError && <p className="text-xs text-rose-600">{warehousesError}</p>}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <section className="rounded-2xl border border-[#ecece8] bg-[#fafaf8]/70 p-3.5">
+              <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-[#8b8d93]">
+                Thông tin đơn &amp; người gửi
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label className={labelCls}>Mã tham chiếu của bạn</label>
+                  <input
+                    className={inputCls}
+                    value={f.partnerReference}
+                    onChange={(e) => set("partnerReference", e.target.value)}
+                    placeholder="vd FL261024001"
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Loại hàng</label>
+                  <select
+                    className={inputCls}
+                    value={f.serviceType}
+                    onChange={(e) => set("serviceType", e.target.value)}
+                  >
+                    {Object.entries(BAY_SERVICE_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Ghi chú cho Bay</label>
+                  <input className={inputCls} value={f.note} onChange={(e) => set("note", e.target.value)} />
+                </div>
+                <div>
+                  <label className={labelCls}>Người gửi (tuỳ chọn)</label>
+                  <input
+                    className={inputCls}
+                    value={f.senderName}
+                    onChange={(e) => set("senderName", e.target.value)}
+                    placeholder="Tên người gửi"
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>SĐT người gửi</label>
+                  <input
+                    className={inputCls}
+                    value={f.senderPhone}
+                    onChange={(e) => set("senderPhone", e.target.value)}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-[#ecece8] bg-[#fafaf8]/70 p-3.5">
+              <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-[#8b8d93]">
+                Người nhận &amp; địa chỉ giao hàng
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-3">
                 {(
                   [
-                    ["weight", "Cân khai (kg)"],
-                    ["length", "Dài (cm)"],
-                    ["width", "Rộng (cm)"],
-                    ["height", "Cao (cm)"],
+                    ["name", "Tên người nhận *"],
+                    ["phone", "SĐT người nhận *"],
+                    ["email", "Email người nhận *"],
+                    ["company", "Công ty"],
+                    ["line1", "Đường / địa chỉ *"],
+                    ["houseNumber", "Số nhà"],
+                    ["city", "Thành phố *"],
+                    ["postalCode", "Mã bưu điện *"],
                   ] as const
                 ).map(([k, t]) => (
                   <div key={k}>
-                    <label className={label}>{t}</label>
-                    <input className={input} value={p[k]} inputMode="decimal" onChange={(e) => setParcel(i, { [k]: e.target.value })} />
+                    <label className={labelCls}>{t}</label>
+                    <input className={inputCls} value={f[k]} onChange={(e) => set(k, e.target.value)} />
                   </div>
                 ))}
-              </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <div>
-                  <label className={label}>Link ảnh cân * (1–10 link https, mỗi link một dòng)</label>
-                  <textarea className={input} rows={2} value={p.imagesWeighed} onChange={(e) => setParcel(i, { imagesWeighed: e.target.value })} />
-                </div>
-                <div>
-                  <label className={label}>Link ảnh kiểm hàng (tuỳ chọn)</label>
-                  <textarea className={input} rows={2} value={p.imagesChecked} onChange={(e) => setParcel(i, { imagesChecked: e.target.value })} />
+                  <label className={labelCls}>Mã nước (2 chữ) *</label>
+                  <input
+                    list="bay-country-codes"
+                    maxLength={2}
+                    placeholder="vd DE, FR, US"
+                    className={`${inputCls} uppercase`}
+                    value={f.countryCode}
+                    onChange={(e) => set("countryCode", e.target.value.toUpperCase())}
+                  />
+                  <datalist id="bay-country-codes">
+                    {COUNTRY_SUGGESTIONS.map(([code, name]) => (
+                      <option key={code} value={code}>
+                        {code} — {name}
+                      </option>
+                    ))}
+                  </datalist>
                 </div>
               </div>
-            </div>
-          ))}
-          {parcels.length < 20 && (
-            <button type="button" onClick={() => setParcels([...parcels, emptyParcel()])} className="text-sm text-navy-800 underline">
-              + Thêm kiện (mỗi kiện thành một vận đơn)
-            </button>
-          )}
+            </section>
 
-          <div>
-            <button type="button" onClick={createDraft} disabled={busy} className="btn-primary !px-4 !py-2 text-sm disabled:opacity-50">
-              {busy ? "Đang tạo…" : "Tạo đơn nháp"}
-            </button>
-            <span className="ml-3 text-xs text-ink/50">Chưa tạo vận đơn thật — chỉ khi bấm &quot;Xác nhận&quot; ở bước sau.</span>
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-[#8b8d93]">
+                  Kiện hàng ({parcels.length})
+                </h3>
+                {parcels.length < 20 && (
+                  <button
+                    type="button"
+                    onClick={() => setParcels([...parcels, emptyParcel()])}
+                    className="text-xs font-semibold text-[#132440] underline underline-offset-2 hover:text-[#f7941d]"
+                  >
+                    + Thêm kiện (mỗi kiện thành 1 vận đơn)
+                  </button>
+                )}
+              </div>
+
+              {parcels.map((p, i) => (
+                <div key={i} className="rounded-2xl border border-[#ecece8] bg-white p-3.5">
+                  <div className="flex items-center justify-between">
+                    <b className="text-sm text-[#132440]">Kiện {i + 1}</b>
+                    {parcels.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setParcels(parcels.filter((_, j) => j !== i))}
+                        className="text-xs font-medium text-rose-600 hover:underline"
+                      >
+                        Xoá kiện
+                      </button>
+                    )}
+                  </div>
+                  {p.items.map((it, k) => (
+                    <div key={k} className="mt-2 flex items-center gap-2">
+                      <input
+                        className={inputCls}
+                        value={it.description}
+                        placeholder="Mô tả hàng"
+                        onChange={(e) =>
+                          setParcel(i, {
+                            items: p.items.map((x, j) => (j === k ? { ...x, description: e.target.value } : x)),
+                          })
+                        }
+                      />
+                      <input
+                        className="w-24 shrink-0 rounded-xl border border-[#e7e7e3] bg-white px-3 py-2 text-sm text-[#14181f] focus:border-[#132440] focus:outline-none"
+                        value={it.quantity}
+                        inputMode="numeric"
+                        aria-label="Số lượng"
+                        onChange={(e) =>
+                          setParcel(i, {
+                            items: p.items.map((x, j) => (j === k ? { ...x, quantity: e.target.value } : x)),
+                          })
+                        }
+                      />
+                      {p.items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setParcel(i, { items: p.items.filter((_, j) => j !== k) })}
+                          className="shrink-0 text-xs font-medium text-rose-600 hover:underline"
+                        >
+                          Xoá
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setParcel(i, { items: [...p.items, { description: "", quantity: "1" }] })}
+                    className="mt-1.5 text-xs font-semibold text-[#132440] underline underline-offset-2"
+                  >
+                    + Thêm dòng hàng
+                  </button>
+                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {(
+                      [
+                        ["weight", "Cân khai (kg)"],
+                        ["length", "Dài (cm)"],
+                        ["width", "Rộng (cm)"],
+                        ["height", "Cao (cm)"],
+                      ] as const
+                    ).map(([k, t]) => (
+                      <div key={k}>
+                        <label className={labelCls}>{t}</label>
+                        <input
+                          className={inputCls}
+                          value={p[k]}
+                          inputMode="decimal"
+                          onChange={(e) => setParcel(i, { [k]: e.target.value })}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <div>
+                      <label className={labelCls}>Link ảnh cân * (1–10 link https, mỗi link một dòng)</label>
+                      <textarea
+                        className={inputCls}
+                        rows={2}
+                        value={p.imagesWeighed}
+                        onChange={(e) => setParcel(i, { imagesWeighed: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Link ảnh kiểm hàng (tuỳ chọn)</label>
+                      <textarea
+                        className={inputCls}
+                        rows={2}
+                        value={p.imagesChecked}
+                        onChange={(e) => setParcel(i, { imagesChecked: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </section>
           </div>
-        </div>
-      )}
+        )}
 
-      {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
-    </div>
+        {error && (
+          <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {error}
+          </p>
+        )}
+      </Modal>
+    </>
   );
 }
