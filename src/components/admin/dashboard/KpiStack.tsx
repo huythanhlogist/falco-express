@@ -1,6 +1,6 @@
 import type { DashboardData } from "@/lib/dashboard";
 
-export default function KpiStack({ kpis }: { kpis: DashboardData["kpis"] }) {
+export default function KpiStack({ kpis, selectedMonth = null }: { kpis: DashboardData["kpis"]; selectedMonth?: string | null }) {
   const attentionParts: string[] = [];
   if (kpis.attentionCustoms > 0) attentionParts.push(`${kpis.attentionCustoms} kẹt hải quan`);
   if (kpis.attentionStale > 0) attentionParts.push(`${kpis.attentionStale} chậm cập nhật`);
@@ -23,7 +23,7 @@ export default function KpiStack({ kpis }: { kpis: DashboardData["kpis"] }) {
           {kpis.thisMonthOrders.toLocaleString("vi-VN")}
         </div>
         <div className="mt-2 text-[13.5px] font-semibold leading-snug text-[#14181f]">
-          Đơn tháng này
+          {selectedMonth ? `Đơn ${kpis.monthLabel.toLowerCase()}` : "Đơn tháng này"}
         </div>
         <div className="mt-0.5 text-xs leading-snug text-[#8b8d93]">
           {kpis.monthDeltaPct !== null ? (

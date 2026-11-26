@@ -49,8 +49,8 @@ export default async function AdminTongQuanPage({
 
       {/* Hàng 1: Biểu đồ sản lượng 11 tuần (waffle) + 3 ô KPI */}
       <section className="grid grid-cols-1 items-stretch gap-5 xl:grid-cols-[1fr_330px]">
-        <WeeklyWaffleChart weeks={data.weekly} />
-        <KpiStack kpis={data.kpis} />
+        <WeeklyWaffleChart weeks={data.weekly} subtitle={data.weeklyLabel} />
+        <KpiStack kpis={data.kpis} selectedMonth={data.selectedMonth} />
       </section>
 
       {/* Hàng 2: Đơn theo tuyến + Từ nhận hàng đến giao (áp theo ?range=) */}

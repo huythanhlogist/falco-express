@@ -90,6 +90,9 @@ export type DashboardData = {
     attentionFailed: number;
   };
   weekly: WeeklyWafflePoint[];
+  /** "YYYY-MM" khi đang lọc theo 1 tháng (áp cho cả trang trừ card "Hôm nay"), ngược lại null */
+  selectedMonth: string | null;
+  weeklyLabel: string;
   routes: {
     total: number;
     items: RouteBreakdownItem[];
@@ -871,10 +874,17 @@ export async function getDashboardData(rangeInput?: string): Promise<DashboardDa
   const range = normalizeRange(rangeInput);
   const todayVn = vnDateString(0);
   const rangeBounds = getRangeBoundsVn(range, todayVn);
-  const monthBounds = getMonthBoundsVn(todayVn);
+  const selectedMonth = /^\d{4}-\d{2}$/.test(range) ? range : null;
+  // Lọc tháng: 3 ô KPI, biểu đồ tuần, đơn theo nước, quy trình đều tính theo tháng đó.
+  const monthBounds = getMonthBoundsVn(selectedMonth ? `${selectedMonth}-01` : todayVn);
+  const inSelectedMonth = (orderDate: string | null) =>
+    !selectedMonth || (!!orderDate && orderDate >= rangeBounds.startDate && orderDate <= rangeBounds.endDate);
 
   const currentWeekMonday = mondayOfWeekYmd(todayVn);
-  const waffleStartDate = addDaysYmd(currentWeekMonday, -10 * 7); // 11 tuần gần nhất (gồm tuần này)
+  // Không lọc tháng: 11 tuần gần nhất (gồm tuần này). Lọc tháng: các tuần chạm vào tháng đó.
+  const waffleLastMonday = selectedMonth ? mondayOfWeekYmd(rangeBounds.endDate) : currentWeekMonday;
+  const waffleStartDate = selectedMonth ? mondayOfWeekYmd(rangeBounds.startDate) : addDaysYmd(currentWeekMonday, -10 * 7);
+  const waffleEndDate = selectedMonth ? addDaysYmd(waffleLastMonday, 6) : todayVn;
   const activeWindowStart = vnDateString(ACTIVE_WINDOW_DAYS);
   // Cron không lấy lại tracking của đơn đã giao → lần lấy ghi nhận "delivered" luôn xảy ra SAU
   // lúc giao. Đơn giao hôm nay chắc chắn có fetched_at từ hôm nay; lùi thêm 1 ngày cho an toàn.
@@ -916,8 +926,13 @@ export async function getDashboardData(rangeInput?: string): Promise<DashboardDa
        AND (
          (tc.order_id IS NOT NULL AND tc.shipment_status NOT IN ('delivered', 'returned'))
          OR (tc.order_id IS NULL AND COALESCE(o.received_date, DATE(o.created_at)) >= ?)
-       )`,
-    [vnDateString(NO_CACHE_WINDOW_DAYS)]
+       )
+       AND COALESCE(o.received_date, DATE(o.created_at)) BETWEEN ? AND ?`,
+    [
+      vnDateString(NO_CACHE_WINDOW_DAYS),
+      selectedMonth ? rangeBounds.startDate : "1970-01-01",
+      selectedMonth ? rangeBounds.endDate : "9999-12-31",
+    ]
   );
 
   const deliveredCandidatesP = pool.query(
@@ -951,7 +966,8 @@ export async function getDashboardData(rangeInput?: string): Promise<DashboardDa
        AND COALESCE(o.received_date, DATE(o.created_at)) >= ?
        AND COALESCE(o.received_date, DATE(o.created_at)) <= ?
      GROUP BY order_date`,
-    [waffleStartDate, todayVn]
+    // Lọc tháng: chỉ đếm đơn trong tháng (tuần đầu/cuối không lẫn ngày của tháng bên cạnh)
+    selectedMonth ? [rangeBounds.startDate, rangeBounds.endDate] : [waffleStartDate, waffleEndDate]
   );
 
   const routesRowsP = pool.query(
@@ -1049,12 +1065,21 @@ export async function getDashboardData(rangeInput?: string): Promise<DashboardDa
   const evaluated = evaluateActiveRows(activeRows, nowMs);
   const upcomingItems = evaluated.upcomingItems;
   const attention = await applyDismissals(evaluated.attention, dismissedP);
+  // Ô KPI "Cần chú ý" theo tháng đang lọc (card "Hôm nay" vẫn là toàn bộ)
+  const kpiAttention = selectedMonth
+    ? await applyDismissals(
+        evaluateActiveRows(
+          (activeRows as OrderTrackingQueryRow[]).filter((r) => inSelectedMonth(r.order_date)),
+          nowMs
+        ).attention,
+        dismissedP
+      )
+    : attention;
 
   // 6. Biểu đồ 11 tuần gần nhất (gom theo tuần Thứ 2 → Chủ nhật giờ VN)
   const weekBuckets = new Map<string, { total: number; delivered: number }>();
   const weekStarts: string[] = [];
-  for (let i = 10; i >= 0; i--) {
-    const ws = addDaysYmd(currentWeekMonday, -i * 7);
+  for (let ws = waffleStartDate; ws <= waffleLastMonday; ws = addDaysYmd(ws, 7)) {
     weekStarts.push(ws);
     weekBuckets.set(ws, { total: 0, delivered: 0 });
   }
@@ -1075,7 +1100,7 @@ export async function getDashboardData(rangeInput?: string): Promise<DashboardDa
       total: bucket.total,
       delivered: bucket.delivered,
       inProgress: Math.max(0, bucket.total - bucket.delivered),
-      isCurrent: idx === weekStarts.length - 1,
+      isCurrent: selectedMonth ? ws === currentWeekMonday : idx === weekStarts.length - 1,
     };
   });
 
@@ -1186,12 +1211,16 @@ export async function getDashboardData(rangeInput?: string): Promise<DashboardDa
       inTransitOrders,
       inTransitLastMile,
       inTransitCustoms,
-      attentionCount: attention.count,
-      attentionCustoms: attention.customsStuckCount,
-      attentionStale: attention.staleCount,
-      attentionFailed: attention.failedOrReturnedCount,
+      attentionCount: kpiAttention.count,
+      attentionCustoms: kpiAttention.customsStuckCount,
+      attentionStale: kpiAttention.staleCount,
+      attentionFailed: kpiAttention.failedOrReturnedCount,
     },
     weekly,
+    selectedMonth,
+    weeklyLabel: selectedMonth
+      ? `${rangeBounds.label} · ${weekStarts.length} tuần · Đơn / tuần`
+      : "11 tuần gần nhất · Đơn / tuần",
     routes: {
       total: routesTotal,
       items: routeItems,

@@ -51,7 +51,13 @@ function formatRangeShort(startYmd: string, endYmd: string): string {
   return `${sd}/${sm} – ${ed}/${em}`;
 }
 
-export default function WeeklyWaffleChart({ weeks }: { weeks: WeeklyWafflePoint[] }) {
+export default function WeeklyWaffleChart({
+  weeks,
+  subtitle = "11 tuần gần nhất · Đơn / tuần",
+}: {
+  weeks: WeeklyWafflePoint[];
+  subtitle?: string;
+}) {
   const maxTotal = Math.max(...weeks.map((w) => w.total), 1);
 
   return (
@@ -62,7 +68,7 @@ export default function WeeklyWaffleChart({ weeks }: { weeks: WeeklyWafflePoint[
             Sản lượng đơn theo tuần
           </h2>
           <p className="mt-0.5 text-[12.5px] text-[#8b8d93]">
-            11 tuần gần nhất · Đơn / tuần
+            {subtitle}
           </p>
         </div>
 
