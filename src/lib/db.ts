@@ -28,8 +28,12 @@ export function getPool(): mysql.Pool {
       password: DB_PASSWORD,
       database: DB_NAME,
       waitForConnections: true,
-      // Trang Tổng quan chạy ~8 truy vấn song song + chuông + trang khác cùng lúc: 5 gây xếp hàng.
-      connectionLimit: 10,
+      // Hostinger giới hạn 500 kết nối MỚI/giờ cho user DB (dùng chung web + cron + script).
+      // Giữ pool nhỏ và giữ kết nối rảnh 5 phút (mặc định mysql2 đóng sau 60s → mỗi lần
+      // mở trang lại tạo kết nối mới). Trên server DB ở cạnh nên 5 kết nối là đủ nhanh.
+      connectionLimit: 5,
+      maxIdle: 5,
+      idleTimeout: 5 * 60 * 1000,
       queueLimit: 0,
       // Giữ kết nối sống qua TCP keepalive — tránh lỗi "write EPIPE" khi kết
       // nối bị firewall/NAT âm thầm đóng sau một thời gian không hoạt động
