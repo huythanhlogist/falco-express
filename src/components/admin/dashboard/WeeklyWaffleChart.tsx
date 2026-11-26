@@ -90,7 +90,8 @@ export default function WeeklyWaffleChart({
 
       <div className="overflow-x-auto pb-1">
         <div
-          className="grid min-w-[660px] grid-cols-11 items-end gap-[11px] pt-1.5"
+          className="grid min-w-[660px] items-end justify-items-center gap-[11px] pt-1.5"
+          style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))` }}
           aria-label="Biểu đồ sản lượng đơn theo tuần"
         >
           {weeks.map((week) => {

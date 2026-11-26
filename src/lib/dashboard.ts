@@ -988,8 +988,9 @@ export async function getDashboardData(rangeInput?: string): Promise<DashboardDa
        AND COALESCE(o.received_date, DATE(o.created_at)) >= ?
        AND COALESCE(o.received_date, DATE(o.created_at)) <= ?
      GROUP BY order_date`,
-    // Lọc tháng: chỉ đếm đơn trong tháng (tuần đầu/cuối không lẫn ngày của tháng bên cạnh)
-    selectedMonth ? [rangeBounds.startDate, rangeBounds.endDate] : [waffleStartDate, waffleEndDate]
+    // Lọc tháng: tuần vắt qua 2 tháng vẫn đếm đủ 7 ngày (nếu chỉ đếm phần trong tháng,
+    // tuần đầu có thể chỉ còn 1 ngày Chủ nhật → cột trống).
+    [waffleStartDate, waffleEndDate]
   );
 
   const routesRowsP = pool.query(
@@ -1257,7 +1258,7 @@ export async function getDashboardData(rangeInput?: string): Promise<DashboardDa
     })(),
     selectedMonth,
     weeklyLabel: selectedMonth
-      ? `${rangeBounds.label} · ${weekStarts.length} tuần · Đơn / tuần`
+      ? `${rangeBounds.label} · ${weekStarts.length} tuần (tính đủ 7 ngày mỗi tuần) · Đơn / tuần`
       : "11 tuần gần nhất · Đơn / tuần",
     routes: {
       total: routesTotal,
