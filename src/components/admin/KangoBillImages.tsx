@@ -3,6 +3,11 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { TrashIcon, UploadIcon } from "@/components/icons";
 import { useConfirm, useToast } from "@/components/ui/Toast";
+import {
+  ALLOWED_KANGO_IMAGE_TYPES,
+  MAX_KANGO_BILL_IMAGES,
+  MAX_KANGO_IMAGE_BYTES,
+} from "@/lib/kango-bill-validate";
 
 export type KangoBillImageItem = {
   id: number;
@@ -10,10 +15,6 @@ export type KangoBillImageItem = {
   mime_type: string;
   url: string;
 };
-
-const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX_BYTES = 5 * 1024 * 1024;
-const MAX_IMAGES = 6;
 
 export default function KangoBillImages({
   billId,
@@ -38,20 +39,33 @@ export default function KangoBillImages({
     const files = Array.from(e.target.files ?? []);
     if (files.length === 0) return;
 
-    if (images.length + files.length > MAX_IMAGES) {
-      setError(`Tối đa ${MAX_IMAGES} ảnh mỗi bill (hiện đã có ${images.length} ảnh)`);
+    if (images.length + files.length > MAX_KANGO_BILL_IMAGES) {
+      const msg = `Tối đa ${MAX_KANGO_BILL_IMAGES} ảnh mỗi bill (hiện đã có ${images.length} ảnh)`;
+      setError(msg);
+      toast(msg, "error");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
     for (const file of files) {
-      if (!ALLOWED_TYPES.has(file.type)) {
-        setError(`"${file.name}" không đúng định dạng (chỉ nhận JPEG, PNG, WebP)`);
+      if (!ALLOWED_KANGO_IMAGE_TYPES.has(file.type)) {
+        const msg = `"${file.name}" không đúng định dạng (chỉ nhận JPEG, PNG, WebP)`;
+        setError(msg);
+        toast(msg, "error");
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
-      if (file.size > MAX_BYTES) {
-        setError(`Ảnh "${file.name}" vượt quá 5 MB`);
+      if (file.size === 0) {
+        const msg = `Ảnh "${file.name}" không có dữ liệu`;
+        setError(msg);
+        toast(msg, "error");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+      if (file.size > MAX_KANGO_IMAGE_BYTES) {
+        const msg = `Ảnh "${file.name}" vượt quá 5 MB`;
+        setError(msg);
+        toast(msg, "error");
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
@@ -68,13 +82,17 @@ export default function KangoBillImages({
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(json?.error || "Tải ảnh thất bại");
+        const msg = json?.error || `Tải ảnh thất bại (HTTP ${res.status})`;
+        setError(msg);
+        toast(msg, "error");
         return;
       }
       setImages(Array.isArray(json?.images) ? json.images : images);
       toast(`Đã tải lên ${files.length} ảnh kiện hàng`);
     } catch {
-      setError("Tải ảnh thất bại — kiểm tra lại kết nối mạng");
+      const msg = "Tải ảnh thất bại — kiểm tra lại kết nối mạng";
+      setError(msg);
+      toast(msg, "error");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -89,7 +107,7 @@ export default function KangoBillImages({
       const res = await fetch(`/api/admin/kango-bills/images/${imageId}`, { method: "DELETE" });
       if (!res.ok) {
         const json = await res.json().catch(() => null);
-        toast(json?.error || "Xoá ảnh thất bại", "error");
+        toast(json?.error || `Xoá ảnh thất bại (HTTP ${res.status})`, "error");
         return;
       }
       setImages((prev) => prev.filter((img) => img.id !== imageId));
@@ -106,14 +124,14 @@ export default function KangoBillImages({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="font-display text-sm font-bold text-navy-900">
-            Ảnh kiện hàng (đã đóng) ({images.length}/{MAX_IMAGES})
+            Ảnh kiện hàng (đã đóng) ({images.length}/{MAX_KANGO_BILL_IMAGES})
           </p>
           <p className="mt-0.5 text-xs text-ink/50">
-            Định dạng JPEG, PNG, WebP · Tối đa 5 MB/ảnh · Tối đa {MAX_IMAGES} ảnh/bill
+            Định dạng JPEG, PNG, WebP · Tối đa 5 MB/ảnh · Tối đa {MAX_KANGO_BILL_IMAGES} ảnh/bill
           </p>
         </div>
 
-        {images.length < MAX_IMAGES && (
+        {images.length < MAX_KANGO_BILL_IMAGES && (
           <label className="btn-outline inline-flex cursor-pointer items-center gap-1.5 !px-3.5 !py-1.5 text-xs">
             <UploadIcon className="h-3.5 w-3.5" />
             <span>{uploading ? "Đang tải..." : "Tải thêm ảnh"}</span>

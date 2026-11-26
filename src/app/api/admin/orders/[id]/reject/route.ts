@@ -7,7 +7,12 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (!session) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const { id } = await params;
-  const ok = await rejectOrder(Number(id), session.email);
+  const orderId = Number(id);
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    return NextResponse.json({ error: "ID không hợp lệ" }, { status: 400 });
+  }
+
+  const ok = await rejectOrder(orderId, session.email);
   if (!ok) {
     return NextResponse.json(
       { error: "Không tìm thấy đơn đang chờ duyệt này" },

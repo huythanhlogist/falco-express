@@ -1,6 +1,17 @@
-import { fillOrderBlanks, findOrdersByAwbs, insertOrder, listTrackingCodesByOrders, insertParcels, listFalcoCodeSet, setOrderService } from "./db";
+import type mysql from "mysql2/promise";
+import {
+  fillOrderBlanks,
+  findOrdersByAwbs,
+  getPool,
+  insertOrder,
+  insertParcels,
+  listTrackingCodesByOrders,
+  setOrderService,
+  type OrderRecord,
+} from "./db";
 import { bay, isBayConfigured, type BayShipment } from "./bay-api";
 import { BAY_COUNTRY_VI, BAY_SERVICE_NAME_VI } from "./bay-tracking";
+import { vnDateString } from "./vn-date";
 
 // Mã đơn của vận đơn BayOnline trên Falco: FEB + yymmdd + số thứ tự 3 chữ số (vd FEB261025001),
 // cùng kiểu mã FL của đơn Kango. Mã vận đơn Bay (vd "2410-0887") lưu ở orders.awb.
@@ -10,9 +21,12 @@ export function isBayOrderCode(falcoCode: string): boolean {
   return falcoCode.toUpperCase().startsWith(FEB_PREFIX);
 }
 
-function vnDateParts(iso: string): { ymd: string; yymmdd: string } {
-  const d = new Date(new Date(iso).getTime() + 7 * 3600_000).toISOString().slice(0, 10);
-  return { ymd: d, yymmdd: d.slice(2).replace(/-/g, "") };
+function vnDateParts(iso: string | null | undefined): { ymd: string; yymmdd: string } {
+  const ms = iso ? Date.parse(iso) : NaN;
+  const ymd = Number.isNaN(ms)
+    ? vnDateString()
+    : new Date(ms + 7 * 3600_000).toISOString().slice(0, 10);
+  return { ymd, yymmdd: ymd.slice(2).replace(/-/g, "") };
 }
 
 export function nextFebCode(existing: Set<string>, dateIso: string): string {
@@ -36,6 +50,25 @@ function destinationOf(s: BayShipment): string {
   const a = s.recipient.address;
   const country = a.countryCode ? (BAY_COUNTRY_VI[a.countryCode.toUpperCase()] ?? a.countryCode) : "";
   return [a.city, country].filter(Boolean).join(", ");
+}
+
+/** Chỉ tải tập mã FEB… thay vì đọc toàn bộ bảng orders vào RAM. */
+async function listFebCodeSet(): Promise<Set<string>> {
+  const [rows] = await getPool().query<mysql.RowDataPacket[]>(
+    "SELECT falco_code FROM orders WHERE falco_code LIKE 'FEB%'"
+  );
+  return new Set(rows.map((r) => String(r.falco_code)));
+}
+
+/** Cập nhật mã tracking chặng cuối khi Bay thay đổi nhãn cho cùng vận đơn (tránh sinh 2 mã trùng). */
+async function upsertBayParcelTracking(orderId: number, hawb: string, trackingNumber: string): Promise<void> {
+  const [result] = await getPool().query<mysql.ResultSetHeader>(
+    "UPDATE order_parcels SET tracking_code = ? WHERE order_id = ? AND hawb = ?",
+    [trackingNumber, orderId, hawb]
+  );
+  if (result.affectedRows === 0) {
+    await insertParcels(orderId, [{ hawb, trackingCode: trackingNumber }]);
+  }
 }
 
 /**
@@ -73,57 +106,88 @@ async function runSync(maxPages: number): Promise<BaySyncResult> {
     if (page >= res.pagination.totalPages) break;
   }
   // Cũ → mới để số thứ tự FEB tăng theo thứ tự tạo.
-  shipments.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  shipments.sort((a, b) => (Date.parse(a.createdAt) || 0) - (Date.parse(b.createdAt) || 0));
 
   // Nạp trước toàn bộ đơn/mã tracking đã có bằng 2 truy vấn, chỉ ghi DB khi dữ liệu thật sự đổi.
-  const [existingCodes, byAwb] = await Promise.all([listFalcoCodeSet(), findOrdersByAwbs(shipments.map((s) => s.reference))]);
+  const [existingCodes, rawByAwb] = await Promise.all([
+    listFebCodeSet(),
+    findOrdersByAwbs(shipments.map((s) => s.reference)),
+  ]);
+  // Chuẩn hoá so sánh AWB không phân biệt hoa/thường.
+  const byAwb = new Map<string, OrderRecord>();
+  for (const [awb, order] of rawByAwb) {
+    byAwb.set(awb.trim().toUpperCase(), order);
+  }
   const trackingByOrder = await listTrackingCodesByOrders([...byAwb.values()].map((o) => o.id));
   const created: BaySyncResult["created"] = [];
   let alreadySynced = 0;
 
   for (const s of shipments) {
-    const trackingNumber = s.carrier.trackingNumber?.trim() || "";
-    const service = BAY_SERVICE_NAME_VI[s.serviceType] ?? "Hàng hoá";
-    const order = byAwb.get(s.reference);
-    if (order) {
-      alreadySynced++;
-      const name = s.recipient.name ?? "";
-      const phone = s.recipient.phone ?? "";
-      const postcode = s.recipient.address.postalCode ?? "";
-      const dest = destinationOf(s);
-      const weight = s.parcel.weightKg.total ?? null;
-      const changed =
-        (name && name !== (order.recipient_name ?? "")) ||
-        (phone && phone !== (order.recipient_phone ?? "")) ||
-        (postcode && postcode !== (order.recipient_postcode ?? "")) ||
-        (dest && dest !== (order.destination ?? "")) ||
-        (weight !== null && Number(order.weight_kg) !== weight);
-      if (order.service !== service) await setOrderService(order.id, service);
-      // Bay có thể bổ sung/sửa thông tin người nhận sau khi đơn đã được đồng bộ.
-      if (changed) await fillOrderBlanks(order.id, { recipientName: name, recipientPhone: phone, recipientPostcode: postcode, destination: dest, weightKg: weight });
-      if (trackingNumber && !trackingByOrder.get(order.id)?.has(trackingNumber)) {
-        await insertParcels(order.id, [{ hawb: s.reference, trackingCode: trackingNumber }]);
+    try {
+      const refKey = s.reference.trim().toUpperCase();
+      const trackingNumber = s.carrier.trackingNumber?.trim() || "";
+      const service = BAY_SERVICE_NAME_VI[s.serviceType] ?? "Hàng hoá";
+      const order = byAwb.get(refKey);
+      if (order) {
+        alreadySynced++;
+        const name = s.recipient.name ?? "";
+        const phone = s.recipient.phone ?? "";
+        const postcode = s.recipient.address.postalCode ?? "";
+        const dest = destinationOf(s);
+        // Không ghi đè weight_kg nếu kế toán đã chốt giá (amount/cost) và đơn đã có cân nặng.
+        const keepAccountedWeight =
+          order.weight_kg !== null && (order.amount !== null || order.cost !== null);
+        const weight = keepAccountedWeight ? null : (s.parcel.weightKg.total ?? null);
+        const changed =
+          (name && name !== (order.recipient_name ?? "")) ||
+          (phone && phone !== (order.recipient_phone ?? "")) ||
+          (postcode && postcode !== (order.recipient_postcode ?? "")) ||
+          (dest && dest !== (order.destination ?? "")) ||
+          (weight !== null && Number(order.weight_kg) !== weight);
+        if (order.service !== service) await setOrderService(order.id, service);
+        // Bay có thể bổ sung/sửa thông tin người nhận sau khi đơn đã được đồng bộ.
+        if (changed) {
+          await fillOrderBlanks(order.id, {
+            recipientName: name,
+            recipientPhone: phone,
+            recipientPostcode: postcode,
+            destination: dest,
+            weightKg: weight,
+          });
+        }
+        if (trackingNumber && !trackingByOrder.get(order.id)?.has(trackingNumber)) {
+          await upsertBayParcelTracking(order.id, s.reference, trackingNumber);
+          if (!trackingByOrder.has(order.id)) trackingByOrder.set(order.id, new Set());
+          trackingByOrder.get(order.id)!.add(trackingNumber);
+        }
+        continue;
       }
-      continue;
-    }
 
-    const falcoCode = nextFebCode(existingCodes, s.createdAt);
-    existingCodes.add(falcoCode);
-    const orderId = await insertOrder({
-      falcoCode,
-      awb: s.reference,
-      recipientName: s.recipient.name ?? "",
-      recipientPhone: s.recipient.phone ?? "",
-      recipientPostcode: s.recipient.address.postalCode ?? "",
-      service,
-      destination: destinationOf(s),
-      receivedDate: vnDateParts(s.createdAt).ymd,
-      weightKg: s.parcel.weightKg.total ?? null,
-      source: "staff",
-      reviewStatus: "auto_approved",
-    });
-    if (trackingNumber) await insertParcels(orderId, [{ hawb: s.reference, trackingCode: trackingNumber }]);
-    created.push({ reference: s.reference, falcoCode });
+      const falcoCode = nextFebCode(existingCodes, s.createdAt);
+      existingCodes.add(falcoCode);
+      const orderId = await insertOrder({
+        falcoCode,
+        awb: s.reference,
+        recipientName: s.recipient.name ?? "",
+        recipientPhone: s.recipient.phone ?? "",
+        recipientPostcode: s.recipient.address.postalCode ?? "",
+        service,
+        destination: destinationOf(s),
+        receivedDate: vnDateParts(s.createdAt).ymd,
+        weightKg: s.parcel.weightKg.total ?? null,
+        source: "staff",
+        reviewStatus: "auto_approved",
+      });
+      if (trackingNumber) await insertParcels(orderId, [{ hawb: s.reference, trackingCode: trackingNumber }]);
+      created.push({ reference: s.reference, falcoCode });
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code;
+      if (code === "ER_DUP_ENTRY") {
+        alreadySynced++;
+        continue;
+      }
+      console.error(`[bay-sync] Lỗi đồng bộ vận đơn ${s.reference}:`, err);
+    }
   }
 
   const result = { total: shipments.length, created, alreadySynced };

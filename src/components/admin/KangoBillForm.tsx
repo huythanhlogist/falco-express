@@ -4,10 +4,12 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { CloseIcon, TrashIcon } from "@/components/icons";
 import { useToast } from "@/components/ui/Toast";
-
-const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const MAX_BILL_IMAGES = 6;
+import {
+  ALLOWED_KANGO_IMAGE_TYPES,
+  MAX_CUSTOMER_NOTE_LENGTH,
+  MAX_KANGO_BILL_IMAGES,
+  MAX_KANGO_IMAGE_BYTES,
+} from "@/lib/kango-bill-validate";
 
 const BRANCH_OPTIONS = [
   { value: "HCM", label: "TP. Hồ Chí Minh (HCM)" },
@@ -124,6 +126,14 @@ type RecentReceiver = {
 
 export type KangoBillInitial = FormState & { id: number; packages: PackageRow[]; invoices: InvoiceRow[] };
 
+function formatCalcTotal(qtyRaw: string, priceRaw: string): string {
+  if (!qtyRaw.trim() || !priceRaw.trim()) return "";
+  const qty = Number(qtyRaw);
+  const price = Number(priceRaw);
+  if (!Number.isFinite(qty) || !Number.isFinite(price) || qty < 0 || price < 0) return "";
+  return String(Math.round(qty * price * 100) / 100);
+}
+
 export default function KangoBillForm({ initial }: { initial?: KangoBillInitial }) {
   const router = useRouter();
   const toast = useToast();
@@ -140,8 +150,10 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
 
   useEffect(() => {
     fetch("/api/admin/kango-bills/receivers")
-      .then((res) => res.json())
-      .then((json) => setRecentReceivers(json.receivers ?? []))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (Array.isArray(json?.receivers)) setRecentReceivers(json.receivers);
+      })
       .catch(() => {});
   }, []);
 
@@ -156,19 +168,24 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
     const picked = Array.from(e.target.files ?? []);
     if (picked.length === 0) return;
 
-    if (imageFiles.length + picked.length > MAX_BILL_IMAGES) {
-      setImageError(`Tối đa ${MAX_BILL_IMAGES} ảnh mỗi bill (đã chọn ${imageFiles.length} ảnh)`);
+    if (imageFiles.length + picked.length > MAX_KANGO_BILL_IMAGES) {
+      setImageError(`Tối đa ${MAX_KANGO_BILL_IMAGES} ảnh mỗi bill (đã chọn ${imageFiles.length} ảnh)`);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
     for (const file of picked) {
-      if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+      if (!ALLOWED_KANGO_IMAGE_TYPES.has(file.type)) {
         setImageError(`"${file.name}" không đúng định dạng (chỉ nhận JPEG, PNG, WebP)`);
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
-      if (file.size > MAX_IMAGE_BYTES) {
+      if (file.size === 0) {
+        setImageError(`Ảnh "${file.name}" không có dữ liệu`);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+      if (file.size > MAX_KANGO_IMAGE_BYTES) {
         setImageError(`Ảnh "${file.name}" vượt quá 5 MB`);
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
@@ -198,9 +215,36 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
   function updatePackage(i: number, patch: Partial<PackageRow>) {
     setPackages((prev) => prev.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
   }
+
   function updateInvoice(i: number, patch: Partial<InvoiceRow>) {
-    setInvoices((prev) => prev.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
+    setInvoices((prev) =>
+      prev.map((row, idx) => {
+        if (idx !== i) return row;
+        const next = { ...row, ...patch };
+        // Tự tính Tổng tiền = SL × Đơn giá khi nhân viên thay đổi SL hoặc Đơn giá (vẫn cho sửa tay nếu cần).
+        if (
+          ("invoiceQuantity" in patch || "invoicePrice" in patch) &&
+          !("invoiceTotalPrice" in patch)
+        ) {
+          const calc = formatCalcTotal(next.invoiceQuantity, next.invoicePrice);
+          if (calc) next.invoiceTotalPrice = calc;
+        }
+        return next;
+      })
+    );
   }
+
+  const filledInvoices = invoices.filter((i) => i.invoiceGoodsDetails.trim());
+  const invoiceSum = filledInvoices.reduce((acc, i) => {
+    const t = Number(i.invoiceTotalPrice);
+    return acc + (Number.isFinite(t) ? t : 0);
+  }, 0);
+  const shipmentValueNum = Number(form.shipmentValue);
+  const invoiceMismatch =
+    filledInvoices.length > 0 &&
+    form.shipmentValue.trim() !== "" &&
+    Number.isFinite(shipmentValueNum) &&
+    Math.abs(invoiceSum - shipmentValueNum) > 0.01;
 
   async function submit() {
     setError("");
@@ -219,50 +263,101 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
       setError("Vui lòng nhập đủ các trường bắt buộc (đánh dấu *)");
       return;
     }
-    if (packages.length === 0 || packages.some((p) => !p.packageLength || !p.packageWidth || !p.packageHeight || !p.packageWeight)) {
-      setError("Vui lòng nhập đủ kích thước/cân nặng cho mọi kiện hàng");
+
+    const parsedShipmentValue = form.shipmentValue.trim() ? Number(form.shipmentValue) : NaN;
+    if (!Number.isFinite(parsedShipmentValue) || parsedShipmentValue <= 0) {
+      setError("Giá trị kiện hàng (USD) bắt buộc và phải lớn hơn 0");
       return;
     }
-    if (form.customerNote.trim().length > 500) {
-      setError("Ghi chú cho khách không được vượt quá 500 ký tự");
+
+    if (packages.length === 0) {
+      setError("Vui lòng thêm ít nhất 1 kiện hàng");
+      return;
+    }
+    for (let idx = 0; idx < packages.length; idx++) {
+      const p = packages[idx];
+      const qty = p.packageQuantity.trim() ? Number(p.packageQuantity) : NaN;
+      const len = p.packageLength.trim() ? Number(p.packageLength) : NaN;
+      const wid = p.packageWidth.trim() ? Number(p.packageWidth) : NaN;
+      const hei = p.packageHeight.trim() ? Number(p.packageHeight) : NaN;
+      const wgt = p.packageWeight.trim() ? Number(p.packageWeight) : NaN;
+      if (!Number.isInteger(qty) || qty < 1) {
+        setError(`Kiện ${idx + 1}: số lượng (SL) phải là số nguyên ≥ 1`);
+        return;
+      }
+      if (
+        !Number.isFinite(len) ||
+        len <= 0 ||
+        !Number.isFinite(wid) ||
+        wid <= 0 ||
+        !Number.isFinite(hei) ||
+        hei <= 0 ||
+        !Number.isFinite(wgt) ||
+        wgt <= 0
+      ) {
+        setError(`Kiện ${idx + 1}: kích thước (Dài, Rộng, Cao) và Cân nặng phải lớn hơn 0`);
+        return;
+      }
+    }
+
+    const normalizedInvoices = [];
+    for (let idx = 0; idx < filledInvoices.length; idx++) {
+      const inv = filledInvoices[idx];
+      const qty = inv.invoiceQuantity.trim() ? Number(inv.invoiceQuantity) : NaN;
+      const price = inv.invoicePrice.trim() ? Number(inv.invoicePrice) : NaN;
+      const totalRaw = inv.invoiceTotalPrice.trim()
+        ? inv.invoiceTotalPrice
+        : formatCalcTotal(inv.invoiceQuantity, inv.invoicePrice);
+      const total = totalRaw ? Number(totalRaw) : NaN;
+      if (!Number.isInteger(qty) || qty < 1) {
+        setError(`Invoice dòng ${idx + 1}: số lượng phải là số nguyên ≥ 1`);
+        return;
+      }
+      if (!Number.isFinite(price) || price < 0 || !Number.isFinite(total) || total < 0) {
+        setError(`Invoice dòng ${idx + 1}: đơn giá và tổng tiền phải là số ≥ 0`);
+        return;
+      }
+      normalizedInvoices.push({
+        invoiceGoodsDetails: inv.invoiceGoodsDetails.trim(),
+        invoiceQuantity: qty,
+        invoiceUnit: inv.invoiceUnit,
+        invoicePrice: price,
+        invoiceTotalPrice: total,
+      });
+    }
+
+    if (form.customerNote.trim().length > MAX_CUSTOMER_NOTE_LENGTH) {
+      setError(`Ghi chú cho khách không được vượt quá ${MAX_CUSTOMER_NOTE_LENGTH} ký tự`);
       return;
     }
 
     const payload = {
-      receiverCompanyName: form.receiverCompanyName,
-      receiverContactName: form.receiverContactName,
-      receiverTelephone: form.receiverTelephone,
-      receiverCountry: form.receiverCountry,
-      receiverStateName: form.receiverStateName,
-      receiverCity: form.receiverCity,
-      receiverPostalCode: form.receiverPostalCode,
-      receiverAddress1: form.receiverAddress1,
-      receiverAddress2: form.receiverAddress2 || null,
-      receiverAddress3: form.receiverAddress3 || null,
-      shipmentService: form.shipmentService,
+      receiverCompanyName: form.receiverCompanyName.trim(),
+      receiverContactName: form.receiverContactName.trim(),
+      receiverTelephone: form.receiverTelephone.trim(),
+      receiverCountry: form.receiverCountry.trim(),
+      receiverStateName: form.receiverStateName.trim(),
+      receiverCity: form.receiverCity.trim(),
+      receiverPostalCode: form.receiverPostalCode.trim(),
+      receiverAddress1: form.receiverAddress1.trim(),
+      receiverAddress2: form.receiverAddress2.trim() || null,
+      receiverAddress3: form.receiverAddress3.trim() || null,
+      shipmentService: form.shipmentService.trim(),
       shipmentSignatureFlg: form.shipmentSignatureFlg,
       shipmentBranch: form.shipmentBranch,
-      shipmentReferenceCode: form.shipmentReferenceCode || null,
-      shipmentGoodsName: form.shipmentGoodsName,
-      shipmentValue: Number(form.shipmentValue) || 0,
+      shipmentReferenceCode: form.shipmentReferenceCode.trim() || null,
+      shipmentGoodsName: form.shipmentGoodsName.trim(),
+      shipmentValue: parsedShipmentValue,
       shipmentExportAs: form.shipmentExportAs,
       packages: packages.map((p) => ({
-        packageQuantity: Number(p.packageQuantity) || 1,
+        packageQuantity: Number(p.packageQuantity),
         packageType: p.packageType,
         packageLength: Number(p.packageLength),
         packageWidth: Number(p.packageWidth),
         packageHeight: Number(p.packageHeight),
         packageWeight: Number(p.packageWeight),
       })),
-      invoices: invoices
-        .filter((i) => i.invoiceGoodsDetails.trim())
-        .map((i) => ({
-          invoiceGoodsDetails: i.invoiceGoodsDetails,
-          invoiceQuantity: Number(i.invoiceQuantity) || 1,
-          invoiceUnit: i.invoiceUnit,
-          invoicePrice: Number(i.invoicePrice) || 0,
-          invoiceTotalPrice: Number(i.invoiceTotalPrice) || 0,
-        })),
+      invoices: normalizedInvoices,
       customerNote: form.customerNote.trim() || null,
     };
 
@@ -279,21 +374,24 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           });
-      const json = await res.json();
+      const json = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(json.error || "Có lỗi xảy ra");
+        const msg = json?.error || `Lưu bill thất bại (HTTP ${res.status})`;
+        setError(msg);
+        toast(msg, "error");
         return;
       }
 
       if (initial) {
+        toast("Đã lưu thay đổi bill");
         router.push(`/admin/kango-bills/${initial.id}`);
         router.refresh();
         return;
       }
 
-      const newBillId = json.id as number;
+      const newBillId = json?.id as number;
       let uploadWarning = "";
-      if (imageFiles.length > 0) {
+      if (imageFiles.length > 0 && newBillId) {
         try {
           const formData = new FormData();
           for (const file of imageFiles) formData.append("images", file);
@@ -314,9 +412,14 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
         toast(`Bill #${newBillId} đã tạo nhưng tải ảnh lỗi: ${uploadWarning}`, "error");
         router.push(`/admin/kango-bills/${newBillId}?imageUploadError=${encodeURIComponent(uploadWarning)}`);
       } else {
+        toast(`Đã tạo bill nháp #${newBillId}`);
         router.push(`/admin/kango-bills/${newBillId}`);
       }
       router.refresh();
+    } catch {
+      const msg = "Không kết nối được tới máy chủ — vui lòng kiểm tra lại mạng và thử lại";
+      setError(msg);
+      toast(msg, "error");
     } finally {
       setSaving(false);
     }
@@ -339,7 +442,7 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
               — Chọn khách đã gửi trước đó —
             </option>
             {recentReceivers.map((r, i) => (
-              <option key={r.receiverTelephone} value={i}>
+              <option key={`${r.receiverTelephone}-${i}`} value={i}>
                 {r.receiverContactName} — {r.receiverTelephone} ({r.receiverCity}, {r.receiverCountry})
               </option>
             ))}
@@ -390,6 +493,8 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
             <label className="text-xs font-semibold text-ink/60">Giá trị kiện hàng (USD) *</label>
             <input
               type="number"
+              min="0.01"
+              step="any"
               value={form.shipmentValue}
               onChange={(e) => setForm({ ...form, shipmentValue: e.target.value })}
               className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink focus:border-flame-400 focus:outline-none focus:ring-2 focus:ring-flame-100"
@@ -440,7 +545,7 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
         <div className="mt-3 flex flex-col gap-3">
           {packages.map((p, i) => (
             <div key={i} className="grid grid-cols-2 gap-2 rounded-lg border border-line p-3 sm:grid-cols-6">
-              <NumField label="SL" value={p.packageQuantity} onChange={(v) => updatePackage(i, { packageQuantity: v })} />
+              <NumField label="SL" min="1" step="1" value={p.packageQuantity} onChange={(v) => updatePackage(i, { packageQuantity: v })} />
               <div>
                 <label className="text-xs font-semibold text-ink/60">Loại</label>
                 <select
@@ -455,11 +560,11 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
                   ))}
                 </select>
               </div>
-              <NumField label="Dài (cm)" value={p.packageLength} onChange={(v) => updatePackage(i, { packageLength: v })} />
-              <NumField label="Rộng (cm)" value={p.packageWidth} onChange={(v) => updatePackage(i, { packageWidth: v })} />
-              <NumField label="Cao (cm)" value={p.packageHeight} onChange={(v) => updatePackage(i, { packageHeight: v })} />
+              <NumField label="Dài (cm)" min="0.1" step="any" value={p.packageLength} onChange={(v) => updatePackage(i, { packageLength: v })} />
+              <NumField label="Rộng (cm)" min="0.1" step="any" value={p.packageWidth} onChange={(v) => updatePackage(i, { packageWidth: v })} />
+              <NumField label="Cao (cm)" min="0.1" step="any" value={p.packageHeight} onChange={(v) => updatePackage(i, { packageHeight: v })} />
               <div className="flex items-end gap-1">
-                <NumField label="Cân (kg)" value={p.packageWeight} onChange={(v) => updatePackage(i, { packageWeight: v })} />
+                <NumField label="Cân (kg)" min="0.01" step="any" value={p.packageWeight} onChange={(v) => updatePackage(i, { packageWeight: v })} />
                 {packages.length > 1 && (
                   <button
                     type="button"
@@ -497,7 +602,7 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
                   className="mt-1 w-full rounded-lg border border-line bg-white px-2 py-2 text-sm"
                 />
               </div>
-              <NumField label="SL" value={inv.invoiceQuantity} onChange={(v) => updateInvoice(i, { invoiceQuantity: v })} />
+              <NumField label="SL" min="1" step="1" value={inv.invoiceQuantity} onChange={(v) => updateInvoice(i, { invoiceQuantity: v })} />
               <div>
                 <label className="text-xs font-semibold text-ink/60">Đơn vị</label>
                 <select
@@ -512,9 +617,9 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
                   ))}
                 </select>
               </div>
-              <NumField label="Đơn giá" value={inv.invoicePrice} onChange={(v) => updateInvoice(i, { invoicePrice: v })} />
+              <NumField label="Đơn giá" min="0" step="any" value={inv.invoicePrice} onChange={(v) => updateInvoice(i, { invoicePrice: v })} />
               <div className="flex items-end gap-1">
-                <NumField label="Tổng tiền" value={inv.invoiceTotalPrice} onChange={(v) => updateInvoice(i, { invoiceTotalPrice: v })} />
+                <NumField label="Tổng tiền" min="0" step="any" value={inv.invoiceTotalPrice} onChange={(v) => updateInvoice(i, { invoiceTotalPrice: v })} />
                 <button
                   type="button"
                   onClick={() => setInvoices((prev) => prev.filter((_, idx) => idx !== i))}
@@ -526,23 +631,28 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
             </div>
           ))}
           {invoices.length === 0 && <p className="text-xs text-ink/45">Không bắt buộc — chỉ cần khi có yêu cầu khai invoice chi tiết.</p>}
+          {invoiceMismatch && (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Lưu ý: Tổng tiền invoice ({invoiceSum.toFixed(2)} USD) đang lệch so với Giá trị kiện hàng ({shipmentValueNum.toFixed(2)} USD).
+            </p>
+          )}
         </div>
       </section>
 
       {!initial && (
         <section className="rounded-xl border border-line bg-white p-4">
           <p className="font-display text-sm font-bold text-navy-900">
-            Ảnh kiện hàng (tuỳ chọn) ({imageFiles.length}/{MAX_BILL_IMAGES})
+            Ảnh kiện hàng (tuỳ chọn) ({imageFiles.length}/{MAX_KANGO_BILL_IMAGES})
           </p>
           <p className="mt-1 text-xs text-ink/50">
-            Chọn ảnh kiện hàng đã đóng (JPEG, PNG, WebP · ≤ 5 MB/ảnh · tối đa {MAX_BILL_IMAGES} ảnh). Ảnh sẽ tự tải lên ngay sau khi lưu bill.
+            Chọn ảnh kiện hàng đã đóng (JPEG, PNG, WebP · ≤ 5 MB/ảnh · tối đa {MAX_KANGO_BILL_IMAGES} ảnh). Ảnh sẽ tự tải lên ngay sau khi lưu bill.
           </p>
           <input
             ref={fileInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp"
             multiple
-            disabled={saving || imageFiles.length >= MAX_BILL_IMAGES}
+            disabled={saving || imageFiles.length >= MAX_KANGO_BILL_IMAGES}
             onChange={handleImageSelect}
             className="mt-2.5 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-flame-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-flame-700 disabled:opacity-50"
           />
@@ -575,13 +685,15 @@ export default function KangoBillForm({ initial }: { initial?: KangoBillInitial 
         <textarea
           id="customer-note"
           rows={3}
-          maxLength={500}
+          maxLength={MAX_CUSTOMER_NOTE_LENGTH}
           value={form.customerNote}
           onChange={(e) => setForm({ ...form, customerNote: e.target.value })}
           placeholder="Vd: Thiếu tên tiệm và SĐT người nhận – anh/chị bổ sung giúp Falco"
           className="mt-2 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink focus:border-flame-400 focus:outline-none focus:ring-2 focus:ring-flame-100"
         />
-        <p className="mt-1 text-right text-xs text-ink/45">{form.customerNote.length}/500</p>
+        <p className="mt-1 text-right text-xs text-ink/45">
+          {form.customerNote.length}/{MAX_CUSTOMER_NOTE_LENGTH}
+        </p>
       </section>
 
       {error && <p className="text-sm font-medium text-flame-700">{error}</p>}
@@ -613,12 +725,26 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
   );
 }
 
-function NumField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function NumField({
+  label,
+  value,
+  onChange,
+  min,
+  step,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  min?: string;
+  step?: string;
+}) {
   return (
     <div>
       <label className="text-xs font-semibold text-ink/60">{label}</label>
       <input
         type="number"
+        min={min}
+        step={step}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="mt-1 w-full rounded-lg border border-line bg-white px-2 py-2 text-sm"

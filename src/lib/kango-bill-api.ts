@@ -1,15 +1,29 @@
-import type { KangoBill, KangoInvoiceItem, KangoPackage } from "./db";
+import type { KangoBill } from "./db";
+import { parseKangoInvoicesJson, parseKangoPackagesJson } from "./kango-bill-validate";
 
 export type KangoCreateBillResult =
   | { ok: true; billId: string; hawbs: string[]; redirectUrl: string }
   | { ok: false; error: string };
 
+const KANGO_CREATE_TIMEOUT_MS = 30_000;
+
 // Kango trả `message` dạng string khi lỗi chung, nhưng dạng object/array
-// (lỗi validate theo từng field) khi lỗi input — phải quy về 1 chuỗi đọc
-// được, nếu không sẽ bị ép kiểu thành "[object Object]" lúc lưu DB.
+// (lỗi validate theo từng field) khi lỗi input — quy về chuỗi dễ đọc cho nhân viên.
 function stringifyKangoMessage(message: unknown): string {
   if (!message) return "";
-  if (typeof message === "string") return message;
+  if (typeof message === "string") return message.trim();
+  if (Array.isArray(message)) {
+    return message.map(stringifyKangoMessage).filter(Boolean).join("; ");
+  }
+  if (typeof message === "object") {
+    const entries = Object.entries(message as Record<string, unknown>)
+      .map(([k, v]) => {
+        const text = stringifyKangoMessage(v);
+        return text ? `${k}: ${text}` : "";
+      })
+      .filter(Boolean);
+    if (entries.length > 0) return entries.join("; ");
+  }
   try {
     return JSON.stringify(message);
   } catch {
@@ -31,8 +45,11 @@ export async function submitKangoBill(bill: KangoBill): Promise<KangoCreateBillR
     return { ok: false, error: "Thiếu biến môi trường KANGO_API_KEY" };
   }
 
-  const packages = JSON.parse(bill.packages_json) as KangoPackage[];
-  const invoices = bill.invoices_json ? (JSON.parse(bill.invoices_json) as KangoInvoiceItem[]) : [];
+  const packages = parseKangoPackagesJson(bill.packages_json);
+  if (packages.length === 0) {
+    return { ok: false, error: "Dữ liệu kiện hàng của bill không hợp lệ hoặc bị trống" };
+  }
+  const invoices = parseKangoInvoicesJson(bill.invoices_json);
 
   const body = {
     shipment: {
@@ -72,15 +89,27 @@ export async function submitKangoBill(bill: KangoBill): Promise<KangoCreateBillR
     },
   };
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), KANGO_CREATE_TIMEOUT_MS);
   let res: Response;
   try {
     res = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json", "api-key": apiKey },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
   } catch (err) {
+    if (controller.signal.aborted) {
+      return {
+        ok: false,
+        error:
+          "Quá thời gian chờ phản hồi từ Kango (30 giây). Vui lòng kiểm tra trên web Kango xem vận đơn đã được tạo chưa trước khi gửi lại.",
+      };
+    }
     return { ok: false, error: err instanceof Error ? err.message : "Không kết nối được tới Kango" };
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   const json = await res.json().catch(() => null);
@@ -89,10 +118,20 @@ export async function submitKangoBill(bill: KangoBill): Promise<KangoCreateBillR
     return { ok: false, error: message };
   }
 
+  const rawBillId = json.data?.["ID bill"];
+  const billId = rawBillId !== undefined && rawBillId !== null ? String(rawBillId).trim() : "";
+  if (!billId) {
+    return {
+      ok: false,
+      error:
+        "Kango phản hồi thành công nhưng thiếu mã vận đơn (ID bill). Vui lòng kiểm tra trên web Kango trước khi gửi lại.",
+    };
+  }
+
   return {
     ok: true,
-    billId: String(json.data?.["ID bill"] ?? ""),
-    hawbs: Array.isArray(json.data?.Hawbs) ? json.data.Hawbs.map(String) : [],
+    billId,
+    hawbs: Array.isArray(json.data?.Hawbs) ? json.data.Hawbs.map(String).filter(Boolean) : [],
     redirectUrl: typeof json.redirect_url === "string" ? json.redirect_url : "",
   };
 }

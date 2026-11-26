@@ -1,10 +1,18 @@
 // Gọi API proxy /api/admin/office/* (server chuyển tiếp tới webhook n8n).
 
-export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string };
+export type StaleMeta = {
+  stale?: boolean;
+  staleSince?: string;
+};
+
+export type ApiResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string; aborted?: boolean };
 
 export async function officeApi<T = Record<string, unknown>>(
   path: string,
   body?: unknown,
+  options?: { signal?: AbortSignal },
 ): Promise<ApiResult<T>> {
   try {
     const res = await fetch(`/api/admin/office/${path}`, {
@@ -12,14 +20,29 @@ export async function officeApi<T = Record<string, unknown>>(
       headers: body === undefined ? undefined : { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
       cache: "no-store",
+      signal: options?.signal,
     });
     const data = (await res.json().catch(() => ({}))) as T & { ok?: boolean; error?: string };
     if (!res.ok || data.ok === false) {
       return { ok: false, error: data.error ?? `Lỗi ${res.status}` };
     }
     return { ok: true, data };
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      return { ok: false, error: "", aborted: true };
+    }
     return { ok: false, error: "Không kết nối được máy chủ" };
+  }
+}
+
+/** Chỉ cho phép liên kết http/https để tránh thực thi giao thức nguy hiểm như javascript:. */
+export function safeHttpUrl(raw: string | null | undefined): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  try {
+    const u = new URL(raw.trim());
+    return u.protocol === "http:" || u.protocol === "https:" ? u.href : null;
+  } catch {
+    return null;
   }
 }
 
@@ -47,7 +70,7 @@ export type LeadItem = {
   createdAt: string;
 };
 
-export type LeadsResponse = {
+export type LeadsResponse = StaleMeta & {
   status: string;
   counts: { cho_duyet: number; da_duyet: number; loai: number; da_gui: number; giu_tay: number };
   leads: LeadItem[];
@@ -76,7 +99,7 @@ export type AutoError = {
   updatedAt: string;
 };
 
-export type NotesResponse = {
+export type NotesResponse = StaleMeta & {
   counts: { mo: number; dang_xu_ly: number; da_xong: number };
   notes: NoteItem[];
   autoErrors: AutoError[];
@@ -110,11 +133,33 @@ export const TASK_STATUS_LABEL: Record<string, string> = {
   huy: "Đã hủy",
 };
 
+const VN_TZ = "Asia/Ho_Chi_Minh";
+
 export function fmtTime(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" });
+  return d.toLocaleString("vi-VN", {
+    timeZone: VN_TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
+export function fmtDateVn(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("vi-VN", { timeZone: VN_TZ });
+}
+
+export function fmtClockVn(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString("vi-VN", { timeZone: VN_TZ });
 }
 
 // Số di động Việt Nam đầu tiên tìm thấy trong ô liên hệ (Zalo cần số điện thoại). Khớp luật của n8n.
@@ -129,7 +174,7 @@ export function phoneOf(contact: string): string {
   return "";
 }
 
-export type ZaloResponse = {
+export type ZaloResponse = StaleMeta & {
   enabled: boolean;
   bridge: {
     loggedIn: boolean;
@@ -178,7 +223,7 @@ export type KnowledgeItem = {
   createdAt: string;
 };
 
-export type KnowledgeResponse = {
+export type KnowledgeResponse = StaleMeta & {
   agents: { code: string; name: string; role: string }[];
   counts: { de_xuat: number; da_duyet: number; loai: number };
   items: KnowledgeItem[];
@@ -217,12 +262,13 @@ export type OutreachMessage = {
 
 export type OutreachCounts = { sent: number; replied: number; failed: number };
 
-export type OutreachResponse = {
+export type OutreachResponse = StaleMeta & {
   generatedAt: string;
   total: OutreachCounts;
   today: OutreachCounts;
   replyRate: number;
   dailyTarget: number;
+  autoApproveScore?: number;
   funnel: { leads: number; pending: number; approved: number; sent: number; replied: number; rejected: number; failed: number };
   systems: {
     zalo: { loggedIn: boolean | null; sentToday: number; dailyLimit: number };
@@ -265,7 +311,7 @@ export type KpiBucket = {
   won: number;
 };
 
-export type KpiResponse = {
+export type KpiResponse = StaleMeta & {
   generatedAt: string;
   days: string[];
   logStartsAt: string | null;

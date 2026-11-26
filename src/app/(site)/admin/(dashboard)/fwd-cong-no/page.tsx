@@ -1,6 +1,7 @@
 import { listCtvPayables, listOutstandingCtvCollections } from "@/lib/db";
 import CtvPayoutManager from "@/components/admin/CtvPayoutManager";
 import CtvRemittanceManager from "@/components/admin/CtvRemittanceManager";
+import AdminPageTabs from "@/components/admin/AdminPageTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,13 @@ export default async function CtvCongNoPage() {
 
   return (
     <div>
+      <AdminPageTabs
+        tabs={[
+          { href: "/admin/fwd", label: "Quản lý" },
+          { href: "/admin/fwd-cong-no", label: "Công nợ" },
+          { href: "/admin/fwd-hieu-qua", label: "Hiệu quả" },
+        ]}
+      />
       <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Công nợ FWD</h1>
       <p className="mt-1 text-sm text-ink/55">Hoa hồng Falco còn nợ FWD, và tiền FWD thu hộ khách chưa nộp lại</p>
 

@@ -4,7 +4,7 @@ import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import sharp from "sharp";
 import type { BayShipment, BayTracking } from "./bay-api";
-import { BAY_EVENT_VI, toVnTime } from "./bay-tracking";
+import { BAY_EVENT_VI, BAY_PHOTO_LABELS, toVnTime } from "./bay-tracking";
 import { bayImageUuid, fetchBayImage, readSavedImage } from "./bay-images";
 import { BAY_STATUS_LABELS } from "./bay-labels";
 
@@ -17,15 +17,31 @@ const NAVY = rgb(0.07, 0.16, 0.27);
 const GREY = rgb(0.4, 0.43, 0.48);
 const LINE = rgb(0.85, 0.87, 0.9);
 const FLAME = rgb(0.9, 0.36, 0.1);
+const IMAGE_CONCURRENCY = 3;
 
-const PHOTO_LABEL: Record<string, string> = {
-  created_by_agency: "Khi tạo đơn",
-  created_by_bay: "Khi tạo đơn",
-  package_received: "Nhận kiện tại kho",
-  checked: "Kiểm hàng",
-  weighed: "Cân hàng",
-  to_airport: "Ra sân bay",
-};
+let cachedAssets: Promise<{ reg: Buffer; bold: Buffer; logo: Buffer }> | null = null;
+
+function loadPdfAssets(): Promise<{ reg: Buffer; bold: Buffer; logo: Buffer }> {
+  if (!cachedAssets) {
+    cachedAssets = (async () => {
+      const root = process.cwd();
+      const [reg, bold, rawLogo] = await Promise.all([
+        readFile(path.join(root, "public/fonts/Roboto-Regular.ttf")),
+        readFile(path.join(root, "public/fonts/Roboto-Bold.ttf")),
+        readFile(path.join(root, "public/falco-logo.png")),
+      ]);
+      const logo = await sharp(rawLogo)
+        .resize(160, 160, { fit: "inside" })
+        .png({ compressionLevel: 9 })
+        .toBuffer();
+      return { reg, bold, logo };
+    })().catch((err) => {
+      cachedAssets = null;
+      throw err;
+    });
+  }
+  return cachedAssets;
+}
 
 async function loadImageJpeg(id: string): Promise<Buffer | null> {
   try {
@@ -35,24 +51,73 @@ async function loadImageJpeg(id: string): Promise<Buffer | null> {
       if (!res.ok) return null;
       data = Buffer.from(await res.arrayBuffer());
     }
-    return await sharp(data).rotate().resize({ width: 560, height: 560, fit: "inside", withoutEnlargement: true }).flatten({ background: "#ffffff" }).jpeg({ quality: 65, mozjpeg: true }).toBuffer();
+    return await sharp(data)
+      .rotate()
+      .resize({ width: 560, height: 560, fit: "inside", withoutEnlargement: true })
+      .flatten({ background: "#ffffff" })
+      .jpeg({ quality: 65, mozjpeg: true })
+      .toBuffer();
   } catch {
     return null;
   }
 }
 
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  async function run() {
+    while (cursor < items.length) {
+      const idx = cursor++;
+      results[idx] = await worker(items[idx]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, run));
+  return results;
+}
+
 function wrap(text: string, font: PDFFont, size: number, maxW: number): string[] {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (!cleaned) return [];
   const out: string[] = [];
   let line = "";
-  for (const w of text.split(/\s+/)) {
-    const t = line ? `${line} ${w}` : w;
-    if (font.widthOfTextAtSize(t, size) > maxW && line) {
+  for (const w of cleaned.split(" ")) {
+    const candidate = line ? `${line} ${w}` : w;
+    if (font.widthOfTextAtSize(candidate, size) <= maxW) {
+      line = candidate;
+      continue;
+    }
+    if (line) {
       out.push(line);
+      line = "";
+    }
+    // Từ quá dài (vd mã vận đơn/URL không có dấu cách): cắt theo ký tự để không tràn lề A4.
+    if (font.widthOfTextAtSize(w, size) > maxW) {
+      let chunk = "";
+      for (const ch of w) {
+        if (font.widthOfTextAtSize(chunk + ch, size) > maxW && chunk) {
+          out.push(chunk);
+          chunk = ch;
+        } else {
+          chunk += ch;
+        }
+      }
+      line = chunk;
+    } else {
       line = w;
-    } else line = t;
+    }
   }
   if (line) out.push(line);
   return out;
+}
+
+function safeTimeMs(iso: string | null | undefined): number {
+  if (!iso) return 0;
+  const ms = Date.parse(iso);
+  return Number.isNaN(ms) ? 0 : ms;
 }
 
 export async function buildBayPdf(opts: {
@@ -64,15 +129,10 @@ export async function buildBayPdf(opts: {
   const { falcoCode, shipment, tracking: t } = opts;
   const pdf = await PDFDocument.create();
   pdf.registerFontkit(fontkit);
-  const root = process.cwd();
-  const [reg, bold, logoPng] = await Promise.all([
-    readFile(path.join(root, "public/fonts/Roboto-Regular.ttf")),
-    readFile(path.join(root, "public/fonts/Roboto-Bold.ttf")),
-    readFile(path.join(root, "public/falco-logo.png")),
-  ]);
-  const font = await pdf.embedFont(reg, { subset: true });
-  const fontB = await pdf.embedFont(bold, { subset: true });
-  const logo = await pdf.embedPng(await sharp(logoPng).resize(160, 160, { fit: "inside" }).png({ compressionLevel: 9 }).toBuffer());
+  const assets = await loadPdfAssets();
+  const font = await pdf.embedFont(assets.reg, { subset: true });
+  const fontB = await pdf.embedFont(assets.bold, { subset: true });
+  const logo = await pdf.embedPng(assets.logo);
 
   let page: PDFPage = pdf.addPage([PAGE_W, PAGE_H]);
   let y = PAGE_H - M;
@@ -106,7 +166,7 @@ export async function buildBayPdf(opts: {
   ];
   for (const [k, v] of rows) {
     if (!v) continue;
-    const lines = wrap(v, font, 10.5, PAGE_W - 2 * M - 100);
+    const lines = wrap(v, fontB, 10.5, PAGE_W - 2 * M - 100);
     need(lines.length * 14 + 2);
     page.drawText(k, { x: M, y: y - 10, size: 10, font, color: GREY });
     lines.forEach((l, i) => page.drawText(l, { x: M + 100, y: y - 10 - i * 14, size: 10.5, font: fontB, color: NAVY }));
@@ -118,44 +178,73 @@ export async function buildBayPdf(opts: {
   y -= 26;
 
   // Các mốc (cũ → mới), kèm ảnh.
-  const events = [...t.events].sort((x, y2) => x.occurredAt.localeCompare(y2.occurredAt));
+  const events = [...t.events].sort((x, y2) => safeTimeMs(x.occurredAt) - safeTimeMs(y2.occurredAt));
   const seen = new Set<string>();
   const COLS = 3;
   const GAP = 8;
-  const CELL = (PAGE_W - 2 * M - 16 - GAP * (COLS - 1)) / COLS;
+  const CONTENT_W = PAGE_W - 2 * M - 16;
+  const CELL = (CONTENT_W - GAP * (COLS - 1)) / COLS;
 
   const drawEvent = async (title: string, time: string, location: string | null, urls: string[], label: string) => {
-    need(40);
+    const titleLines = wrap(title, fontB, 11, CONTENT_W);
+    const metaText = `${time}${location ? `${time ? " · " : ""}${location}` : ""}`;
+    const metaLines = metaText ? wrap(metaText, font, 9, CONTENT_W) : [];
+    const headerHeight = Math.max(1, titleLines.length) * 14 + metaLines.length * 12 + 8;
+
+    need(headerHeight);
     page.drawCircle({ x: M + 4, y: y - 6, size: 3.2, color: FLAME });
-    page.drawText(title, { x: M + 16, y: y - 9, size: 11, font: fontB, color: NAVY });
-    const meta = `${time}${location ? ` · ${location}` : ""}`;
-    page.drawText(meta, { x: M + 16, y: y - 22, size: 9, font, color: GREY });
-    y -= 30;
+    titleLines.forEach((line, idx) => {
+      page.drawText(line, { x: M + 16, y: y - 9 - idx * 14, size: 11, font: fontB, color: NAVY });
+    });
+    const metaStartY = y - 9 - Math.max(1, titleLines.length) * 14 + 1;
+    metaLines.forEach((line, idx) => {
+      page.drawText(line, { x: M + 16, y: metaStartY - idx * 12, size: 9, font, color: GREY });
+    });
+    y -= headerHeight;
+
     const ids = [...new Set(urls.map((u) => bayImageUuid(u)).filter((i): i is string => !!i && !seen.has(i)))];
     ids.forEach((i) => seen.add(i));
-    const imgs = (await Promise.all(ids.map(loadImageJpeg))).filter((b): b is Buffer => !!b);
+    const imgs = (await mapWithConcurrency(ids, IMAGE_CONCURRENCY, loadImageJpeg)).filter((b): b is Buffer => !!b);
     for (let i = 0; i < imgs.length; i += COLS) {
       const row = await Promise.all(imgs.slice(i, i + COLS).map((b) => pdf.embedJpg(b)));
       const dims = row.map((im) => im.scale(Math.min(CELL / im.width, CELL / im.height)));
       const h = Math.max(...dims.map((d) => d.height));
       need(h + 14);
-      dims.forEach((d, k) => page.drawImage(row[k], { x: M + 16 + k * (CELL + GAP), y: y - d.height, width: d.width, height: d.height }));
+      dims.forEach((d, k) =>
+        page.drawImage(row[k], { x: M + 16 + k * (CELL + GAP), y: y - d.height, width: d.width, height: d.height })
+      );
       y -= h + 6;
     }
     if (imgs.length) {
-      page.drawText(`${imgs.length} ảnh — ${label}`, { x: M + 16, y: y - 8, size: 8.5, font, color: GREY });
-      y -= 14;
+      const captionLines = wrap(`${imgs.length} ảnh — ${label}`, font, 8.5, CONTENT_W);
+      need(captionLines.length * 11 + 4);
+      captionLines.forEach((line, idx) => {
+        page.drawText(line, { x: M + 16, y: y - 8 - idx * 11, size: 8.5, font, color: GREY });
+      });
+      y -= captionLines.length * 11 + 4;
     }
     y -= 6;
   };
 
   for (const e of events) {
     const title = e.source === "bay" ? (BAY_EVENT_VI[e.code] ?? "Đang xử lý") : (e.description ?? e.code);
-    await drawEvent(title, toVnTime(e.occurredAt), e.location ? `${e.location}${e.countryCode ? `, ${e.countryCode}` : ""}` : null, e.images ?? [], PHOTO_LABEL[e.code] ?? "ảnh hàng");
+    const photoLabel = (BAY_PHOTO_LABELS[e.code] ?? "ảnh hàng").replace(/^Ảnh\s+/i, "");
+    await drawEvent(
+      title,
+      toVnTime(e.occurredAt),
+      e.location ? `${e.location}${e.countryCode ? `, ${e.countryCode}` : ""}` : null,
+      e.images ?? [],
+      photoLabel
+    );
   }
   // Ảnh nhận kiện chưa gắn vào mốc nào.
   const extra = t.receiveItems.flatMap((r) => r.images ?? []);
-  if (extra.some((u) => { const i = bayImageUuid(u); return i && !seen.has(i); })) {
+  if (
+    extra.some((u) => {
+      const i = bayImageUuid(u);
+      return i && !seen.has(i);
+    })
+  ) {
     await drawEvent("Ảnh nhận kiện tại kho", "", null, extra, "ảnh hàng");
   }
 

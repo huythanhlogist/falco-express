@@ -1,17 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentAdminSession } from "@/lib/auth";
-import { deleteKangoBillImage, findKangoBillImageById } from "@/lib/db";
-
-function isValidAgentKey(request: Request): boolean {
-  const key = request.headers.get("x-agent-api-key");
-  const expected = process.env.AGENT_API_KEY;
-  return Boolean(key && expected && key === expected);
-}
-
-function parsePositiveId(raw: string): number | null {
-  const num = Number(raw);
-  return Number.isInteger(num) && num > 0 ? num : null;
-}
+import { findKangoBillImageById } from "@/lib/db";
+import { deleteKangoBillImageIfDraft, isValidAgentKey } from "@/lib/kango-bill-db";
+import { parsePositiveId } from "@/lib/kango-bill-validate";
 
 export async function GET(request: Request, { params }: { params: Promise<{ imageId: string }> }) {
   const session = await getCurrentAdminSession();
@@ -50,9 +41,15 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "ID ảnh không hợp lệ" }, { status: 400 });
   }
 
-  const ok = await deleteKangoBillImage(id);
-  if (!ok) {
+  const outcome = await deleteKangoBillImageIfDraft(id);
+  if (outcome === "not_found") {
     return NextResponse.json({ error: "Không tìm thấy ảnh" }, { status: 404 });
+  }
+  if (outcome === "locked") {
+    return NextResponse.json(
+      { error: "Không thể xoá ảnh của bill đã gửi hoặc đang gửi lên Kango" },
+      { status: 409 }
+    );
   }
 
   return NextResponse.json({ ok: true });

@@ -13,14 +13,19 @@ export default function NavProgress() {
   const [width, setWidth] = useState(0);
   const [visible, setVisible] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const firstMount = useRef(true);
 
   const stop = () => {
     if (timer.current) clearInterval(timer.current);
     timer.current = null;
   };
 
-  // Đã chuyển xong trang: chạy nốt 100% rồi ẩn.
+  // Đã chuyển xong trang: chạy nốt 100% rồi ẩn (bỏ qua lần mount đầu để không loé thanh khi tải trang).
   useEffect(() => {
+    if (firstMount.current) {
+      firstMount.current = false;
+      return;
+    }
     stop();
     setWidth(100);
     const t = setTimeout(() => {
@@ -62,7 +67,7 @@ export default function NavProgress() {
   return (
     <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-[100] h-0.5">
       <div
-        className="h-full bg-flame-500 shadow-[0_0_8px_rgba(240,90,30,0.6)]"
+        className="h-full bg-gradient-to-r from-[#f7941d] to-[#ed1c24] shadow-[0_0_8px_rgba(237,28,36,0.45)]"
         style={{ width: `${width}%`, opacity: visible ? 1 : 0, transition: "width 200ms ease-out, opacity 200ms ease-out" }}
       />
     </div>

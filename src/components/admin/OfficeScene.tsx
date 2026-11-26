@@ -21,6 +21,7 @@ import {
   type OfficeAgent,
   type OfficeLive,
 } from "@/lib/office-agents";
+import { fmtClockVn, fmtTime, officeApi } from "@/lib/office-api";
 
 type Statuses = Record<string, AgentStatus>;
 
@@ -32,14 +33,22 @@ const CAMERA_TARGET = new THREE.Vector3(-1, 0.6, 0.8);
 
 const allIdle = (): Statuses => allIdleStatuses();
 
-// Mô phỏng một vòng làm việc: 4 sale tìm lead → Quân kiểm tra → Huy-bot báo
-// cáo → anh Huy duyệt. Chỉ để xem thử giao diện; mặc định trang đọc dữ liệu
-// thật từ n8n.
+// Mô phỏng một vòng làm việc: 5 sale + cố vấn + 2 bot Muse tìm lead → Quân kiểm tra → Huy-bot báo
+// cáo → anh Huy duyệt. Chỉ để xem thử giao diện; mặc định trang đọc dữ liệu thật từ n8n.
 function simulate(t: number): Statuses {
   const s = allIdle();
-  if (t >= 0 && t < 8) s.linh = "working";
+  if (t >= 0 && t < 8) {
+    s.linh = "working";
+    s.muse1 = "working";
+  }
   if (t >= 1 && t < 8) s.nam = "working";
-  if (t >= 2 && t < 8) s.vy = "working";
+  if (t >= 2 && t < 8) {
+    s.vy = "working";
+    s.muse2 = "working";
+  }
+  if (t >= 3 && t < 8) s.mai = "working";
+  if (t >= 4 && t < 8) s.khoa = "working";
+  if (t >= 5 && t < 9) s.advisor = "working";
   if (t >= 8 && t < 14) s.quan = "review";
   if (t >= 14 && t < 18) s.huybot = "working";
   if (t >= 18 && t < 21) s.huy = "review";
@@ -78,6 +87,7 @@ export default function OfficeScene() {
   const [simulating, setSimulating] = useState(false);
   const [live, setLive] = useState<OfficeLive | null>(null);
   const [liveError, setLiveError] = useState<string | null>(null);
+  const [webglError, setWebglError] = useState<string | null>(null);
   const [walking, setWalking] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Tên hiển thị do người dùng tự đặt (chỉ đổi cách gọi trên trang này,
@@ -150,29 +160,41 @@ export default function OfficeScene() {
   useEffect(() => {
     if (simulating) return;
     let cancelled = false;
-    let failures = 0;
+    let timer: number | undefined;
+
     const load = async () => {
-      try {
-        const res = await fetch("/api/admin/office/status", { cache: "no-store" });
-        const data = (await res.json()) as OfficeLive & { error?: string };
-        if (cancelled) return;
-        if (!res.ok || !data.ok) throw new Error(data.error ?? `Lỗi ${res.status}`);
-        failures = 0;
-        setLive(data);
-        setLiveError(null);
-        setStatuses(liveStatuses(data));
-      } catch (e) {
-        if (cancelled) return;
-        failures += 1;
-        // Lỗi thoáng qua (deploy, mạng chậm): giữ nguyên hình đang thấy, chỉ báo khi lỗi kéo dài.
-        if (failures >= 3) setLiveError(e instanceof Error && e.message ? e.message : "Không kết nối được n8n");
+      if (document.hidden) return;
+      const r = await officeApi<OfficeLive>("status");
+      if (cancelled) return;
+      if (!r.ok) {
+        if (!r.aborted) setLiveError(r.error);
+        return;
       }
+      setLive(r.data);
+      setLiveError(null);
+      setStatuses(liveStatuses(r.data));
     };
-    void load();
-    const id = window.setInterval(load, POLL_MS);
+
+    const schedule = () => {
+      timer = window.setTimeout(async () => {
+        await load();
+        if (!cancelled) schedule();
+      }, POLL_MS);
+    };
+
+    const onVisibility = () => {
+      if (!document.hidden && !cancelled) void load();
+    };
+
+    void load().then(() => {
+      if (!cancelled) schedule();
+    });
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      if (timer !== undefined) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [simulating]);
 
@@ -180,6 +202,7 @@ export default function OfficeScene() {
     if (!simulating) return;
     const started = Date.now();
     const tick = () => {
+      if (document.hidden) return;
       const t = ((Date.now() - started) / 1000) % CYCLE_SECONDS;
       setStatuses(simulate(t));
     };
@@ -197,10 +220,21 @@ export default function OfficeScene() {
     const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 200);
     camera.position.copy(CAMERA_HOME);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    } catch {
+      setWebglError("Trình duyệt hoặc thiết bị không hỗ trợ WebGL để hiển thị sơ đồ 3D. Bạn vẫn có thể xem trạng thái ở danh sách bên cạnh.");
+      return;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    const onContextLost = (e: Event) => {
+      e.preventDefault();
+      setWebglError("Kết nối đồ hoạ WebGL bị gián đoạn. Hãy tải lại trang hoặc xem trạng thái ở danh sách bên cạnh.");
+    };
+    renderer.domElement.addEventListener("webglcontextlost", onContextLost);
     mount.appendChild(renderer.domElement);
 
     const labelRenderer = new CSS2DRenderer();
@@ -753,6 +787,10 @@ export default function OfficeScene() {
     const clock = new THREE.Clock();
     let raf = 0;
     const loop = () => {
+      if (disposed || document.hidden) {
+        raf = 0;
+        return;
+      }
       raf = requestAnimationFrame(loop);
       const dt = Math.min(clock.getDelta(), 0.1);
       const now = clock.elapsedTime;
@@ -855,23 +893,50 @@ export default function OfficeScene() {
       renderer.render(scene, camera);
       labelRenderer.render(scene, camera);
     };
-    loop();
+
+    const onVisibility = () => {
+      if (disposed) return;
+      if (document.hidden) {
+        if (raf) {
+          cancelAnimationFrame(raf);
+          raf = 0;
+        }
+      } else if (!raf) {
+        clock.getDelta();
+        loop();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    if (!document.hidden) loop();
 
     return () => {
       disposed = true;
       cancelAnimationFrame(raf);
+      document.removeEventListener("visibilitychange", onVisibility);
       observer.disconnect();
+      renderer.domElement.removeEventListener("webglcontextlost", onContextLost);
       renderer.domElement.removeEventListener("pointerdown", onDown);
       renderer.domElement.removeEventListener("pointerup", onUp);
       controls.dispose();
+      const disposedGeo = new Set<THREE.BufferGeometry>();
+      const disposedMat = new Set<THREE.Material>();
+      const disposedTex = new Set<THREE.Texture>();
       scene.traverse((o) => {
         if (o instanceof THREE.Mesh) {
-          o.geometry.dispose();
+          if (!disposedGeo.has(o.geometry)) {
+            disposedGeo.add(o.geometry);
+            o.geometry.dispose();
+          }
           const m = o.material;
           const mats = Array.isArray(m) ? m : [m];
           for (const x of mats) {
+            if (disposedMat.has(x)) continue;
+            disposedMat.add(x);
             const map = (x as THREE.MeshBasicMaterial).map;
-            if (map) map.dispose();
+            if (map && !disposedTex.has(map)) {
+              disposedTex.add(map);
+              map.dispose();
+            }
             x.dispose();
           }
         }
@@ -913,10 +978,13 @@ export default function OfficeScene() {
           <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-800">
             Không đọc được n8n: {liveError}
           </span>
+        ) : live?.stale ? (
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+            Dữ liệu tạm từ lúc {fmtTime(live.staleSince) || fmtClockVn(live.generatedAt)} (n8n đang chậm)
+          </span>
         ) : live ? (
           <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
-            Dữ liệu thật từ n8n · cập nhật{" "}
-            {new Date(live.generatedAt).toLocaleTimeString("vi-VN")}
+            Dữ liệu thật từ n8n · cập nhật {fmtClockVn(live.generatedAt)}
           </span>
         ) : (
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
@@ -950,10 +1018,14 @@ export default function OfficeScene() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
-        <div
-          ref={mountRef}
-          className="relative h-[520px] overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-b from-slate-50 to-slate-200 lg:h-[620px]"
-        />
+        <div className="relative h-[520px] overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-b from-slate-50 to-slate-200 lg:h-[620px]">
+          <div ref={mountRef} className="h-full w-full" />
+          {webglError ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-100/95 p-6 text-center text-sm font-medium text-slate-600">
+              {webglError}
+            </div>
+          ) : null}
+        </div>
 
         <aside className="space-y-3">
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -1122,7 +1194,7 @@ export default function OfficeScene() {
                   </ul>
                 )}
                 <p className="mt-1 text-slate-400">
-                  Đã loại tự động: {live.leads.loai}. Duyệt và gửi hiện làm trong n8n.
+                  Đã loại tự động: {live.leads.loai}. Duyệt lead ở tab Lead chờ duyệt và gửi ở tab Gửi Zalo.
                 </p>
               </div>
               {live.recent.length > 0 ? (

@@ -1,26 +1,43 @@
 import { NextResponse } from "next/server";
 import { getCurrentAdminSession, hashPassword } from "@/lib/auth";
+import { invalidateAdminStaffCache } from "@/lib/admin-staff-check";
 import { insertAdminUser, listAdminUsers, findAdminByEmail } from "@/lib/db";
 
 export async function GET() {
+  const session = await getCurrentAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  }
+  if (session.role !== "owner") {
+    return NextResponse.json(
+      { error: "Chỉ chủ tài khoản mới có quyền xem danh sách nhân viên" },
+      { status: 403 }
+    );
+  }
   const staff = await listAdminUsers();
   return NextResponse.json({ staff });
 }
 
 export async function POST(request: Request) {
   const session = await getCurrentAdminSession();
-  if (session?.role !== "owner") {
+  if (!session) {
+    return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  }
+  if (session.role !== "owner") {
     return NextResponse.json(
       { error: "Chỉ chủ tài khoản mới có thể tạo tài khoản nhân viên" },
       { status: 403 }
     );
   }
 
-  const { email, password } = await request.json();
-  if (!email || typeof email !== "string" || !email.includes("@")) {
+  const body = await request.json().catch(() => null);
+  const email = typeof body?.email === "string" ? body.email.trim() : "";
+  const password = typeof body?.password === "string" ? body.password : "";
+
+  if (!email || !email.includes("@")) {
     return NextResponse.json({ error: "Email không hợp lệ" }, { status: 400 });
   }
-  if (!password || typeof password !== "string" || password.length < 8) {
+  if (password.length < 8) {
     return NextResponse.json(
       { error: "Mật khẩu phải có ít nhất 8 ký tự" },
       { status: 400 }
@@ -37,6 +54,7 @@ export async function POST(request: Request) {
 
   const passwordHash = await hashPassword(password);
   const id = await insertAdminUser(email, passwordHash, "staff");
+  invalidateAdminStaffCache(email);
 
   return NextResponse.json({ ok: true, id });
 }

@@ -1,11 +1,18 @@
 import UploadOrders from "@/components/admin/UploadOrders";
 import UploadPriceQuote from "@/components/admin/UploadPriceQuote";
+import AdminPageTabs from "@/components/admin/AdminPageTabs";
 
 export const dynamic = "force-dynamic";
 
 export default function UploadPage() {
   return (
     <div>
+      <AdminPageTabs
+        tabs={[
+          { href: "/admin/orders", label: "Đơn hàng" },
+          { href: "/admin/upload", label: "Upload tài liệu" },
+        ]}
+      />
       <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Upload tài liệu</h1>
       <p className="mt-0.5 text-sm text-ink/55">
         Tải file Excel Kango lên để tự động cập nhật đơn hàng — chỉ thêm bill mới, không tạo trùng; bill đã

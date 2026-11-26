@@ -10,7 +10,8 @@
  * Một bill (AWB) có thể có 2-3 kiện: dòng đầu tiên của bill có ô AWB, các
  * dòng kiện tiếp theo của CÙNG bill đó để trống ô AWB (nhưng vẫn có
  * TRACKING NUMBER riêng) — gộp các dòng liền kề có AWB trống vào bill của
- * dòng AWB gần nhất phía trên.
+ * dòng AWB gần nhất phía trên, đồng thời gộp cả các dòng trùng AWB không
+ * liền kề trong cùng file.
  *
  * File Kango xuất theo đợt nên các lần xuất sau sẽ trùng lặp AWB của lần
  * trước — với AWB đã có: cập nhật các trường khi file mới có giá trị KHÁC
@@ -25,16 +26,15 @@
 import * as XLSX from "xlsx";
 import { appendOrders, type OrderRow } from "./sheets";
 import {
-  insertOrder,
-  insertParcels,
-  listAwbSet,
-  listFalcoCodeSet,
-  findOrderByAwb,
+  findOrdersByAwbs,
+  insertOrderWithGeneratedFalcoCode,
   listOrderParcels,
   replaceOrderParcels,
   updateOrder,
   type OrderEditableFields,
+  type OrderRecord,
 } from "./db";
+import { toIsoDateLocal, vnDateString } from "./vn-date";
 
 // Vị trí cột trong file Kango xuất ra (0-indexed). Nếu Kango đổi cấu trúc
 // cột, chỉ cần sửa các số bên dưới cho khớp — cả script CLI lẫn tab upload
@@ -116,20 +116,87 @@ function validateHeaderRow(header: unknown[]): string[] {
   return problems;
 }
 
-function excelDateToVN(raw: string): string {
-  // File Kango xuất ngày dạng dd-mm-yyyy, chuyển sang dd/mm/yyyy cho quen thuộc.
-  const m = raw.trim().match(/^(\d{2})-(\d{2})-(\d{4})$/);
-  return m ? `${m[1]}/${m[2]}/${m[3]}` : raw.trim();
+function buildCalendarDate(year: number, month: number, day: number): { iso: string; vn: string } | null {
+  if (year < 1970 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const dt = new Date(Date.UTC(year, month - 1, day));
+  if (dt.getUTCFullYear() !== year || dt.getUTCMonth() !== month - 1 || dt.getUTCDate() !== day) {
+    return null;
+  }
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    iso: `${year}-${pad(month)}-${pad(day)}`,
+    vn: `${pad(day)}/${pad(month)}/${year}`,
+  };
 }
 
-function excelDateToISO(raw: string): string | null {
-  // MySQL DATE cần dạng YYYY-MM-DD.
-  const m = raw.trim().match(/^(\d{2})-(\d{2})-(\d{4})$/);
-  return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+/**
+ * Chuyển ô ngày trong Excel (hỗ trợ cả chuỗi dd-mm-yyyy, dd/mm/yyyy,
+ * yyyy-mm-dd, Date object lẫn Excel Date serial number như 46123) sang
+ * định dạng ISO (MySQL DATE) và DD/MM/YYYY (Google Sheet).
+ */
+function parseExcelDate(raw: unknown): { iso: string | null; vn: string } {
+  if (raw === undefined || raw === null || raw === "") {
+    return { iso: null, vn: "" };
+  }
+
+  // Excel serial date (số ngày kể từ 1899-12-30 UTC với serial >= 61, tránh bug năm nhuận 1900 của Excel).
+  const trySerial = (serial: number): { iso: string; vn: string } | null => {
+    if (!Number.isFinite(serial) || serial < 20000 || serial > 100000) return null;
+    const utcMs = Date.UTC(1899, 11, 30) + Math.floor(serial) * 86_400_000;
+    const d = new Date(utcMs);
+    return buildCalendarDate(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+  };
+
+  if (typeof raw === "number") {
+    const parsed = trySerial(raw);
+    if (parsed) return parsed;
+    return { iso: null, vn: String(raw) };
+  }
+
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+    const iso = toIsoDateLocal(raw);
+    if (iso) {
+      const [y, m, d] = iso.split("-");
+      return { iso, vn: `${d}/${m}/${y}` };
+    }
+    return { iso: null, vn: "" };
+  }
+
+  const str = String(raw).trim();
+  if (!str) return { iso: null, vn: "" };
+
+  // dd-mm-yyyy hoặc dd/mm/yyyy (có thể kèm phần giờ phía sau)
+  const dmy = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\s.*)?$/);
+  if (dmy) {
+    const parsed = buildCalendarDate(Number(dmy[3]), Number(dmy[2]), Number(dmy[1]));
+    if (parsed) return parsed;
+  }
+
+  // yyyy-mm-dd hoặc yyyy/mm/dd
+  const ymd = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[\sT].*)?$/);
+  if (ymd) {
+    const parsed = buildCalendarDate(Number(ymd[1]), Number(ymd[2]), Number(ymd[3]));
+    if (parsed) return parsed;
+  }
+
+  // Chuỗi số serial thuần (vd "46123" hoặc "46123.5")
+  if (/^\d{5}(?:\.\d+)?$/.test(str)) {
+    const parsed = trySerial(Number(str));
+    if (parsed) return parsed;
+  }
+
+  return { iso: null, vn: str };
+}
+
+function appendUniqueTracking(list: string[], code: string): void {
+  if (code && !list.includes(code)) {
+    list.push(code);
+  }
 }
 
 function groupRowsByAwb(rows: unknown[][], postalIdxOk: boolean): ShipmentGroup[] {
   const groups: ShipmentGroup[] = [];
+  const byAwb = new Map<string, ShipmentGroup>();
   let current: ShipmentGroup | null = null;
 
   for (const row of rows) {
@@ -137,52 +204,63 @@ function groupRowsByAwb(rows: unknown[][], postalIdxOk: boolean): ShipmentGroup[
     const tracking = cellToString(row[COL.TRACKING_NUMBER]);
 
     if (awb) {
-      const rawDate = cellToString(row[COL.DATE]);
-      current = {
-        awb,
-        service: cellToString(row[COL.SERVICE]),
-        date: excelDateToVN(rawDate),
-        dateIso: excelDateToISO(rawDate),
-        contact: cellToString(row[COL.CONTACT]),
-        telephone: cellToString(row[COL.TELEPHONE]),
-        postcode: postalIdxOk ? cellToString(row[COL.POSTAL_CODE]) : "",
-        city: cellToString(row[COL.CITY]),
-        country: cellToString(row[COL.COUNTRY]),
-        trackingNumbers: tracking ? [tracking] : [],
-      };
-      groups.push(current);
+      const awbKey = awb.toUpperCase();
+      const parsedDate = parseExcelDate(row[COL.DATE]);
+      const service = cellToString(row[COL.SERVICE]);
+      const contact = cellToString(row[COL.CONTACT]);
+      const telephone = cellToString(row[COL.TELEPHONE]);
+      const postcode = postalIdxOk ? cellToString(row[COL.POSTAL_CODE]) : "";
+      const city = cellToString(row[COL.CITY]);
+      const country = cellToString(row[COL.COUNTRY]);
+
+      const existing = byAwb.get(awbKey);
+      if (existing) {
+        // Trùng AWB không liền kề trong cùng file: gộp vào cùng 1 bill thay vì xử lý 2 lần.
+        if (!existing.service && service) existing.service = service;
+        if (!existing.dateIso && parsedDate.iso) {
+          existing.dateIso = parsedDate.iso;
+          existing.date = parsedDate.vn;
+        }
+        if (!existing.contact && contact) existing.contact = contact;
+        if (!existing.telephone && telephone) existing.telephone = telephone;
+        if (!existing.postcode && postcode) existing.postcode = postcode;
+        if (!existing.city && city) existing.city = city;
+        if (!existing.country && country) existing.country = country;
+        appendUniqueTracking(existing.trackingNumbers, tracking);
+        current = existing;
+      } else {
+        current = {
+          awb,
+          service,
+          date: parsedDate.vn,
+          dateIso: parsedDate.iso,
+          contact,
+          telephone,
+          postcode,
+          city,
+          country,
+          trackingNumbers: tracking ? [tracking] : [],
+        };
+        byAwb.set(awbKey, current);
+        groups.push(current);
+      }
     } else if (current && tracking) {
       // Dòng kiện tiếp theo của cùng bill phía trên (không có AWB riêng).
-      current.trackingNumbers.push(tracking);
+      appendUniqueTracking(current.trackingNumbers, tracking);
     }
   }
 
   return groups;
 }
 
-/**
- * mysql2 trả cột DATE về dưới dạng `Date` object (giờ local), không phải
- * chuỗi — không được lấy ISO string rồi cắt chuỗi (`toISOString().slice`),
- * vì `toISOString()` quy về UTC và có thể lùi lại 1 ngày ở múi giờ UTC+7
- * (đã từng gây lỗi thật, xem OrderRowActions.toDateInputValue). Dùng đúng
- * các thành phần ngày/tháng/năm local để so sánh cho khớp giá trị đã lưu.
- */
-function toIsoDate(value: string | Date | null): string | null {
-  if (!value) return null;
-  if (value instanceof Date) {
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
-  }
-  const m = value.match(/^(\d{4}-\d{2}-\d{2})/);
-  return m ? m[1] : null;
+/** Tiền tố mã Falco hôm nay theo giờ Việt Nam (FLyyMMdd). */
+export function todayFalcoPrefix(): string {
+  const ymd = vnDateString();
+  return `FL${ymd.slice(2, 4)}${ymd.slice(5, 7)}${ymd.slice(8, 10)}`;
 }
 
 export function nextFalcoCode(existingCodes: Set<string>): string {
-  const today = new Date();
-  const y = String(today.getFullYear()).slice(2);
-  const m = String(today.getMonth() + 1).padStart(2, "0");
-  const d = String(today.getDate()).padStart(2, "0");
-  const prefix = `FL${y}${m}${d}`;
+  const prefix = todayFalcoPrefix();
 
   let seq = 1;
   let code = `${prefix}${String(seq).padStart(3, "0")}`;
@@ -199,10 +277,12 @@ export type UpdatedOrderSnapshot = {
   orderId: number;
   recipientName: string | null;
   recipientPhone: string | null;
+  recipientPostcode?: string | null;
   service: string | null;
   destination: string | null;
   receivedDate: string | null; // ISO yyyy-mm-dd
   trackingCodes: string[];
+  parcels?: { hawb: string; trackingCode: string }[];
 };
 
 export type UploadSnapshot = {
@@ -218,6 +298,7 @@ export type KangoImportResult = {
   insertedCodes: string[];
   errors: string[];
   snapshot: UploadSnapshot;
+  invalidFormat?: boolean;
 };
 
 export async function processKangoWorkbook(
@@ -247,6 +328,7 @@ export async function processKangoWorkbook(
   } catch {
     return {
       ...empty,
+      invalidFormat: true,
       errors: [
         "Không đọc được file — hãy chắc chắn đây là file Excel (.xlsx) đúng định dạng Kango xuất ra.",
       ],
@@ -254,13 +336,14 @@ export async function processKangoWorkbook(
   }
 
   if (rows.length < 2) {
-    return { ...empty, errors: ["File không có dữ liệu."] };
+    return { ...empty, invalidFormat: true, errors: ["File không có dữ liệu."] };
   }
 
   const headerProblems = validateHeaderRow(rows[0]);
   if (headerProblems.length > 0) {
     return {
       ...empty,
+      invalidFormat: true,
       errors: [
         "File SAI định dạng Kango — đã HUỶ xử lý, KHÔNG có dữ liệu nào bị thay đổi:",
         ...headerProblems,
@@ -274,14 +357,19 @@ export async function processKangoWorkbook(
   if (groups.length === 0) {
     return {
       ...empty,
+      invalidFormat: true,
       errors: [
         "Không tìm thấy bill nào — kiểm tra lại đúng file Kango xuất ra (cột cố định theo mẫu), chưa bị đổi cấu trúc cột.",
       ],
     };
   }
 
-  const existingAwb = await listAwbSet();
-  const existingFalcoCodes = await listFalcoCodeSet();
+  // Chỉ truy vấn các AWB có trong file thay vì nạp cả bảng orders vào RAM.
+  const existingOrdersRaw = await findOrdersByAwbs(groups.map((g) => g.awb));
+  const existingByAwb = new Map<string, OrderRecord>();
+  for (const order of existingOrdersRaw.values()) {
+    existingByAwb.set(order.awb.toUpperCase(), order);
+  }
 
   const sheetMirrorRows: OrderRow[] = [];
   const insertedCodes: string[] = [];
@@ -294,15 +382,10 @@ export async function processKangoWorkbook(
   for (const g of groups) {
     const destination = [g.city, g.country].filter(Boolean).join(", ");
     const awbUpper = g.awb.toUpperCase();
+    const existing = existingByAwb.get(awbUpper);
 
-    if (existingAwb.has(awbUpper)) {
+    if (existing) {
       try {
-        const existing = await findOrderByAwb(g.awb);
-        if (!existing) {
-          unchanged += 1;
-          continue;
-        }
-
         // Cập nhật khi file mới có giá trị KHÁC với dữ liệu hiện tại — bao
         // gồm cả điền vào chỗ đang trống LẪN thông tin đã đổi (vd khách đổi
         // SĐT). Nếu file mới để trống ô đó thì giữ nguyên dữ liệu cũ, không
@@ -323,7 +406,8 @@ export async function processKangoWorkbook(
         if (destination && destination !== (existing.destination ?? "")) {
           fields.destination = destination;
         }
-        if (g.dateIso && g.dateIso !== toIsoDate(existing.received_date)) {
+        const existingDateIso = toIsoDateLocal(existing.received_date);
+        if (g.dateIso && g.dateIso !== existingDateIso) {
           fields.receivedDate = g.dateIso;
         }
 
@@ -336,7 +420,10 @@ export async function processKangoWorkbook(
           const existingCodes = new Set(existingParcels.map((p) => p.tracking_code));
           const newCodes = g.trackingNumbers.filter((c) => !existingCodes.has(c));
           if (newCodes.length > 0) {
-            const merged = [...existingParcels.map((p) => p.tracking_code), ...newCodes];
+            const merged = [
+              ...existingParcels.map((p) => ({ hawb: p.hawb, trackingCode: p.tracking_code })),
+              ...newCodes.map((code) => ({ hawb: "", trackingCode: code })),
+            ];
             await replaceOrderParcels(existing.id, merged);
             parcelsChanged = true;
           }
@@ -352,10 +439,12 @@ export async function processKangoWorkbook(
             orderId: existing.id,
             recipientName: existing.recipient_name,
             recipientPhone: existing.recipient_phone,
+            recipientPostcode: existing.recipient_postcode,
             service: existing.service,
             destination: existing.destination,
-            receivedDate: toIsoDate(existing.received_date),
+            receivedDate: existingDateIso,
             trackingCodes: existingParcels.map((p) => p.tracking_code),
+            parcels: existingParcels.map((p) => ({ hawb: p.hawb, trackingCode: p.tracking_code })),
           });
         } else {
           unchanged += 1;
@@ -368,26 +457,21 @@ export async function processKangoWorkbook(
       continue;
     }
 
-    // Bill mới hoàn toàn.
+    // Bill mới hoàn toàn — sinh mã Falco theo giờ VN và chèn đơn + kiện trong cùng transaction có khoá.
     try {
-      const falcoCode = nextFalcoCode(existingFalcoCodes);
-      existingFalcoCodes.add(falcoCode);
-      existingAwb.add(awbUpper);
-
-      const orderId = await insertOrder({
-        falcoCode,
-        awb: g.awb,
-        recipientName: g.contact,
-        recipientPhone: g.telephone,
-        recipientPostcode: g.postcode,
-        service: g.service,
-        destination,
-        receivedDate: g.dateIso,
-      });
-      await insertParcels(
-        orderId,
+      const { id: orderId, falcoCode } = await insertOrderWithGeneratedFalcoCode(
+        {
+          awb: g.awb,
+          recipientName: g.contact,
+          recipientPhone: g.telephone,
+          recipientPostcode: g.postcode,
+          service: g.service,
+          destination,
+          receivedDate: g.dateIso,
+        },
         g.trackingNumbers.map((code) => ({ hawb: "", trackingCode: code }))
       );
+
       inserted += 1;
       insertedCodes.push(falcoCode);
       snapshot.insertedOrders.push({ orderId, falcoCode });

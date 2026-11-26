@@ -1,5 +1,6 @@
 import { listPriceQuoteCategories, listPolicyItems } from "@/lib/db";
 import PriceQuoteTabs from "@/components/admin/price-quote/PriceQuoteTabs";
+import AdminPageTabs from "@/components/admin/AdminPageTabs";
 import type { PriceQuoteCategory, PriceQuoteRow } from "@/components/admin/price-quote/types";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,12 @@ export default async function BaoGiaPage() {
 
   return (
     <div>
+      <AdminPageTabs
+        tabs={[
+          { href: "/admin/bao-gia", label: "Báo giá" },
+          { href: "/admin/dbn", label: "Tạo DBN" },
+        ]}
+      />
       <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Báo giá</h1>
       <p className="mt-0.5 text-sm text-ink/55">
         Bảng giá gửi khách và chính sách vận chuyển — chỉ hiển thị trong web admin, không công khai. Tải bảng giá

@@ -1,10 +1,24 @@
 "use client";
 
-import { useConfirm } from "@/components/ui/Toast";
+import { useConfirm, useToast } from "@/components/ui/Toast";
+import { parseKangoHawbsJson } from "@/lib/kango-bill-validate";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-type SentInfo = { kango_bill_id: string | null; kango_hawbs_json: string | null; kango_redirect_url: string | null; sent_by: string | null; sent_at: string | null };
+type SentInfo = {
+  kango_bill_id: string | null;
+  kango_hawbs_json: string | null;
+  kango_redirect_url: string | null;
+  sent_by: string | null;
+  sent_at: string | null;
+};
+
+function formatSentAt(raw: string | null): string {
+  if (!raw) return "";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return raw;
+  return d.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
+}
 
 export default function KangoBillSendBar({
   billId,
@@ -13,11 +27,12 @@ export default function KangoBillSendBar({
   sendError,
 }: {
   billId: number;
-  status: "draft" | "sent";
+  status: "draft" | "sending" | "sent";
   sent: SentInfo;
   sendError: string | null;
 }) {
   const ask = useConfirm();
+  const toast = useToast();
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -26,27 +41,54 @@ export default function KangoBillSendBar({
   function send() {
     setError(null);
     startTransition(async () => {
-      const res = await fetch(`/api/admin/kango-bills/${billId}/send`, { method: "POST" });
-      const json = await res.json();
-      if (!res.ok) {
-        setError(json.error || "Gửi thất bại");
+      try {
+        const res = await fetch(`/api/admin/kango-bills/${billId}/send`, { method: "POST" });
+        const json = await res.json().catch(() => null);
+        if (!res.ok) {
+          const msg = json?.error || `Gửi bill thất bại (HTTP ${res.status})`;
+          setError(msg);
+          toast(msg, "error");
+          setConfirming(false);
+          router.refresh();
+          return;
+        }
         setConfirming(false);
-        return;
+        toast(`Đã duyệt và gửi lên Kango (ID: ${json?.billId ?? ""})`);
+        router.refresh();
+      } catch {
+        const msg = "Mất kết nối khi gửi lên Kango — vui lòng tải lại trang và kiểm tra Kango trước khi thử lại";
+        setError(msg);
+        toast(msg, "error");
+        setConfirming(false);
       }
-      setConfirming(false);
-      router.refresh();
     });
   }
 
   async function removeBill() {
-    if (!await ask("Xoá bill này? Không thể hoàn tác.")) return;
+    if (!(await ask("Xoá bill này? Không thể hoàn tác."))) return;
+    setError(null);
     startTransition(async () => {
-      const res = await fetch(`/api/admin/kango-bills/${billId}`, { method: "DELETE" });
-      if (res.ok) router.push("/admin/kango-bills");
+      try {
+        const res = await fetch(`/api/admin/kango-bills/${billId}`, { method: "DELETE" });
+        const json = await res.json().catch(() => null);
+        if (!res.ok) {
+          const msg = json?.error || `Xoá bill thất bại (HTTP ${res.status})`;
+          setError(msg);
+          toast(msg, "error");
+          return;
+        }
+        toast("Đã xoá bill");
+        router.push("/admin/kango-bills");
+        router.refresh();
+      } catch {
+        const msg = "Xoá bill thất bại — kiểm tra lại kết nối mạng";
+        setError(msg);
+        toast(msg, "error");
+      }
     });
   }
 
-  const hawbs: string[] = sent.kango_hawbs_json ? JSON.parse(sent.kango_hawbs_json) : [];
+  const hawbs = parseKangoHawbsJson(sent.kango_hawbs_json);
 
   return (
     <div className="rounded-xl border border-line bg-white p-4">
@@ -72,12 +114,25 @@ export default function KangoBillSendBar({
               </div>
             )}
             <div className="text-xs text-ink/45">
-              Gửi bởi {sent.sent_by} lúc {sent.sent_at ? new Date(sent.sent_at).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : ""}
+              Gửi bởi {sent.sent_by} lúc {formatSentAt(sent.sent_at)}
             </div>
           </dl>
           <p className="mt-2 text-xs text-ink/45">
-            Vẫn sửa/xoá được ở đây — nếu cần đổi thông tin, sửa thẳng trên web Kango rồi cập nhật lại ở đây cho khớp.
+            Bill đã phát hành trên Kango không thể sửa/xoá tại đây — nếu cần điều chỉnh, vui lòng thao tác trực tiếp trên web Kango.
           </p>
+        </div>
+      ) : status === "sending" ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-amber-800">
+            Bill đang được gửi lên Kango… Vui lòng chờ giây lát rồi tải lại trang (không gửi lại để tránh tạo trùng vận đơn).
+          </p>
+          <button
+            type="button"
+            onClick={() => router.refresh()}
+            className="btn-outline !px-3.5 !py-1.5 text-xs"
+          >
+            Tải lại trạng thái
+          </button>
         </div>
       ) : confirming ? (
         <div>
@@ -93,7 +148,7 @@ export default function KangoBillSendBar({
             >
               {isPending ? "Đang gửi..." : "Xác nhận, Gửi Kango"}
             </button>
-            <button type="button" onClick={() => setConfirming(false)} className="btn-outline !px-4 !py-2 text-sm">
+            <button type="button" onClick={() => setConfirming(false)} disabled={isPending} className="btn-outline !px-4 !py-2 text-sm disabled:opacity-50">
               Huỷ
             </button>
           </div>

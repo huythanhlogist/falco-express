@@ -1,6 +1,6 @@
 "use client";
 
-import { useConfirm } from "@/components/ui/Toast";
+import { useConfirm, useToast } from "@/components/ui/Toast";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 
@@ -9,21 +9,32 @@ type BillRow = {
   receiver_contact_name: string;
   receiver_country: string;
   shipment_service: string;
-  status: "draft" | "sent";
+  status: "draft" | "sending" | "sent";
   kango_bill_id: string | null;
   created_at: string;
 };
 
 export default function KangoBillsTable({ initialBills }: { initialBills: BillRow[] }) {
   const ask = useConfirm();
+  const toast = useToast();
   const [bills, setBills] = useState(initialBills);
   const [isPending, startTransition] = useTransition();
 
   async function removeBill(id: number) {
-    if (!await ask("Xoá bill này? Không thể hoàn tác.")) return;
+    if (!(await ask("Xoá bill này? Không thể hoàn tác."))) return;
     startTransition(async () => {
-      const res = await fetch(`/api/admin/kango-bills/${id}`, { method: "DELETE" });
-      if (res.ok) setBills((prev) => prev.filter((b) => b.id !== id));
+      try {
+        const res = await fetch(`/api/admin/kango-bills/${id}`, { method: "DELETE" });
+        const json = await res.json().catch(() => null);
+        if (!res.ok) {
+          toast(json?.error || `Xoá bill thất bại (HTTP ${res.status})`, "error");
+          return;
+        }
+        setBills((prev) => prev.filter((b) => b.id !== id));
+        toast(`Đã xoá bill #${id}`);
+      } catch {
+        toast("Xoá bill thất bại — kiểm tra lại kết nối mạng", "error");
+      }
     });
   }
 
@@ -51,26 +62,32 @@ export default function KangoBillsTable({ initialBills }: { initialBills: BillRo
               <td className="px-4 py-2.5">
                 <span
                   className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                    b.status === "sent" ? "bg-emerald-50 text-emerald-700" : "bg-mist text-ink/50"
+                    b.status === "sent"
+                      ? "bg-emerald-50 text-emerald-700"
+                      : b.status === "sending"
+                        ? "bg-amber-50 text-amber-800"
+                        : "bg-mist text-ink/50"
                   }`}
                 >
-                  {b.status === "sent" ? "Đã gửi Kango" : "Nháp"}
+                  {b.status === "sent" ? "Đã gửi Kango" : b.status === "sending" ? "Đang gửi Kango" : "Nháp"}
                 </span>
               </td>
               <td className="px-4 py-2.5 text-ink/70">{b.kango_bill_id || "—"}</td>
               <td className="px-4 py-2.5 text-right">
                 <div className="flex items-center justify-end gap-3">
                   <Link href={`/admin/kango-bills/${b.id}`} className="text-xs font-semibold text-navy-700 hover:underline">
-                    Xem/Sửa
+                    {b.status === "draft" ? "Xem/Sửa" : "Xem"}
                   </Link>
-                  <button
-                    type="button"
-                    onClick={() => removeBill(b.id)}
-                    disabled={isPending}
-                    className="text-xs font-semibold text-flame-700 hover:underline disabled:opacity-50"
-                  >
-                    Xoá
-                  </button>
+                  {b.status === "draft" && (
+                    <button
+                      type="button"
+                      onClick={() => removeBill(b.id)}
+                      disabled={isPending}
+                      className="text-xs font-semibold text-flame-700 hover:underline disabled:opacity-50"
+                    >
+                      Xoá
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>

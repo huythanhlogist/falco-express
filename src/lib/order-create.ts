@@ -1,5 +1,4 @@
-import { insertOrder, listFalcoCodeSet, type OrderSource } from "./db";
-import { nextFalcoCode } from "./kango-import";
+import { insertOrderWithGeneratedFalcoCode, type OrderSource } from "./db";
 
 export type CreateManualOrderInput = {
   recipientName: string;
@@ -22,12 +21,8 @@ export async function createManualOrder(
   input: CreateManualOrderInput,
   meta: { source: OrderSource; ctvId: number | null }
 ): Promise<{ id: number; falcoCode: string }> {
-  const existingCodes = await listFalcoCodeSet();
-  const falcoCode = nextFalcoCode(existingCodes);
-
-  const id = await insertOrder({
-    falcoCode,
-    awb: falcoCode,
+  // Sinh mã Falco trong khoá DB (chống trùng khi tạo đồng thời); awb bỏ trống → dùng chính mã Falco.
+  return insertOrderWithGeneratedFalcoCode({
     recipientName: input.recipientName,
     recipientPhone: input.recipientPhone,
     service: input.service,
@@ -39,6 +34,4 @@ export async function createManualOrder(
     ctvId: meta.ctvId,
     reviewStatus: meta.source === "ctv" ? "pending" : "auto_approved",
   });
-
-  return { id, falcoCode };
 }

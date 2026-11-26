@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
+import { OFFICE_BOT_OPTIONS, museBotLabel } from "@/lib/office-agents";
 import {
   ASSIGNEE_LABEL,
   fmtTime,
@@ -20,12 +21,6 @@ const KIND_STYLE: Record<NoteItem["kind"], string> = {
   yeu_cau: "bg-sky-100 text-sky-800",
 };
 
-const BOTS = [
-  { id: "any", label: "Bot nào rảnh" },
-  { id: "musehuythanh", label: "Muse Huy Thanh" },
-  { id: "videomuse", label: "Muse Video" },
-];
-
 export default function OfficeNotesPanel() {
   const toast = useToast();
   const [data, setData] = useState<NotesResponse | null>(null);
@@ -37,11 +32,13 @@ export default function OfficeNotesPanel() {
   const [taskCode, setTaskCode] = useState("");
   const [sendBot, setSendBot] = useState("any");
   const [resolution, setResolution] = useState<Record<number, string>>({});
+  const [adding, setAdding] = useState(false);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const r = await officeApi<NotesResponse>("notes");
     if (!r.ok) {
-      setError(r.error);
+      if (!r.aborted) setError(r.error);
       return;
     }
     setError(null);
@@ -49,16 +46,41 @@ export default function OfficeNotesPanel() {
   }, []);
 
   useEffect(() => {
-    void load();
-    const id = window.setInterval(load, 15000);
-    return () => window.clearInterval(id);
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const tick = async () => {
+      if (!document.hidden) await load();
+      if (!cancelled) timer = window.setTimeout(tick, 15_000);
+    };
+
+    const onVisibility = () => {
+      if (!document.hidden && !cancelled) void load();
+    };
+
+    void tick();
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [load]);
 
-  async function add(extra?: { text: string; task_code: string; assignee: NoteItem["assignee"] }) {
+  async function add(extra?: { text: string; task_code: string; assignee: NoteItem["assignee"] }, key?: string) {
+    if (adding || (key && busyKey !== null)) return;
+    if (key) setBusyKey(key);
+    else setAdding(true);
+
     const body = extra
       ? { action: "add", kind: "loi", text: extra.text, assignee: extra.assignee, task_code: extra.task_code }
       : { action: "add", kind, text, assignee, task_code: taskCode };
     const r = await officeApi("note-action", body);
+
+    if (key) setBusyKey(null);
+    else setAdding(false);
+
     if (!r.ok) {
       toast(r.error, "error");
       return;
@@ -71,15 +93,21 @@ export default function OfficeNotesPanel() {
     void load();
   }
 
-  async function noteAction(body: Record<string, unknown>, okText: string) {
+  async function noteAction(body: Record<string, unknown>, okText: string, key: string) {
+    if (busyKey !== null) return;
+    setBusyKey(key);
     const r = await officeApi("note-action", body);
+    setBusyKey(null);
     if (!r.ok) toast(r.error, "error");
     else toast(okText, "success");
     void load();
   }
 
   async function retryTask(code: string) {
+    if (busyKey !== null) return;
+    setBusyKey(`retry-${code}`);
     const r = await officeApi("task-action", { action: "requeue", task_code: code });
+    setBusyKey(null);
     if (!r.ok) toast(r.error, "error");
     else toast("Đã giao lại cho Muse", "success");
     void load();
@@ -89,6 +117,12 @@ export default function OfficeNotesPanel() {
 
   return (
     <div className="space-y-4">
+      {data?.stale ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+          Đang hiển thị dữ liệu tạm từ lúc {fmtTime(data.staleSince) || "trước đó"} do n8n phản hồi chậm hoặc tạm gián đoạn.
+        </p>
+      ) : null}
+
       {error ? (
         <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">Không đọc được ghi chú: {error}</p>
       ) : null}
@@ -124,11 +158,11 @@ export default function OfficeNotesPanel() {
           />
           <button
             type="button"
-            disabled={text.trim().length < 3}
+            disabled={adding || text.trim().length < 3}
             onClick={() => add()}
             className="rounded-lg bg-navy-800 px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
           >
-            Ghi lại
+            {adding ? "Đang ghi..." : "Ghi lại"}
           </button>
           <span className="text-xs text-slate-400">
             Muse: bấm &quot;Giao Muse sửa&quot; để Muse nhận như một việc. Claude: xử lý khi anh mở phiên Claude và nhờ xem ghi chú.
@@ -144,28 +178,33 @@ export default function OfficeNotesPanel() {
               <li key={e.taskCode} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-3 text-sm">
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-navy-800">
-                    {e.taskCode} · {e.status === "blocked" ? "Bị chặn" : "Lỗi"} {e.bot ? `· ${e.bot}` : ""}
+                    {e.taskCode} · {e.status === "blocked" ? "Bị chặn" : "Lỗi"} {e.bot ? `· ${museBotLabel(e.bot)}` : ""}
                   </p>
                   <p className="text-xs text-slate-600">{e.reason || e.objective}</p>
                 </div>
                 <div className="flex gap-2">
                   <button
                     type="button"
+                    disabled={busyKey !== null}
                     onClick={() => retryTask(e.taskCode)}
-                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-navy-800 hover:bg-slate-50"
+                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-navy-800 hover:bg-slate-50 disabled:opacity-40"
                   >
-                    Giao Muse thử lại
+                    {busyKey === `retry-${e.taskCode}` ? "Đang giao..." : "Giao Muse thử lại"}
                   </button>
                   <button
                     type="button"
+                    disabled={busyKey !== null}
                     onClick={() =>
-                      add({
-                        text: `Việc ${e.taskCode} ${e.status}: ${e.reason || e.objective}`,
-                        task_code: e.taskCode,
-                        assignee: "claude",
-                      })
+                      add(
+                        {
+                          text: `Việc ${e.taskCode} ${e.status}: ${e.reason || e.objective}`,
+                          task_code: e.taskCode,
+                          assignee: "claude",
+                        },
+                        `claude-${e.taskCode}`,
+                      )
                     }
-                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-navy-800 hover:bg-slate-50"
+                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-navy-800 hover:bg-slate-50 disabled:opacity-40"
                   >
                     Nhờ Claude xem
                   </button>
@@ -191,7 +230,7 @@ export default function OfficeNotesPanel() {
           </button>
         ))}
         <select value={sendBot} onChange={(e) => setSendBot(e.target.value)} className="ml-auto rounded-lg border border-slate-300 px-2 py-1 text-xs">
-          {BOTS.map((b) => (
+          {OFFICE_BOT_OPTIONS.map((b) => (
             <option key={b.id} value={b.id}>Giao Muse: {b.label}</option>
           ))}
         </select>
@@ -214,8 +253,9 @@ export default function OfficeNotesPanel() {
                 Ai xử lý
                 <select
                   value={n.assignee}
-                  onChange={(e) => noteAction({ action: "assign", id: n.id, assignee: e.target.value }, "Đã đổi người xử lý")}
-                  className="rounded-lg border border-slate-300 px-1.5 py-0.5"
+                  disabled={busyKey !== null}
+                  onChange={(e) => noteAction({ action: "assign", id: n.id, assignee: e.target.value }, "Đã đổi người xử lý", `assign-${n.id}`)}
+                  className="rounded-lg border border-slate-300 px-1.5 py-0.5 disabled:opacity-40"
                 >
                   {(["muse", "claude", "huy"] as const).map((a) => (
                     <option key={a} value={a}>{ASSIGNEE_LABEL[a]}</option>
@@ -231,16 +271,18 @@ export default function OfficeNotesPanel() {
                 <>
                   <button
                     type="button"
-                    onClick={() => noteAction({ action: "send_to_muse", id: n.id, bot: sendBot }, "Đã giao Muse sửa")}
-                    className="rounded-lg bg-navy-800 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+                    disabled={busyKey !== null}
+                    onClick={() => noteAction({ action: "send_to_muse", id: n.id, bot: sendBot }, "Đã giao Muse sửa", `muse-${n.id}`)}
+                    className="rounded-lg bg-navy-800 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
                   >
-                    Giao Muse sửa
+                    {busyKey === `muse-${n.id}` ? "Đang giao..." : "Giao Muse sửa"}
                   </button>
                   {n.status === "dang_xu_ly" ? (
                     <button
                       type="button"
-                      onClick={() => noteAction({ action: "set_status", id: n.id, status: "mo" }, "Đã mở lại, có thể giao lại")}
-                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-slate-50"
+                      disabled={busyKey !== null}
+                      onClick={() => noteAction({ action: "set_status", id: n.id, status: "mo" }, "Đã mở lại, có thể giao lại", `reopen-${n.id}`)}
+                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-slate-50 disabled:opacity-40"
                     >
                       Hủy giao, mở lại
                     </button>
@@ -248,8 +290,9 @@ export default function OfficeNotesPanel() {
                   {n.status === "mo" ? (
                     <button
                       type="button"
-                      onClick={() => noteAction({ action: "set_status", id: n.id, status: "dang_xu_ly" }, "Đã chuyển sang đang xử lý")}
-                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-slate-50"
+                      disabled={busyKey !== null}
+                      onClick={() => noteAction({ action: "set_status", id: n.id, status: "dang_xu_ly" }, "Đã chuyển sang đang xử lý", `progress-${n.id}`)}
+                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-slate-50 disabled:opacity-40"
                     >
                       Đang xử lý
                     </button>
@@ -262,10 +305,11 @@ export default function OfficeNotesPanel() {
                   />
                   <button
                     type="button"
+                    disabled={busyKey !== null}
                     onClick={() =>
-                      noteAction({ action: "set_status", id: n.id, status: "da_xong", resolution: resolution[n.id] ?? "" }, "Đã đóng")
+                      noteAction({ action: "set_status", id: n.id, status: "da_xong", resolution: resolution[n.id] ?? "" }, "Đã đóng", `done-${n.id}`)
                     }
-                    className="rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+                    className="rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
                   >
                     Xong
                   </button>
@@ -273,8 +317,9 @@ export default function OfficeNotesPanel() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => noteAction({ action: "set_status", id: n.id, status: "mo" }, "Đã mở lại")}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-slate-50"
+                  disabled={busyKey !== null}
+                  onClick={() => noteAction({ action: "set_status", id: n.id, status: "mo" }, "Đã mở lại", `open-${n.id}`)}
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-slate-50 disabled:opacity-40"
                 >
                   Mở lại
                 </button>

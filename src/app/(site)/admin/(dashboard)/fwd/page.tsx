@@ -1,6 +1,7 @@
 import { listCtvUsers, listCtvContentItems } from "@/lib/db";
 import CtvManager from "@/components/admin/CtvManager";
 import CtvContentManager from "@/components/admin/CtvContentManager";
+import AdminPageTabs from "@/components/admin/AdminPageTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,13 @@ export default async function CtvPage() {
 
   return (
     <div>
+      <AdminPageTabs
+        tabs={[
+          { href: "/admin/fwd", label: "Quản lý" },
+          { href: "/admin/fwd-cong-no", label: "Công nợ" },
+          { href: "/admin/fwd-hieu-qua", label: "Hiệu quả" },
+        ]}
+      />
       <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Quản lý FWD</h1>
       <p className="mt-1 text-sm text-ink/55">
         Tạo và quản lý tài khoản FWD — FWD đăng nhập ở khu vực riêng /fwd

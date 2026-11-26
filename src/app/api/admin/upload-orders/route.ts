@@ -11,7 +11,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   }
 
-  const form = await request.formData();
+  let form: FormData;
+  try {
+    form = await request.formData();
+  } catch {
+    return NextResponse.json({ error: "Dữ liệu tải lên không hợp lệ" }, { status: 400 });
+  }
+
   const file = form.get("file");
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "Vui lòng chọn file Excel để tải lên" }, { status: 400 });
@@ -33,6 +39,18 @@ export async function POST(request: Request) {
 
   try {
     const result = await processKangoWorkbook(buffer);
+    if (result.invalidFormat) {
+      // File sai định dạng hoặc không có bill nào: trả 400 để UI hiện lỗi đỏ,
+      // không ghi bản ghi rác vào upload_history.
+      return NextResponse.json(
+        {
+          error: result.errors[0] || "File sai định dạng Kango",
+          errors: result.errors,
+        },
+        { status: 400 }
+      );
+    }
+
     // Chỉ lưu lại kết quả xử lý để hiện lịch sử — không lưu nội dung file,
     // tránh phình dung lượng DB vì file này upload đều đặn 2 ngày/lần.
     await insertUploadHistory({

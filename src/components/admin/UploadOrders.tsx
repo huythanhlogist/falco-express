@@ -40,6 +40,16 @@ function formatDateTime(iso: string): string {
   });
 }
 
+function parseErrorsJson(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function UploadOrders() {
   const ask = useConfirm();
   const toast = useToast();
@@ -47,19 +57,26 @@ export default function UploadOrders() {
   const [fileName, setFileName] = useState("");
   const [result, setResult] = useState<UploadResult | null>(null);
   const [error, setError] = useState("");
+  const [errorDetails, setErrorDetails] = useState<string[]>([]);
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
+  const [historyError, setHistoryError] = useState("");
   const [undoingId, setUndoingId] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function loadHistory() {
+    setHistoryError("");
     try {
       const res = await fetch("/api/admin/upload-history");
-      if (!res.ok) return;
-      const json = await res.json();
-      setHistory(json.history as HistoryEntry[]);
+      if (!res.ok) {
+        setHistoryError("Không tải được lịch sử upload");
+        setHistory((prev) => prev ?? []);
+        return;
+      }
+      const json = await res.json().catch(() => ({}));
+      setHistory(Array.isArray(json.history) ? (json.history as HistoryEntry[]) : []);
     } catch {
-      // Lỗi tải lịch sử không quan trọng bằng việc upload — bỏ qua âm thầm,
-      // khu vực lịch sử chỉ đơn giản không hiện gì.
+      setHistoryError("Không tải được lịch sử upload");
+      setHistory((prev) => prev ?? []);
     }
   }
 
@@ -71,15 +88,17 @@ export default function UploadOrders() {
     setFileName(file.name);
     setResult(null);
     setError("");
+    setErrorDetails([]);
     setState("uploading");
 
     try {
       const body = new FormData();
       body.append("file", file);
       const res = await fetch("/api/admin/upload-orders", { method: "POST", body });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(json.error || "Có lỗi xảy ra khi tải file lên");
+        setErrorDetails(Array.isArray(json.errors) ? json.errors.map(String) : []);
         setState("error");
         return;
       }
@@ -101,13 +120,15 @@ export default function UploadOrders() {
     setUndoingId(h.id);
     try {
       const res = await fetch(`/api/admin/upload-history/${h.id}/undo`, { method: "POST" });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         toast(json.error || "Hoàn tác thất bại", "error");
         return;
       }
-      if (json.errors?.length > 0) {
-        toast(`Đã hoàn tác nhưng có vài lỗi nhỏ:\n${json.errors.join("\n")}`, "error");
+      if (Array.isArray(json.errors) && json.errors.length > 0) {
+        toast(`Đã hoàn tác MySQL nhưng có cảnh báo:\n${json.errors.join("\n")}`, "error");
+      } else {
+        toast(`Đã hoàn tác lượt upload "${h.file_name}"`);
       }
       loadHistory();
     } catch {
@@ -163,9 +184,16 @@ export default function UploadOrders() {
       )}
 
       {state === "error" && (
-        <p className="mt-3 rounded-lg bg-flame-50 px-3.5 py-2.5 text-sm font-medium text-flame-700">
-          {error}
-        </p>
+        <div className="mt-3 rounded-lg border border-flame-200 bg-flame-50 px-3.5 py-2.5 text-sm text-flame-700" role="alert">
+          <p className="font-semibold">{error}</p>
+          {errorDetails.length > 1 && (
+            <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-xs">
+              {errorDetails.slice(1).map((detail, i) => (
+                <li key={i}>{detail}</li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
 
       {state === "done" && result && (
@@ -223,6 +251,9 @@ export default function UploadOrders() {
         <p className="mt-0.5 text-xs text-ink/50">
           Chỉ lưu lại kết quả xử lý (không lưu file gốc) — 20 lần gần nhất.
         </p>
+        {historyError && (
+          <p className="mt-2 text-xs font-medium text-flame-700">{historyError}</p>
+        )}
         <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-white">
           <table className="w-full text-sm">
             <thead>
@@ -239,8 +270,15 @@ export default function UploadOrders() {
               </tr>
             </thead>
             <tbody>
+              {history === null && (
+                <tr>
+                  <td colSpan={9} className="px-5 py-6 text-center text-xs text-ink/45">
+                    Đang tải lịch sử...
+                  </td>
+                </tr>
+              )}
               {(history ?? []).map((h) => {
-                const errs: string[] = h.errors ? JSON.parse(h.errors) : [];
+                const errs = parseErrorsJson(h.errors);
                 const canUndo =
                   !h.undone_at &&
                   h.snapshot &&

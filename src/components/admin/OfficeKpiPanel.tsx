@@ -1,15 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { officeApi, type KpiBucket, type KpiResponse, type OutreachResponse } from "@/lib/office-api";
+import { OFFICE_RULES, OFFICE_SALES, OFFICE_SALE_NOTE_BY_NAME } from "@/lib/office-agents";
+import { fmtDateVn, fmtTime, officeApi, type KpiBucket, type KpiResponse, type OutreachResponse } from "@/lib/office-api";
 
 type Range = "today" | "week";
-
-// Mục tiêu tạm do hệ thống đặt (06/11) để có thước đo; chỉnh tại đây khi anh Huy chốt số khác.
-const TARGET_SENT_PER_DAY = 30; // tin chào gửi mỗi ngày (bằng trần Zalo)
-const TARGET_PASSED_PER_SALE = 6; // lead đạt mỗi sale mỗi ngày, 5 sale x 6 = 30 lead cho 30 tin
-const TARGET_REPLY_RATE = 20; // % khách trả lời trên tin đã gửi
-const TARGET_WIN_RATE = 5; // % lead đã gửi chốt thành đơn (tạm, chờ anh Huy chốt)
 
 function Goal({ label, value, target, unit, note }: { label: string; value: number; target: number; unit?: string; note?: string }) {
   const pct = target > 0 ? Math.min(100, Math.round((100 * value) / target)) : 0;
@@ -31,14 +26,6 @@ function Goal({ label, value, target, unit, note }: { label: string; value: numb
     </div>
   );
 }
-
-const SALE_NOTE: Record<string, string> = {
-  Linh: "Shop đặc sản",
-  Nam: "Shop online Việt kiều",
-  Vy: "Đại lý, cộng tác viên",
-  Mai: "Tiệm và shop người Việt ở châu Âu",
-  Khoa: "Linh kiện đi Mỹ",
-};
 
 function Metric({ label, value, sub, tone = "text-navy-800" }: { label: string; value: string | number; sub?: string; tone?: string }) {
   return (
@@ -72,7 +59,7 @@ export default function OfficeKpiPanel() {
   const load = useCallback(async () => {
     const [r, o] = await Promise.all([officeApi<KpiResponse>("kpi"), officeApi<OutreachResponse>("outreach")]);
     if (!r.ok) {
-      setError(r.error);
+      if (!r.aborted) setError(r.error);
       return;
     }
     setError(null);
@@ -81,26 +68,64 @@ export default function OfficeKpiPanel() {
   }, []);
 
   useEffect(() => {
-    void load();
-    const id = window.setInterval(() => {
-      if (!document.hidden) void load();
-    }, 60000);
-    return () => window.clearInterval(id);
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const tick = async () => {
+      if (!document.hidden) await load();
+      if (!cancelled) timer = window.setTimeout(tick, 60_000);
+    };
+
+    const onVisibility = () => {
+      if (!document.hidden && !cancelled) void load();
+    };
+
+    void tick();
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [load]);
 
   const t = data?.totals[range];
   const label = range === "today" ? "Hôm nay" : "7 ngày gần nhất";
+  const dailySentTarget = out?.dailyTarget ?? OFFICE_RULES.kpiTargetSentPerDay;
+  const totalSentToday = out?.today.sent ?? out?.systems.zalo.sentToday ?? 0;
+
+  // Mục tiêu lead đạt cả phòng = tổng mục tiêu từng sale theo đúng số ngày có việc của mỗi sale.
+  const teamPassedTarget =
+    data && data.sales.length > 0
+      ? data.sales.reduce(
+          (sum, s) =>
+            sum +
+            OFFICE_RULES.kpiTargetPassedPerSale *
+              (range === "week" ? Math.max(1, s.days.filter((d) => d.tasks > 0).length) : 1),
+          0,
+        )
+      : OFFICE_RULES.kpiTargetPassedPerSale * OFFICE_SALES.length;
+
+  const isStale = Boolean(data?.stale || out?.stale);
+  const staleSince = data?.stale ? data.staleSince : out?.staleSince;
 
   return (
     <div className="space-y-5">
+      {isStale ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+          Đang hiển thị dữ liệu tạm từ lúc {fmtTime(staleSince) || "trước đó"} do n8n phản hồi chậm hoặc tạm gián đoạn.
+        </p>
+      ) : null}
+
       {error ? <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">Không đọc được KPI: {error}</p> : null}
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-navy-800">KPI của phòng sale ({label})</h2>
           <p className="text-xs text-slate-500">
             Giờ làm việc tính từ lúc giao việc đến lúc báo xong. Nhật ký bắt đầu ghi từ{" "}
-            {data?.logStartsAt ? new Date(data.logStartsAt).toLocaleDateString("vi-VN") : "hôm nay"}, nên các ngày trước đó chưa có số liệu.
+            {data?.logStartsAt ? fmtDateVn(data.logStartsAt) : "hôm nay"}, nên các ngày trước đó chưa có số liệu.
           </p>
         </div>
         <div className="flex gap-1.5 text-xs">
@@ -129,56 +154,67 @@ export default function OfficeKpiPanel() {
       <section className="rounded-2xl border border-slate-200 bg-white p-4">
         <h3 className="mb-1 text-base font-bold text-navy-800">So với mục tiêu ({label})</h3>
         <p className="mb-3 text-xs text-slate-500">
-          Mục tiêu tạm: {TARGET_SENT_PER_DAY} tin gửi mỗi ngày, {TARGET_PASSED_PER_SALE} lead đạt mỗi sale mỗi ngày, {TARGET_REPLY_RATE}% khách trả lời. Chốt đơn do anh Huy bấm ở tab Lead, mục Đã gửi.
+          Mục tiêu tạm: {dailySentTarget} tin gửi mỗi ngày, {OFFICE_RULES.kpiTargetPassedPerSale} lead đạt mỗi sale mỗi ngày, {OFFICE_RULES.kpiTargetReplyRate}% khách trả lời. Chốt đơn do anh Huy bấm ở tab Lead, mục Đã gửi.
         </p>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Goal
             label="Lead đạt (cả phòng)"
             value={t?.passed ?? 0}
-            target={TARGET_PASSED_PER_SALE * (data?.sales.length ?? 5) * (range === "week" ? Math.max(1, data?.sales[0]?.days.filter((d) => d.tasks > 0).length ?? 1) : 1)}
+            target={teamPassedTarget}
           />
           {range === "today" ? (
-            <Goal label="Tin đã gửi hôm nay" value={out?.systems.zalo.sentToday ?? 0} target={TARGET_SENT_PER_DAY} note="Zalo; WhatsApp đang gửi rất ít" />
+            <Goal
+              label="Tin đã gửi hôm nay (tổng)"
+              value={totalSentToday}
+              target={dailySentTarget}
+              note={out ? `Trong đó Zalo: ${out.systems.zalo.sentToday}/${out.systems.zalo.dailyLimit} tin` : undefined}
+            />
           ) : null}
-          <Goal
-            label="Đơn đã chốt"
-            value={data?.deals?.won ?? 0}
-            target={Math.max(1, Math.ceil(((data?.deals?.sent ?? 0) * TARGET_WIN_RATE) / 100))}
-            note={`${data?.deals?.won ?? 0}/${data?.deals?.sent ?? 0} lead đã gửi (${data?.deals?.sent ? Math.round((100 * (data.deals.won)) / data.deals.sent) : 0}%), ${data?.deals?.quoted ?? 0} đã báo giá. Mục tiêu tạm ${TARGET_WIN_RATE}%`}
-          />
-          <Goal
-            label="Tỷ lệ khách trả lời"
-            value={data?.deals?.sent ? Math.round((100 * (data.deals.replied ?? 0)) / data.deals.sent) : 0}
-            target={TARGET_REPLY_RATE}
-            unit="%"
-            note={`${data?.deals?.replied ?? 0}/${data?.deals?.sent ?? 0} lead đã gửi, không tính tin thử`}
-          />
           {data?.sales.map((s) => (
             <Goal
               key={s.name}
               label={`${s.name}: lead đạt`}
               value={s[range].passed}
-              target={TARGET_PASSED_PER_SALE * (range === "week" ? Math.max(1, s.days.filter((d) => d.tasks > 0).length) : 1)}
+              target={OFFICE_RULES.kpiTargetPassedPerSale * (range === "week" ? Math.max(1, s.days.filter((d) => d.tasks > 0).length) : 1)}
             />
           ))}
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Metric label="Khách quan tâm" value={data?.deals?.interested ?? 0} sub="hỏi giá, xin bảng giá, hỏi thủ tục" tone="text-sky-700" />
-        <Metric label="Đã báo giá" value={data?.deals?.quoted ?? 0} sub="do anh Huy bấm ở tab Lead" />
-        <Metric
-          label="Doanh thu đã chốt"
-          value={`${(data?.deals?.value ?? 0).toLocaleString("vi-VN")}đ`}
-          sub={`${data?.deals?.won ?? 0} đơn, tính từ khi có nút chốt đơn`}
-          tone="text-emerald-700"
-        />
-        <Metric
-          label="Lead đang chờ gửi"
-          value={data?.deals?.pending ?? 0}
-          sub={(data?.deals?.pending ?? 0) > 60 ? "nhiều hơn sức gửi, sale số quốc tế tạm dừng" : "trong sức gửi"}
-          tone={(data?.deals?.pending ?? 0) > 60 ? "text-amber-700" : "text-navy-800"}
-        />
+      <section className="rounded-2xl border border-slate-200 bg-white p-4">
+        <h3 className="mb-1 text-base font-bold text-navy-800">Chuyển đổi &amp; doanh thu (Lũy kế toàn thời gian)</h3>
+        <p className="mb-3 text-xs text-slate-500">
+          Số liệu cộng dồn toàn bộ chiến dịch, tách riêng với chỉ tiêu theo ngày/7 ngày ở trên.
+        </p>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Goal
+            label="Đơn đã chốt (lũy kế)"
+            value={data?.deals?.won ?? 0}
+            target={Math.max(1, Math.ceil(((data?.deals?.sent ?? 0) * OFFICE_RULES.kpiTargetWinRate) / 100))}
+            note={`${data?.deals?.won ?? 0}/${data?.deals?.sent ?? 0} lead đã gửi (${data?.deals?.sent ? Math.round((100 * data.deals.won) / data.deals.sent) : 0}%), ${data?.deals?.quoted ?? 0} đã báo giá. Mục tiêu tạm ${OFFICE_RULES.kpiTargetWinRate}%`}
+          />
+          <Goal
+            label="Tỷ lệ khách trả lời (lũy kế)"
+            value={data?.deals?.sent ? Math.round((100 * (data.deals.replied ?? 0)) / data.deals.sent) : 0}
+            target={OFFICE_RULES.kpiTargetReplyRate}
+            unit="%"
+            note={`${data?.deals?.replied ?? 0}/${data?.deals?.sent ?? 0} lead đã gửi, không tính tin thử`}
+          />
+          <Metric label="Khách quan tâm" value={data?.deals?.interested ?? 0} sub="hỏi giá, xin bảng giá, hỏi thủ tục" tone="text-sky-700" />
+          <Metric label="Đã báo giá" value={data?.deals?.quoted ?? 0} sub="do anh Huy bấm ở tab Lead" />
+          <Metric
+            label="Doanh thu đã chốt"
+            value={`${(data?.deals?.value ?? 0).toLocaleString("vi-VN")}đ`}
+            sub={`${data?.deals?.won ?? 0} đơn, tính từ khi có nút chốt đơn`}
+            tone="text-emerald-700"
+          />
+          <Metric
+            label="Lead đang chờ gửi"
+            value={data?.deals?.pending ?? 0}
+            sub={(data?.deals?.pending ?? 0) > 60 ? "nhiều hơn sức gửi, sale số quốc tế tạm dừng" : "trong sức gửi"}
+            tone={(data?.deals?.pending ?? 0) > 60 ? "text-amber-700" : "text-navy-800"}
+          />
+        </div>
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -190,7 +226,7 @@ export default function OfficeKpiPanel() {
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
                   <h3 className="text-base font-bold text-navy-800">
-                    {s.name} <span className="text-xs font-normal text-slate-400">{s.code} · {SALE_NOTE[s.name]}</span>
+                    {s.name} <span className="text-xs font-normal text-slate-400">{s.code} · {OFFICE_SALE_NOTE_BY_NAME[s.name] ?? ""}</span>
                   </h3>
                   <p className="text-xs text-slate-500">
                     {busy ? `${b.search} lượt tìm lead · ${b.strategy} việc cố vấn · ${b.learn} việc học` : "Chưa có việc nào xong trong khoảng này"}

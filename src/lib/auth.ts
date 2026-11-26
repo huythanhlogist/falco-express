@@ -58,7 +58,29 @@ export async function getCurrentAdminSession(): Promise<SessionPayload | null> {
   const { cookies } = await import("next/headers");
   const store = await cookies();
   const token = store.get(ADMIN_SESSION_COOKIE)?.value;
-  return token ? verifySessionToken(token) : null;
+  if (!token) return null;
+
+  const session = await verifySessionToken(token);
+  if (!session) return null;
+
+  // Kiểm tra nhân viên còn tồn tại trong DB (cache 60 giây) để tài khoản bị xoá mất hiệu lực ngay.
+  // Dùng dynamic import để proxy.ts (Edge) không kéo theo mysql2 khi chỉ gọi verifySessionToken.
+  const { getActiveAdminRole } = await import("@/lib/admin-staff-check");
+  const activeRole = await getActiveAdminRole(session.email);
+  if (!activeRole) return null;
+
+  return { email: session.email, role: activeRole };
 }
 
 export const SESSION_COOKIE_MAX_AGE = SESSION_TTL_SECONDS;
+
+/** Thuộc tính cookie dùng chung cho login và logout để xoá cookie khớp hoàn toàn lúc set. */
+export function getAdminSessionCookieOptions(maxAge: number = SESSION_TTL_SECONDS) {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge,
+  };
+}

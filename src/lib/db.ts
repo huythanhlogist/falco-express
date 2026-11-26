@@ -2,7 +2,7 @@ import mysql from "mysql2/promise";
 import dns from "node:dns";
 import type { ParsedCategory } from "./price-quote-import";
 import type { ShipmentStatus } from "./shipment-status";
-import { vnDateString } from "./vn-date";
+import { toIsoDateLocal, vnDateString } from "./vn-date";
 
 // Máy dev nối DB_HOST dạng tên miền WAN (vd đang phát triển từ máy cá nhân)
 // có lúc bị resolve ra địa chỉ IPv6 không nằm trong danh sách IP được phép
@@ -28,11 +28,14 @@ export function getPool(): mysql.Pool {
       password: DB_PASSWORD,
       database: DB_NAME,
       waitForConnections: true,
-      connectionLimit: 5,
+      // Trang Tổng quan chạy ~8 truy vấn song song + chuông + trang khác cùng lúc: 5 gây xếp hàng.
+      connectionLimit: 10,
       queueLimit: 0,
       // Giữ kết nối sống qua TCP keepalive — tránh lỗi "write EPIPE" khi kết
       // nối bị firewall/NAT âm thầm đóng sau một thời gian không hoạt động
       // (hay gặp khi app kết nối MySQL qua WAN, vd chạy dev từ máy cá nhân).
+      // Trả cột DATE dưới dạng chuỗi "YYYY-MM-DD" bất biến với mọi múi giờ tiến trình Node.
+      dateStrings: ["DATE"],
       enableKeepAlive: true,
       keepAliveInitialDelay: 10_000,
     });
@@ -184,6 +187,10 @@ export type NewOrder = {
   reviewStatus?: OrderReviewStatus;
 };
 
+export type NewAutoCodedOrder = Omit<NewOrder, "falcoCode" | "awb"> & {
+  awb?: string;
+};
+
 export async function insertOrder(order: NewOrder): Promise<number> {
   await ensureOrdersSchema();
   const [result] = await getPool().query(
@@ -208,7 +215,112 @@ export async function insertOrder(order: NewOrder): Promise<number> {
       order.reviewStatus ?? "auto_approved",
     ]
   );
+  monthsCache = null;
   return (result as mysql.ResultSetHeader).insertId;
+}
+
+/**
+ * Sinh mã Falco hôm nay theo giờ Việt Nam (FLyyMMddNNN) và chèn đơn + danh sách
+ * kiện trong cùng 1 transaction có khoá (GET_LOCK + SELECT ... FOR UPDATE + retry
+ * khi trùng unique) — chống trùng mã khi nhiều người tạo/upload cùng lúc và không
+ * nạp cả bảng orders lên RAM.
+ */
+export async function insertOrderWithGeneratedFalcoCode(
+  order: NewAutoCodedOrder,
+  parcels: { hawb: string; trackingCode: string }[] = []
+): Promise<{ id: number; falcoCode: string }> {
+  await ensureOrdersSchema();
+  const maxAttempts = 5;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const ymd = vnDateString();
+    const prefix = `FL${ymd.slice(2, 4)}${ymd.slice(5, 7)}${ymd.slice(8, 10)}`;
+    const lockName = `falco_code_${prefix}`;
+    const conn = await getPool().getConnection();
+    let lockAcquired = false;
+
+    try {
+      const [lockRows] = await conn.query("SELECT GET_LOCK(?, 10) AS locked", [lockName]);
+      lockAcquired = Number((lockRows as { locked: number | null }[])[0]?.locked ?? 0) === 1;
+
+      await conn.beginTransaction();
+      const [codeRows] = await conn.query(
+        "SELECT falco_code FROM orders WHERE falco_code LIKE ? FOR UPDATE",
+        [`${prefix}%`]
+      );
+      const existing = new Set<string>();
+      let maxSeq = 0;
+      for (const r of codeRows as { falco_code: string }[]) {
+        const upper = r.falco_code.toUpperCase();
+        existing.add(upper);
+        const suffix = upper.slice(prefix.length);
+        if (/^\d+$/.test(suffix)) {
+          const n = Number(suffix);
+          if (n > maxSeq) maxSeq = n;
+        }
+      }
+
+      let seq = maxSeq + 1;
+      let falcoCode = `${prefix}${String(seq).padStart(3, "0")}`;
+      while (existing.has(falcoCode)) {
+        seq += 1;
+        falcoCode = `${prefix}${String(seq).padStart(3, "0")}`;
+      }
+
+      const awb = order.awb && order.awb.trim() ? order.awb.trim() : falcoCode;
+      const [result] = await conn.query(
+        `INSERT INTO orders
+          (falco_code, awb, recipient_name, recipient_phone, recipient_postcode, service, destination, received_date,
+           weight_kg, amount, cost, source, ctv_id, review_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          falcoCode,
+          awb,
+          order.recipientName,
+          order.recipientPhone,
+          order.recipientPostcode?.trim() || null,
+          order.service,
+          order.destination,
+          order.receivedDate,
+          order.weightKg ?? null,
+          order.amount ?? null,
+          order.cost ?? null,
+          order.source ?? "staff",
+          order.ctvId ?? null,
+          order.reviewStatus ?? "auto_approved",
+        ]
+      );
+      const orderId = (result as mysql.ResultSetHeader).insertId;
+
+      const cleanParcels = parcels
+        .map((p) => ({ hawb: (p.hawb ?? "").trim(), trackingCode: p.trackingCode.trim() }))
+        .filter((p) => p.trackingCode.length > 0);
+      if (cleanParcels.length > 0) {
+        await conn.query(
+          "INSERT INTO order_parcels (order_id, hawb, tracking_code) VALUES ?",
+          [cleanParcels.map((p) => [orderId, p.hawb, p.trackingCode])]
+        );
+      }
+
+      await conn.commit();
+      monthsCache = null;
+      return { id: orderId, falcoCode };
+    } catch (err) {
+      await conn.rollback().catch(() => {});
+      const code = (err as { code?: string })?.code;
+      if (code === "ER_DUP_ENTRY" && attempt < maxAttempts - 1) {
+        continue;
+      }
+      throw err;
+    } finally {
+      if (lockAcquired) {
+        await conn.query("SELECT RELEASE_LOCK(?)", [lockName]).catch(() => {});
+      }
+      conn.release();
+    }
+  }
+
+  throw new Error("Không thể sinh mã Falco duy nhất sau nhiều lần thử");
 }
 
 /** Cập nhật tên dịch vụ của đơn (đồng bộ vận đơn đối tác chuẩn hoá lại tên). */
@@ -272,19 +384,45 @@ export async function listOrderParcels(orderId: number): Promise<OrderParcel[]> 
   return rows as OrderParcel[];
 }
 
-/** Thay toàn bộ danh sách kiện của 1 đơn — dùng cho form sửa đơn trong admin. */
-export async function replaceOrderParcels(
+export type ParcelInput = string | { hawb?: string; trackingCode: string };
+
+async function replaceOrderParcelsOnConn(
+  conn: mysql.PoolConnection,
   orderId: number,
-  trackingCodes: string[]
+  parcels: ParcelInput[]
 ): Promise<void> {
-  await getPool().query("DELETE FROM order_parcels WHERE order_id = ?", [orderId]);
-  const codes = trackingCodes.map((c) => c.trim()).filter(Boolean);
-  if (codes.length === 0) return;
-  const values = codes.map((code) => [orderId, "", code]);
-  await getPool().query(
+  await conn.query("DELETE FROM order_parcels WHERE order_id = ?", [orderId]);
+  const normalized = parcels
+    .map((item) =>
+      typeof item === "string"
+        ? { hawb: "", trackingCode: item.trim() }
+        : { hawb: (item.hawb ?? "").trim(), trackingCode: item.trackingCode.trim() }
+    )
+    .filter((p) => p.trackingCode.length > 0);
+  if (normalized.length === 0) return;
+  const values = normalized.map((p) => [orderId, p.hawb, p.trackingCode]);
+  await conn.query(
     "INSERT INTO order_parcels (order_id, hawb, tracking_code) VALUES ?",
     [values]
   );
+}
+
+/** Thay toàn bộ danh sách kiện của 1 đơn trong 1 transaction — tránh mất kiện nếu INSERT lỗi. */
+export async function replaceOrderParcels(
+  orderId: number,
+  trackingCodes: ParcelInput[]
+): Promise<void> {
+  const conn = await getPool().getConnection();
+  try {
+    await conn.beginTransaction();
+    await replaceOrderParcelsOnConn(conn, orderId, trackingCodes);
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback().catch(() => {});
+    throw err;
+  } finally {
+    conn.release();
+  }
 }
 
 export type OrderEditableFields = Partial<{
@@ -319,13 +457,9 @@ const ORDER_FIELD_COLUMNS: Record<keyof OrderEditableFields, string> = {
   weightKg: "weight_kg",
 };
 
-export async function updateOrder(
-  id: number,
-  fields: OrderEditableFields
-): Promise<boolean> {
+function buildOrderUpdateParts(fields: OrderEditableFields): { setClause: string; values: unknown[] } | null {
   const entries = Object.entries(fields) as [keyof OrderEditableFields, unknown][];
-  if (entries.length === 0) return false;
-  await ensureOrdersSchema();
+  if (entries.length === 0) return null;
   const assignments = entries.map(([key]) => `${ORDER_FIELD_COLUMNS[key]} = ?`);
   const values = entries.map(([, value]) => value);
   // Đổi trạng thái thu mà không chỉ định ngày thu: sang "chưa thu" thì xoá
@@ -339,16 +473,157 @@ export async function updateOrder(
       values.push(vnDateString());
     }
   }
-  const setClause = assignments.join(", ");
+  return { setClause: assignments.join(", "), values };
+}
+
+export async function updateOrder(
+  id: number,
+  fields: OrderEditableFields
+): Promise<boolean> {
+  const parts = buildOrderUpdateParts(fields);
+  if (!parts) return false;
+  await ensureOrdersSchema();
   const [result] = await getPool().query(
-    `UPDATE orders SET ${setClause} WHERE id = ?`,
-    [...values, id]
+    `UPDATE orders SET ${parts.setClause} WHERE id = ?`,
+    [...parts.values, id]
   );
+  monthsCache = null;
   return (result as mysql.ResultSetHeader).affectedRows > 0;
+}
+
+/**
+ * Sửa đơn + kiện + ghi lịch sử hoàn tác trong CÙNG 1 transaction — đảm bảo
+ * không tạo lịch sử "ma" khi UPDATE lỗi và không mất kiện khi thay danh sách tracking.
+ */
+export async function updateOrderWithHistoryTx(params: {
+  orderId: number;
+  fields: OrderEditableFields;
+  trackingCodes?: string[];
+  changedBy: string;
+}): Promise<{ found: boolean }> {
+  await ensureOrdersSchema();
+  const willChangeFields = Object.keys(params.fields).length > 0;
+  const willChangeParcels = Array.isArray(params.trackingCodes);
+
+  const conn = await getPool().getConnection();
+  try {
+    await conn.beginTransaction();
+    const [orderRows] = await conn.query("SELECT * FROM orders WHERE id = ? LIMIT 1 FOR UPDATE", [params.orderId]);
+    const order = (orderRows as OrderRecord[])[0];
+    if (!order) {
+      await conn.rollback();
+      return { found: false };
+    }
+
+    if (!willChangeFields && !willChangeParcels) {
+      await conn.commit();
+      return { found: true };
+    }
+
+    const [parcelRows] = await conn.query(
+      "SELECT id, hawb, tracking_code FROM order_parcels WHERE order_id = ? ORDER BY id FOR UPDATE",
+      [params.orderId]
+    );
+    const currentParcels = parcelRows as OrderParcel[];
+
+    await conn.query(
+      `INSERT INTO order_edit_history (order_id, action, before_data, changed_by)
+       VALUES (?, 'update', ?, ?)`,
+      [
+        params.orderId,
+        JSON.stringify({
+          order,
+          trackingCodes: currentParcels.map((p) => p.tracking_code),
+          parcels: currentParcels.map((p) => ({ hawb: p.hawb, trackingCode: p.tracking_code })),
+        }),
+        params.changedBy,
+      ]
+    );
+
+    if (willChangeFields) {
+      const parts = buildOrderUpdateParts(params.fields);
+      if (parts) {
+        await conn.query(`UPDATE orders SET ${parts.setClause} WHERE id = ?`, [...parts.values, params.orderId]);
+      }
+    }
+
+    if (willChangeParcels && params.trackingCodes) {
+      // Giữ lại hawb của các mã tracking đã có trước đó để không mất thông tin HAWB khi sửa đơn.
+      const hawbByTracking = new Map<string, string>();
+      for (const p of currentParcels) {
+        if (p.hawb && !hawbByTracking.has(p.tracking_code)) {
+          hawbByTracking.set(p.tracking_code, p.hawb);
+        }
+      }
+      const nextParcels = params.trackingCodes
+        .map((raw) => raw.trim())
+        .filter(Boolean)
+        .map((code) => ({ hawb: hawbByTracking.get(code) ?? "", trackingCode: code }));
+      await replaceOrderParcelsOnConn(conn, params.orderId, nextParcels);
+    }
+
+    await conn.commit();
+    monthsCache = null;
+    return { found: true };
+  } catch (err) {
+    await conn.rollback().catch(() => {});
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+/** Xoá đơn + ghi snapshot đầy đủ vào order_edit_history trong cùng 1 transaction. */
+export async function deleteOrderWithHistoryTx(params: {
+  orderId: number;
+  changedBy: string;
+}): Promise<boolean> {
+  await ensureOrdersSchema();
+  const conn = await getPool().getConnection();
+  try {
+    await conn.beginTransaction();
+    const [orderRows] = await conn.query("SELECT * FROM orders WHERE id = ? LIMIT 1 FOR UPDATE", [params.orderId]);
+    const order = (orderRows as OrderRecord[])[0];
+    if (!order) {
+      await conn.rollback();
+      return false;
+    }
+
+    const [parcelRows] = await conn.query(
+      "SELECT id, hawb, tracking_code FROM order_parcels WHERE order_id = ? ORDER BY id FOR UPDATE",
+      [params.orderId]
+    );
+    const parcels = parcelRows as OrderParcel[];
+
+    await conn.query(
+      `INSERT INTO order_edit_history (order_id, action, before_data, changed_by)
+       VALUES (?, 'delete', ?, ?)`,
+      [
+        params.orderId,
+        JSON.stringify({
+          order,
+          trackingCodes: parcels.map((p) => p.tracking_code),
+          parcels: parcels.map((p) => ({ hawb: p.hawb, trackingCode: p.tracking_code })),
+        }),
+        params.changedBy,
+      ]
+    );
+
+    const [result] = await conn.query("DELETE FROM orders WHERE id = ?", [params.orderId]);
+    await conn.commit();
+    monthsCache = null;
+    return (result as mysql.ResultSetHeader).affectedRows > 0;
+  } catch (err) {
+    await conn.rollback().catch(() => {});
+    throw err;
+  } finally {
+    conn.release();
+  }
 }
 
 export async function deleteOrder(id: number): Promise<boolean> {
   const [result] = await getPool().query("DELETE FROM orders WHERE id = ?", [id]);
+  monthsCache = null;
   return (result as mysql.ResultSetHeader).affectedRows > 0;
 }
 
@@ -393,8 +668,10 @@ export async function listAwbSet(): Promise<Set<string>> {
   return new Set((rows as { awb: string }[]).map((r) => r.awb.toUpperCase()));
 }
 
-export async function listFalcoCodeSet(): Promise<Set<string>> {
-  const [rows] = await getPool().query("SELECT falco_code FROM orders");
+export async function listFalcoCodeSet(prefix?: string): Promise<Set<string>> {
+  const [rows] = prefix
+    ? await getPool().query("SELECT falco_code FROM orders WHERE falco_code LIKE ?", [`${prefix}%`])
+    : await getPool().query("SELECT falco_code FROM orders");
   return new Set(
     (rows as { falco_code: string }[]).map((r) => r.falco_code.toUpperCase())
   );
@@ -1273,9 +1550,9 @@ export async function listOrders(params: {
     whereArgs
   );
 
-  // Đếm riêng theo trạng thái thu tiền + số đơn FWD đang chờ duyệt (không áp
-  // bộ lọc status/source/reviewStatus, chỉ áp tìm kiếm + tháng) để hiển thị
-  // số lượng trên các tab lọc kể cả khi đang xem tab khác.
+  // Đếm riêng theo trạng thái thu tiền theo đúng bộ lọc hiện tại (search, tháng,
+  // nguồn, FWD, trạng thái duyệt — chỉ bỏ qua bộ lọc payment_status) để 3 thẻ KPI
+  // và 5 tab trạng thái thu khớp với tập đơn đang xem.
   const searchMonthConditions: string[] = [];
   const searchMonthArgs: unknown[] = [];
   if (search.trim()) {
@@ -1289,12 +1566,28 @@ export async function listOrders(params: {
     searchMonthConditions.push("DATE_FORMAT(o.received_date, '%Y-%m') = ?");
     searchMonthArgs.push(month);
   }
-  const searchOnlyWhere = searchMonthConditions.length
-    ? `WHERE ${searchMonthConditions.join(" AND ")}`
-    : "";
+
+  const statusConditions = [...searchMonthConditions];
+  const statusArgs = [...searchMonthArgs];
+  if (source === "staff" || source === "ctv") {
+    statusConditions.push("o.source = ?");
+    statusArgs.push(source);
+  }
+  if (reviewStatus !== "all") {
+    statusConditions.push("o.review_status = ?");
+    statusArgs.push(reviewStatus);
+  }
+  if (ctvId !== undefined) {
+    statusConditions.push("o.ctv_id = ?");
+    statusArgs.push(ctvId);
+  }
+  if (hasCtv === true) statusConditions.push("o.ctv_id IS NOT NULL");
+  if (hasCtv === false) statusConditions.push("o.ctv_id IS NULL");
+
+  const statusWhere = statusConditions.length ? `WHERE ${statusConditions.join(" AND ")}` : "";
   const statusP = getPool().query(
-    `SELECT payment_status, COUNT(*) AS c FROM orders o ${searchOnlyWhere} GROUP BY payment_status`,
-    searchMonthArgs
+    `SELECT payment_status, COUNT(*) AS c FROM orders o ${statusWhere} GROUP BY payment_status`,
+    statusArgs
   );
 
   const pendingConditions = [...searchMonthConditions, "o.source = 'ctv'", "o.review_status = 'pending'"];
@@ -1354,16 +1647,20 @@ export async function upsertTrackingCache(entry: {
   currentStatus: string | null;
   payload: string | null;
 }): Promise<void> {
+  // Lưu ý thứ tự gán trong ON DUPLICATE KEY UPDATE của MySQL (trái → phải):
+  // phải so sánh `awb = VALUES(awb)` TRƯỚC khi cập nhật `awb = VALUES(awb)`,
+  // để khi đơn đổi sang AWB mới chưa có dữ liệu thì reset sạch hành trình cũ
+  // thay vì giữ nhầm hành trình của AWB cũ.
   await getPool().query(
     `INSERT INTO order_tracking_cache (order_id, awb, shipment_status, current_status, payload, fetched_at, last_error)
      VALUES (?, ?, ?, ?, ?, ?, NULL)
-     ON DUPLICATE KEY UPDATE awb = VALUES(awb),
-       -- Nguồn thỉnh thoảng trả rỗng dù đơn đã có hành trình: giữ bản cũ (và không đẩy fetched_at
-       -- để lượt sau thử lại sớm) thay vì ghi đè hành trình đã có bằng "chưa có dữ liệu".
-       shipment_status = IF(VALUES(payload) IS NULL AND payload IS NOT NULL, shipment_status, VALUES(shipment_status)),
-       current_status = IF(VALUES(payload) IS NULL AND payload IS NOT NULL, current_status, VALUES(current_status)),
-       fetched_at = IF(VALUES(payload) IS NULL AND payload IS NOT NULL, fetched_at, VALUES(fetched_at)),
-       payload = COALESCE(VALUES(payload), payload), last_error = NULL`,
+     ON DUPLICATE KEY UPDATE
+       shipment_status = IF(awb = VALUES(awb) AND VALUES(payload) IS NULL AND payload IS NOT NULL, shipment_status, VALUES(shipment_status)),
+       current_status = IF(awb = VALUES(awb) AND VALUES(payload) IS NULL AND payload IS NOT NULL, current_status, VALUES(current_status)),
+       fetched_at = IF(awb = VALUES(awb) AND VALUES(payload) IS NULL AND payload IS NOT NULL, fetched_at, VALUES(fetched_at)),
+       payload = IF(awb = VALUES(awb), COALESCE(VALUES(payload), payload), VALUES(payload)),
+       awb = VALUES(awb),
+       last_error = NULL`,
     [
       entry.orderId,
       entry.awb,
@@ -1384,8 +1681,9 @@ export async function markTrackingCacheError(orderId: number, message: string): 
 }
 
 /**
- * Đơn cần làm mới tracking: đã duyệt, nằm trong cửa sổ `sinceDate` ngày gần
- * nhất, và chưa có cache hoặc chưa ở trạng thái cuối (đã giao/hoàn). Đơn chưa
+ * Đơn cần làm mới tracking: đã duyệt, đã có AWB thật (loại trừ đơn thủ công
+ * dùng tạm falco_code làm AWB), nằm trong cửa sổ `sinceDate` ngày gần nhất,
+ * và chưa có cache hoặc chưa ở trạng thái cuối (đã giao/hoàn). Đơn chưa
  * từng có cache đi trước, sau đó tới bản cache cũ nhất — để lần chạy sau tiếp
  * tục đúng chỗ nếu lần trước hết ngân sách thời gian.
  */
@@ -1399,6 +1697,8 @@ export async function listOrdersNeedingTrackingRefresh(
      FROM orders o
      LEFT JOIN order_tracking_cache tc ON tc.order_id = o.id AND tc.awb = o.awb
      WHERE o.review_status IN ('auto_approved', 'approved')
+       AND o.awb <> ''
+       AND o.awb <> o.falco_code
        AND COALESCE(o.received_date, DATE(o.created_at)) >= ?
        AND (tc.order_id IS NULL
             OR (tc.shipment_status NOT IN ('delivered', 'returned') AND tc.fetched_at < ?))
@@ -1636,7 +1936,133 @@ export async function findUploadHistoryById(id: number): Promise<UploadHistoryEn
 }
 
 export async function markUploadHistoryUndone(id: number): Promise<void> {
-  await getPool().query("UPDATE upload_history SET undone_at = NOW() WHERE id = ?", [id]);
+  await getPool().query("UPDATE upload_history SET undone_at = NOW() WHERE id = ? AND undone_at IS NULL", [id]);
+}
+
+type UndoUploadSnapshotData = {
+  insertedOrders?: { orderId: number; falcoCode: string }[];
+  updatedOrders?: {
+    orderId: number;
+    recipientName: string | null;
+    recipientPhone: string | null;
+    recipientPostcode?: string | null;
+    service: string | null;
+    destination: string | null;
+    receivedDate: string | null;
+    trackingCodes?: string[];
+    parcels?: { hawb?: string; trackingCode: string }[];
+  }[];
+};
+
+/**
+ * Hoàn tác 1 lượt upload Excel trong 1 transaction có khoá dòng (FOR UPDATE):
+ * - Chặn chạy trùng khi 2 người bấm hoàn tác đồng thời.
+ * - Khôi phục đủ trường (gồm cả recipient_postcode và hawb kiện hàng).
+ * - Nếu bất kỳ bước DB nào lỗi → rollback toàn bộ và KHÔNG đánh dấu undone_at.
+ */
+export async function undoUploadHistoryTx(
+  historyId: number
+): Promise<{ ok: true; insertedFalcoCodes: string[] } | { ok: false; status: number; error: string }> {
+  await ensureOrdersSchema();
+  const conn = await getPool().getConnection();
+  try {
+    await conn.beginTransaction();
+    const [rows] = await conn.query("SELECT * FROM upload_history WHERE id = ? LIMIT 1 FOR UPDATE", [historyId]);
+    const entry = (rows as UploadHistoryEntry[])[0];
+    if (!entry) {
+      await conn.rollback();
+      return { ok: false, status: 404, error: "Không tìm thấy lượt upload này" };
+    }
+    if (entry.undone_at) {
+      await conn.rollback();
+      return { ok: false, status: 400, error: "Lượt upload này đã được hoàn tác trước đó" };
+    }
+    if (!entry.snapshot) {
+      await conn.rollback();
+      return {
+        ok: false,
+        status: 400,
+        error: "Lượt upload này không có dữ liệu để hoàn tác (upload trước khi tính năng này ra mắt)",
+      };
+    }
+
+    let snapshot: UndoUploadSnapshotData;
+    try {
+      snapshot = JSON.parse(entry.snapshot) as UndoUploadSnapshotData;
+    } catch {
+      await conn.rollback();
+      return { ok: false, status: 400, error: "Dữ liệu hoàn tác bị lỗi, không đọc được" };
+    }
+
+    const updatedOrders = Array.isArray(snapshot.updatedOrders) ? snapshot.updatedOrders : [];
+    const insertedOrders = Array.isArray(snapshot.insertedOrders) ? snapshot.insertedOrders : [];
+
+    for (const u of updatedOrders) {
+      const [existsRows] = await conn.query("SELECT id FROM orders WHERE id = ? LIMIT 1 FOR UPDATE", [u.orderId]);
+      if ((existsRows as unknown[]).length === 0) continue;
+
+      const hasPostcode = "recipientPostcode" in u;
+      if (hasPostcode) {
+        await conn.query(
+          `UPDATE orders
+           SET recipient_name = ?, recipient_phone = ?, recipient_postcode = ?, service = ?, destination = ?, received_date = ?
+           WHERE id = ?`,
+          [
+            u.recipientName ?? "",
+            u.recipientPhone ?? "",
+            u.recipientPostcode ?? null,
+            u.service ?? "",
+            u.destination ?? "",
+            toIsoDateLocal(u.receivedDate ?? null),
+            u.orderId,
+          ]
+        );
+      } else {
+        await conn.query(
+          `UPDATE orders
+           SET recipient_name = ?, recipient_phone = ?, service = ?, destination = ?, received_date = ?
+           WHERE id = ?`,
+          [
+            u.recipientName ?? "",
+            u.recipientPhone ?? "",
+            u.service ?? "",
+            u.destination ?? "",
+            toIsoDateLocal(u.receivedDate ?? null),
+            u.orderId,
+          ]
+        );
+      }
+
+      const parcelsToRestore: ParcelInput[] = Array.isArray(u.parcels)
+        ? u.parcels.map((p) => ({ hawb: p.hawb ?? "", trackingCode: String(p.trackingCode ?? "") }))
+        : Array.isArray(u.trackingCodes)
+          ? u.trackingCodes.map((c) => ({ hawb: "", trackingCode: String(c) }))
+          : [];
+      await replaceOrderParcelsOnConn(conn, u.orderId, parcelsToRestore);
+    }
+
+    for (const ins of insertedOrders) {
+      await conn.query("DELETE FROM orders WHERE id = ?", [ins.orderId]);
+    }
+
+    const [markRes] = await conn.query(
+      "UPDATE upload_history SET undone_at = NOW() WHERE id = ? AND undone_at IS NULL",
+      [historyId]
+    );
+    if ((markRes as mysql.ResultSetHeader).affectedRows !== 1) {
+      await conn.rollback();
+      return { ok: false, status: 400, error: "Lượt upload này đã được hoàn tác trước đó" };
+    }
+
+    await conn.commit();
+    monthsCache = null;
+    return { ok: true, insertedFalcoCodes: insertedOrders.map((o) => o.falcoCode) };
+  } catch (err) {
+    await conn.rollback().catch(() => {});
+    throw err;
+  } finally {
+    conn.release();
+  }
 }
 
 // ---------- Admin: lịch sử chỉnh sửa đơn (để hoàn tác) ----------
@@ -1650,7 +2076,7 @@ export type OrderEditHistoryEntry = {
   id: number;
   order_id: number;
   action: "update" | "delete";
-  before_data: string; // JSON: { order: OrderRecord, parcels: string[] }
+  before_data: string; // JSON: { order: OrderRecord, trackingCodes: string[], parcels?: { hawb: string; trackingCode: string }[] }
   changed_by: string;
   undone_at: string | null;
   created_at: string;
@@ -1690,7 +2116,193 @@ export async function findOrderEditHistoryById(
 }
 
 export async function markOrderEditHistoryUndone(id: number): Promise<void> {
-  await getPool().query("UPDATE order_edit_history SET undone_at = NOW() WHERE id = ?", [id]);
+  await getPool().query("UPDATE order_edit_history SET undone_at = NOW() WHERE id = ? AND undone_at IS NULL", [id]);
+}
+
+type OrderEditBeforeData = {
+  order?: OrderRecord;
+  trackingCodes?: string[];
+  parcels?: { hawb?: string; trackingCode: string }[];
+};
+
+function parseNullableNumber(val: string | number | null | undefined): number | null {
+  if (val === null || val === undefined || val === "") return null;
+  const n = Number(val);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseNullableTimestamp(val: string | Date | null | undefined): Date | null {
+  if (!val) return null;
+  const d = val instanceof Date ? val : new Date(val);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Hoàn tác 1 lượt sửa/xoá đơn trong 1 transaction có khoá dòng (FOR UPDATE):
+ * - Chống hoàn tác 2 lần đồng thời.
+ * - Khôi phục đầy đủ các cột: weight_kg, source, ctv_id, review_status,
+ *   reviewed_by, reviewed_at, recipient_postcode, payment_status, collected_date,
+ *   amount, cost, chi_source_invoice và hawb của từng kiện hàng.
+ */
+export async function undoOrderEditHistoryTx(
+  historyId: number
+): Promise<{ ok: true; restoredOrderId: number } | { ok: false; status: number; error: string }> {
+  await ensureOrdersSchema();
+  const conn = await getPool().getConnection();
+  try {
+    await conn.beginTransaction();
+    const [rows] = await conn.query("SELECT * FROM order_edit_history WHERE id = ? LIMIT 1 FOR UPDATE", [historyId]);
+    const entry = (rows as OrderEditHistoryEntry[])[0];
+    if (!entry) {
+      await conn.rollback();
+      return { ok: false, status: 404, error: "Không tìm thấy lịch sử chỉnh sửa" };
+    }
+    if (entry.undone_at) {
+      await conn.rollback();
+      return { ok: false, status: 400, error: "Lượt sửa này đã được hoàn tác trước đó" };
+    }
+
+    let before: OrderEditBeforeData;
+    try {
+      before = JSON.parse(entry.before_data) as OrderEditBeforeData;
+    } catch {
+      await conn.rollback();
+      return { ok: false, status: 400, error: "Dữ liệu hoàn tác bị lỗi, không đọc được" };
+    }
+
+    const o = before.order;
+    if (!o) {
+      await conn.rollback();
+      return { ok: false, status: 400, error: "Thiếu dữ liệu đơn hàng trong bản lưu hoàn tác" };
+    }
+
+    const parcelsToRestore: ParcelInput[] = Array.isArray(before.parcels)
+      ? before.parcels.map((p) => ({ hawb: p.hawb ?? "", trackingCode: String(p.trackingCode ?? "") }))
+      : Array.isArray(before.trackingCodes)
+        ? before.trackingCodes.map((c) => ({ hawb: "", trackingCode: String(c) }))
+        : [];
+
+    // Nếu FWD gắn trước đó đã bị xoá khỏi ctv_users, gán null để tránh lỗi khoá ngoại fk_orders_ctv.
+    let restoredCtvId: number | null = o.ctv_id ?? null;
+    if (restoredCtvId !== null) {
+      const [ctvRows] = await conn.query("SELECT id FROM ctv_users WHERE id = ? LIMIT 1", [restoredCtvId]);
+      if ((ctvRows as unknown[]).length === 0) {
+        restoredCtvId = null;
+      }
+    }
+
+    const receivedDate = toIsoDateLocal(o.received_date);
+    const collectedDate = toIsoDateLocal(o.collected_date ?? null);
+    const amount = parseNullableNumber(o.amount);
+    const cost = parseNullableNumber(o.cost);
+    const weightKg = parseNullableNumber(o.weight_kg);
+    const source: OrderSource = o.source === "ctv" ? "ctv" : "staff";
+    const reviewStatus: OrderReviewStatus =
+      o.review_status === "pending" ||
+      o.review_status === "approved" ||
+      o.review_status === "rejected" ||
+      o.review_status === "auto_approved"
+        ? o.review_status
+        : "auto_approved";
+    const reviewedBy = o.reviewed_by ?? null;
+    const reviewedAt = parseNullableTimestamp(o.reviewed_at);
+
+    let restoredOrderId: number;
+
+    if (entry.action === "update") {
+      const [existsRows] = await conn.query("SELECT id FROM orders WHERE id = ? LIMIT 1 FOR UPDATE", [entry.order_id]);
+      if ((existsRows as unknown[]).length === 0) {
+        await conn.rollback();
+        return {
+          ok: false,
+          status: 409,
+          error: "Đơn này đã bị xoá sau lần sửa — không thể hoàn tác qua đây, hãy hoàn tác lượt xoá thay vào đó",
+        };
+      }
+      await conn.query(
+        `UPDATE orders
+         SET awb = ?, recipient_name = ?, recipient_phone = ?, recipient_postcode = ?,
+             service = ?, destination = ?, received_date = ?, payment_status = ?,
+             collected_date = ?, amount = ?, cost = ?, chi_source_invoice = ?,
+             weight_kg = ?, source = ?, ctv_id = ?, review_status = ?,
+             reviewed_by = ?, reviewed_at = ?
+         WHERE id = ?`,
+        [
+          o.awb,
+          o.recipient_name ?? "",
+          o.recipient_phone ?? "",
+          o.recipient_postcode ?? null,
+          o.service ?? "",
+          o.destination ?? "",
+          receivedDate,
+          o.payment_status ?? "unpaid",
+          collectedDate,
+          amount,
+          cost,
+          o.chi_source_invoice ?? null,
+          weightKg,
+          source,
+          restoredCtvId,
+          reviewStatus,
+          reviewedBy,
+          reviewedAt,
+          entry.order_id,
+        ]
+      );
+      await replaceOrderParcelsOnConn(conn, entry.order_id, parcelsToRestore);
+      restoredOrderId = entry.order_id;
+    } else {
+      const [insertRes] = await conn.query(
+        `INSERT INTO orders
+          (falco_code, awb, recipient_name, recipient_phone, recipient_postcode,
+           service, destination, received_date, payment_status, collected_date,
+           amount, cost, chi_source_invoice, weight_kg, source, ctv_id,
+           review_status, reviewed_by, reviewed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          o.falco_code,
+          o.awb,
+          o.recipient_name ?? "",
+          o.recipient_phone ?? "",
+          o.recipient_postcode ?? null,
+          o.service ?? "",
+          o.destination ?? "",
+          receivedDate,
+          o.payment_status ?? "unpaid",
+          collectedDate,
+          amount,
+          cost,
+          o.chi_source_invoice ?? null,
+          weightKg,
+          source,
+          restoredCtvId,
+          reviewStatus,
+          reviewedBy,
+          reviewedAt,
+        ]
+      );
+      restoredOrderId = (insertRes as mysql.ResultSetHeader).insertId;
+      await replaceOrderParcelsOnConn(conn, restoredOrderId, parcelsToRestore);
+    }
+
+    const [markRes] = await conn.query(
+      "UPDATE order_edit_history SET undone_at = NOW() WHERE id = ? AND undone_at IS NULL",
+      [historyId]
+    );
+    if ((markRes as mysql.ResultSetHeader).affectedRows !== 1) {
+      await conn.rollback();
+      return { ok: false, status: 400, error: "Lượt sửa này đã được hoàn tác trước đó" };
+    }
+
+    await conn.commit();
+    monthsCache = null;
+    return { ok: true, restoredOrderId };
+  } catch (err) {
+    await conn.rollback().catch(() => {});
+    throw err;
+  } finally {
+    conn.release();
+  }
 }
 
 // ---------- Admin: Báo giá (bảng giá + chính sách gửi khách) ----------
@@ -1908,21 +2520,30 @@ export async function insertAiIntakeOrder(
   images: NewAiIntakeImage[],
   createdBy: string
 ): Promise<number> {
-  const pool = getPool();
-  const [result] = await pool.query("INSERT INTO ai_intake_orders (note, created_by) VALUES (?, ?)", [
-    note,
-    createdBy,
-  ]);
-  const orderId = (result as mysql.ResultSetHeader).insertId;
+  const conn = await getPool().getConnection();
+  try {
+    await conn.beginTransaction();
+    const [result] = await conn.query("INSERT INTO ai_intake_orders (note, created_by) VALUES (?, ?)", [
+      note,
+      createdBy,
+    ]);
+    const orderId = (result as mysql.ResultSetHeader).insertId;
 
-  for (const image of images) {
-    await pool.query(
-      "INSERT INTO ai_intake_images (order_id, filename, mime_type, file_size, data) VALUES (?, ?, ?, ?, ?)",
-      [orderId, image.filename, image.mimeType, image.buffer.length, image.buffer]
-    );
+    for (const image of images) {
+      await conn.query(
+        "INSERT INTO ai_intake_images (order_id, filename, mime_type, file_size, data) VALUES (?, ?, ?, ?, ?)",
+        [orderId, image.filename, image.mimeType, image.buffer.length, image.buffer]
+      );
+    }
+
+    await conn.commit();
+    return orderId;
+  } catch (err) {
+    await conn.rollback().catch(() => {});
+    throw err;
+  } finally {
+    conn.release();
   }
-
-  return orderId;
 }
 
 export async function listPendingAiIntakeOrders(): Promise<AiIntakeOrderWithImageCount[]> {
@@ -1943,11 +2564,12 @@ export async function deleteAiIntakeOrder(id: number): Promise<boolean> {
   return (result as mysql.ResultSetHeader).affectedRows > 0;
 }
 
-export async function markAiIntakeOrderProcessed(id: number): Promise<void> {
-  await getPool().query(
+export async function markAiIntakeOrderProcessed(id: number): Promise<boolean> {
+  const [result] = await getPool().query(
     "UPDATE ai_intake_orders SET status = 'processed', processed_at = NOW() WHERE id = ?",
     [id]
   );
+  return (result as mysql.ResultSetHeader).affectedRows > 0;
 }
 
 export type AiIntakeImage = {

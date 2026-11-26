@@ -1,7 +1,8 @@
 import { bay, BayApiError, type BayShipment, type BayTracking } from "./bay-api";
 import { bayImageUuid } from "./bay-images";
+import { BAY_SERVICE_LABELS } from "./bay-labels";
 import type { KangoTrackingResponse } from "./kango";
-import type { ShipmentStatus } from "./shipment-status";
+import { shipmentStatusLabel, type ShipmentStatus } from "./shipment-status";
 
 // Đưa hành trình BayOnline về đúng dạng KangoTrackingResponse để toàn bộ phần còn lại
 // (cache, trang tra cứu công khai, cột "Vận chuyển" ở admin) dùng chung 1 luồng, không phải
@@ -49,17 +50,31 @@ export const BAY_COUNTRY_VI: Record<string, string> = {
   AU: "Úc",
 };
 
-export const BAY_SERVICE_NAME_VI: Record<string, string> = {
-  air: "Hàng khô",
-  cold: "Đông lạnh",
-  sea: "Đường biển",
+export const BAY_SERVICE_NAME_VI: Record<string, string> = BAY_SERVICE_LABELS;
+
+export const BAY_PHOTO_LABELS: Record<string, string> = {
+  created_by_agency: "Ảnh khi tạo đơn",
+  created_by_bay: "Ảnh khi tạo đơn",
+  package_received: "Ảnh nhận kiện tại kho",
+  checked: "Ảnh kiểm hàng",
+  weighed: "Ảnh cân hàng",
+  to_airport: "Ảnh khi ra sân bay",
 };
 
 const CARRIER_NAMES: Record<string, string> = { dhl: "DHL", dpd: "DPD", ups: "UPS", fedex: "FedEx" };
 
-/** "2026-10-24T04:27:14Z" → "2026-10-24 11:27:14" (giờ Việt Nam, cùng dạng với Kango). */
-export function toVnTime(iso: string): string {
-  return new Date(new Date(iso).getTime() + 7 * 3600_000).toISOString().slice(0, 19).replace("T", " ");
+function safeTimeMs(iso: string | null | undefined): number {
+  if (!iso) return 0;
+  const ms = Date.parse(iso);
+  return Number.isNaN(ms) ? 0 : ms;
+}
+
+/** "2026-10-24T04:27:14Z" → "2026-10-24 11:27:14" (giờ Việt Nam, cùng dạng với Kango). An toàn khi iso rỗng/hỏng. */
+export function toVnTime(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return "";
+  return new Date(ms + 7 * 3600_000).toISOString().slice(0, 19).replace("T", " ");
 }
 
 /** Trạng thái Falco (cột "Vận chuyển") suy từ trạng thái Bay. */
@@ -82,17 +97,7 @@ export function mapBayStatus(t: Pick<BayTracking, "shipmentStatus" | "trackingSt
 }
 
 export function bayStatusTitle(status: ShipmentStatus): string {
-  return (
-    {
-      received: "Đã nhận",
-      exported: "Đã xuất",
-      customs_processing: "Đang thông quan",
-      customs_released: "Đã thông quan",
-      last_mile: "Đang giao",
-      delivered: "Đã giao",
-      returned: "Hoàn trả",
-    } as Record<string, string>
-  )[status] ?? "Đang xử lý";
+  return shipmentStatusLabel(status) || "Đang xử lý";
 }
 
 export function bayTrackingToKango(
@@ -103,49 +108,56 @@ export function bayTrackingToKango(
   const cc = shipment?.recipient.address.countryCode ?? "";
   const carrierName = t.carrier.code ? (CARRIER_NAMES[t.carrier.code.toLowerCase()] ?? t.carrier.code.toUpperCase()) : "";
 
+  const sortedDesc = [...t.events].sort((a, b) => safeTimeMs(b.occurredAt) - safeTimeMs(a.occurredAt));
+
   // Bay trả cũ → mới; Kango (và trang tra cứu) cần mới → cũ.
-  const trackings = [...t.events]
-    .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
-    .map((e) => ({
-      time: toVnTime(e.occurredAt),
-      location: e.location ? `${e.location}${e.countryCode ? `, ${e.countryCode}` : ""}` : null,
-      title:
-        e.source === "bay"
-          ? (BAY_EVENT_VI[e.code] ?? "Đang xử lý")
-          : (e.description ?? e.code),
-    }));
+  const trackings = sortedDesc.map((e) => ({
+    time: toVnTime(e.occurredAt),
+    location: e.location ? `${e.location}${e.countryCode ? `, ${e.countryCode}` : ""}` : null,
+    title:
+      e.source === "bay"
+        ? (BAY_EVENT_VI[e.code] ?? "Đang xử lý")
+        : (e.description ?? e.code),
+  }));
 
   // Bay không có sự kiện riêng cho chặng bay (chỉ có trạng thái in_flight) nên thêm 1 mốc để khách thấy.
   if (t.shipmentStatus === "in_flight") {
-    const latest = t.events.map((e) => e.occurredAt).sort().pop();
+    const latestEventIso = sortedDesc[0]?.occurredAt ?? "";
+    const bestIso =
+      t.lastUpdatedAt && safeTimeMs(t.lastUpdatedAt) > safeTimeMs(latestEventIso)
+        ? t.lastUpdatedAt
+        : latestEventIso || new Date().toISOString();
     trackings.unshift({
-      time: toVnTime(t.lastUpdatedAt && t.lastUpdatedAt > (latest ?? "") ? t.lastUpdatedAt : (latest ?? new Date().toISOString())),
+      time: toVnTime(bestIso),
       location: null,
       title: "Đang vận chuyển bằng đường hàng không",
     });
   }
 
-  // Ảnh hàng theo từng mốc (cũ → mới), bỏ trùng.
-  const PHOTO_LABEL: Record<string, string> = {
-    created_by_agency: "Ảnh khi tạo đơn",
-    created_by_bay: "Ảnh khi tạo đơn",
-    package_received: "Ảnh nhận kiện tại kho",
-    checked: "Ảnh kiểm hàng",
-    weighed: "Ảnh cân hàng",
-    to_airport: "Ảnh khi ra sân bay",
-  };
+  // Ảnh hàng theo từng mốc (cũ → mới), gom cả sự kiện lẫn ảnh nhận kiện tại kho (receiveItems), bỏ trùng.
   const seen = new Set<string>();
   const photos: { id: string; label: string; time: string }[] = [];
-  for (const e of t.events) {
+  const sortedAsc = [...t.events].sort((a, b) => safeTimeMs(a.occurredAt) - safeTimeMs(b.occurredAt));
+  for (const e of sortedAsc) {
     for (const url of e.images ?? []) {
       const id = bayImageUuid(url);
       if (!id || seen.has(id)) continue;
       seen.add(id);
-      photos.push({ id, label: PHOTO_LABEL[e.code] ?? "Ảnh hàng", time: toVnTime(e.occurredAt) });
+      photos.push({ id, label: BAY_PHOTO_LABELS[e.code] ?? "Ảnh hàng", time: toVnTime(e.occurredAt) });
+    }
+  }
+  for (const item of t.receiveItems ?? []) {
+    for (const url of item.images ?? []) {
+      const id = bayImageUuid(url);
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      photos.push({ id, label: "Ảnh nhận kiện tại kho", time: toVnTime(item.receivedAt) });
     }
   }
 
   const trackingNumber = t.carrier.trackingNumber ?? "";
+  const serviceName = shipment?.serviceType ? (BAY_SERVICE_NAME_VI[shipment.serviceType] ?? "Hàng hoá") : "";
+
   return {
     status,
     kango: {
@@ -172,8 +184,8 @@ export function bayTrackingToKango(
         ],
       },
       additional_notes: {
-        service: BAY_SERVICE_NAME_VI[shipment?.serviceType ?? "air"] ?? "Hàng hoá",
-        country: BAY_COUNTRY_VI[cc] ?? cc,
+        service: serviceName,
+        country: BAY_COUNTRY_VI[cc.toUpperCase()] ?? cc,
         total_package: 1,
         last_mile: carrierName,
         last_mile_website: "",

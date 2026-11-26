@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { CTV_SESSION_COOKIE, verifyCtvSessionToken } from "@/lib/ctv-auth";
@@ -32,7 +33,10 @@ const AGENT_ALLOWED_ROUTES: { method: string; pattern: RegExp }[] = [
 function isAgentApiRequest(request: NextRequest): boolean {
   const key = request.headers.get("x-agent-api-key");
   const expected = process.env.AGENT_API_KEY;
-  if (!key || !expected || key !== expected) return false;
+  if (!key || !expected) return false;
+  const a = Buffer.from(key, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return false;
   return AGENT_ALLOWED_ROUTES.some(
     (r) => r.method === request.method && r.pattern.test(request.nextUrl.pathname)
   );

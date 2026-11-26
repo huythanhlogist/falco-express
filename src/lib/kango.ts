@@ -99,7 +99,10 @@ async function fetchKangoTrackingOnce(
     throw new Error(`Kango API trả về lỗi HTTP ${res.status}`);
   }
 
-  const data = (await res.json()) as KangoTrackingResponse;
+  const data = (await res.json().catch(() => null)) as KangoTrackingResponse | null;
+  if (!data || typeof data !== "object") {
+    throw new Error("Kango API trả về dữ liệu không hợp lệ");
+  }
   if (data.status !== 200) return null;
 
   return data;

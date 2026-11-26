@@ -5,6 +5,7 @@ import OrdersTable from "@/components/admin/OrdersTable";
 import CtvFilterSelect from "@/components/admin/CtvFilterSelect";
 import OrderEditHistory from "@/components/admin/OrderEditHistory";
 import CreateOrderButton from "@/components/admin/CreateOrderButton";
+import AdminPageTabs from "@/components/admin/AdminPageTabs";
 import { PackageCheckIcon, ClockIcon, CargoIcon } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
@@ -74,6 +75,12 @@ export default async function AdminOrdersPage({
 
   return (
     <div>
+      <AdminPageTabs
+        tabs={[
+          { href: "/admin/orders", label: "Đơn hàng" },
+          { href: "/admin/upload", label: "Upload tài liệu" },
+        ]}
+      />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Đơn hàng</h1>

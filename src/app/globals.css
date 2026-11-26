@@ -240,6 +240,85 @@
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
 }
 
+/* Giao diện khung quản trị mới (.admin-shell): đồng bộ màu nền #f5f5f3, thẻ trắng
+   bo 20–24px bóng nhẹ, nút chính navy / gradient cam theo mockup — chỉ tác động bên
+   trong .admin-shell, không ảnh hưởng web công khai (.lp-theme) hay cổng FWD. */
+.lp-theme-admin .admin-shell {
+  background-color: #f5f5f3;
+  color: #14181f;
+}
+.lp-theme-admin .admin-shell .bg-falco-gradient {
+  background-image: linear-gradient(90deg, #f7941d 0%, #ed1c24 100%);
+  background-color: transparent;
+}
+.lp-theme-admin .admin-shell .shadow-card {
+  box-shadow: 0 1px 2px rgba(19, 36, 64, 0.03), 0 6px 20px rgba(19, 36, 64, 0.028);
+}
+.lp-theme-admin .admin-shell .card,
+.lp-theme-admin .admin-shell .admin-card {
+  background-color: #ffffff;
+  border: 1px solid #ecece8;
+  border-radius: 22px;
+  box-shadow: 0 1px 2px rgba(19, 36, 64, 0.03), 0 6px 20px rgba(19, 36, 64, 0.028);
+}
+.lp-theme-admin .admin-shell .card:hover {
+  box-shadow: 0 2px 6px rgba(19, 36, 64, 0.05), 0 10px 26px rgba(19, 36, 64, 0.04);
+}
+.lp-theme-admin .admin-shell .btn-primary {
+  border-radius: 12px;
+  background: linear-gradient(90deg, #f7941d, #ed1c24);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(237, 28, 36, 0.22);
+}
+.lp-theme-admin .admin-shell .btn-primary:hover {
+  background: linear-gradient(90deg, #f7941d, #ed1c24);
+  filter: brightness(1.04);
+  box-shadow: 0 6px 18px rgba(237, 28, 36, 0.28);
+}
+.lp-theme-admin .admin-shell .btn-navy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 12px;
+  background-color: #132440;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  transition: background-color 150ms ease, transform 90ms ease-out;
+}
+.lp-theme-admin .admin-shell .btn-navy:hover {
+  background-color: #1b3257;
+}
+.lp-theme-admin .admin-shell .btn-outline {
+  border: 1.5px solid #132440;
+  border-radius: 12px;
+  background-color: #ffffff;
+  color: #132440;
+  font-weight: 600;
+}
+.lp-theme-admin .admin-shell .btn-outline:hover {
+  background-color: #f5f5f3;
+}
+.lp-theme-admin .admin-shell .admin-input {
+  border: 1px solid #e7e7e3;
+  border-radius: 12px;
+  background-color: #ffffff;
+  color: #14181f;
+  font-size: 13px;
+  padding: 0.5rem 0.875rem;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.lp-theme-admin .admin-shell .admin-input::placeholder {
+  color: #8b8d93;
+}
+.lp-theme-admin .admin-shell .admin-input:focus {
+  border-color: #132440;
+  box-shadow: 0 0 0 3px rgba(19, 36, 64, 0.08);
+  outline: none;
+}
+
 /* Mobile đã có thanh liên hệ dính đáy (Gọi ngay / Zalo báo giá) nên ẩn bong bóng
    chat Zalo OA tự gắn của SDK (nó cố định sát đáy, đè lên thanh). */
 @media (max-width: 767px) {
@@ -331,7 +410,8 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
+  color: #8b8d93;
 }
 .admin-fade table tbody tr:hover {
-  background-color: rgb(244 246 250 / 0.7);
+  background-color: #fafaf8;
 }

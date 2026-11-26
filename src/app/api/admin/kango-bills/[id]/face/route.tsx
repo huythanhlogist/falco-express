@@ -5,7 +5,9 @@ import { NextResponse } from "next/server";
 import type { ReactNode } from "react";
 import { getCurrentAdminSession } from "@/lib/auth";
 import { SITE } from "@/lib/constants";
-import { findKangoBillById, type KangoPackage } from "@/lib/db";
+import { findKangoBillById } from "@/lib/db";
+import { isValidAgentKey } from "@/lib/kango-bill-db";
+import { parseKangoHawbsJson, parseKangoPackagesJson, parsePositiveId } from "@/lib/kango-bill-validate";
 
 export const runtime = "nodejs";
 
@@ -31,31 +33,6 @@ async function loadRobotoFonts(): Promise<{ regular: ArrayBuffer; bold: ArrayBuf
   return cachedFonts;
 }
 
-function isValidAgentKey(request: Request): boolean {
-  const key = request.headers.get("x-agent-api-key");
-  const expected = process.env.AGENT_API_KEY;
-  return Boolean(key && expected && key === expected);
-}
-
-function parseHawbs(raw: string | null): string[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : [];
-  } catch {
-    return [];
-  }
-}
-
-function parsePackages(raw: string): KangoPackage[] {
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as KangoPackage[]) : [];
-  } catch {
-    return [];
-  }
-}
-
 function formatWeight(n: number): string {
   if (!Number.isFinite(n)) return "0";
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, "");
@@ -67,10 +44,10 @@ function formatMoney(raw: string): string {
   return n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
-function formatVnDateTime(iso: string | null): string {
+function formatVnDateTime(iso: string | Date | null): string {
   if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
+  const d = iso instanceof Date ? iso : new Date(iso);
+  if (Number.isNaN(d.getTime())) return typeof iso === "string" ? iso : "—";
   return d.toLocaleString("vi-VN", {
     timeZone: "Asia/Ho_Chi_Minh",
     year: "numeric",
@@ -88,8 +65,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
 
   const { id } = await params;
-  const billId = Number(id);
-  if (!Number.isInteger(billId) || billId <= 0) {
+  const billId = parsePositiveId(id);
+  if (!billId) {
     return NextResponse.json({ error: "ID bill không hợp lệ" }, { status: 400 });
   }
 
@@ -99,10 +76,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
 
   const [fonts, logo] = await Promise.all([loadRobotoFonts(), loadLogoDataUri()]);
-  const allHawbs = parseHawbs(bill.kango_hawbs_json);
+  const allHawbs = parseKangoHawbsJson(bill.kango_hawbs_json);
   // Kango thường trả HAWB = chính số Air waybill → khỏi in 2 lần
   const hawbs = allHawbs.filter((h) => h !== bill.kango_bill_id);
-  const packages = parsePackages(bill.packages_json);
+  const packages = parseKangoPackagesJson(bill.packages_json);
   const isDraft = bill.status !== "sent";
 
   const totalPackages = packages.reduce((sum, p) => sum + (Number(p.packageQuantity) || 1), 0);

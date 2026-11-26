@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCtvDashboardStats } from "@/lib/db";
+import AdminPageTabs from "@/components/admin/AdminPageTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,13 @@ export default async function CtvHieuQuaPage() {
 
   return (
     <div>
+      <AdminPageTabs
+        tabs={[
+          { href: "/admin/fwd", label: "Quản lý" },
+          { href: "/admin/fwd-cong-no", label: "Công nợ" },
+          { href: "/admin/fwd-hieu-qua", label: "Hiệu quả" },
+        ]}
+      />
       <h1 className="font-display text-xl font-bold tracking-tight text-navy-900 sm:text-2xl">Hiệu quả FWD</h1>
       <p className="mt-1 text-sm text-ink/55">Tổng quan hoạt động kênh FWD</p>
 

@@ -4,6 +4,20 @@ import { useConfirm, useToast } from "@/components/ui/Toast";
 import { useEffect, useRef, useState } from "react";
 import { TrashIcon, UploadIcon, ClockIcon } from "@/components/icons";
 
+const MAX_IMAGES = 20;
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 60 * 1024 * 1024;
+const ALLOWED_IMAGE_MIMES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "image/gif",
+]);
+const ALLOWED_EXT_RE = /\.(jpe?g|png|webp|heic|heif|gif)$/i;
+
 type PendingOrder = {
   id: number;
   note: string;
@@ -18,6 +32,14 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
 }
 
+function isAllowedImageFile(file: File): boolean {
+  const nameLower = (file.name || "").toLowerCase();
+  if (nameLower.endsWith(".svg") || nameLower.endsWith(".svgz")) return false;
+  const mime = (file.type || "").toLowerCase().trim();
+  if (mime) return ALLOWED_IMAGE_MIMES.has(mime);
+  return ALLOWED_EXT_RE.test(nameLower);
+}
+
 export default function AiIntakeForm() {
   const ask = useConfirm();
   const toast = useToast();
@@ -25,6 +47,7 @@ export default function AiIntakeForm() {
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [justUploaded, setJustUploaded] = useState(false);
   const [pending, setPending] = useState<PendingOrder[]>([]);
@@ -35,13 +58,13 @@ export default function AiIntakeForm() {
   function loadPending() {
     setListError("");
     fetch("/api/admin/ai-intake")
-      .then((res) => res.json().then((json) => ({ ok: res.ok, json })))
+      .then((res) => res.json().catch(() => ({})).then((json) => ({ ok: res.ok, json })))
       .then(({ ok, json }) => {
         if (!ok) {
           setListError(json.error || "Không tải được danh sách");
           return;
         }
-        setPending(json.orders ?? []);
+        setPending(Array.isArray(json.orders) ? json.orders : []);
       })
       .catch(() => setListError("Không tải được danh sách"))
       .finally(() => setLoadingList(false));
@@ -63,11 +86,31 @@ export default function AiIntakeForm() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  function validateSelectedFiles(list: File[]): string | null {
+    if (list.length > MAX_IMAGES) return `Tối đa ${MAX_IMAGES} ảnh mỗi đơn`;
+    let total = 0;
+    for (const file of list) {
+      if (!isAllowedImageFile(file)) {
+        return `"${file.name}" không phải định dạng ảnh hỗ trợ (chỉ nhận JPG, PNG, WebP, HEIC, GIF — không nhận SVG)`;
+      }
+      if (file.size > MAX_IMAGE_BYTES) return `Ảnh "${file.name}" vượt quá 20MB`;
+      total += file.size;
+      if (total > MAX_TOTAL_BYTES) return "Tổng dung lượng ảnh vượt quá 60MB — vui lòng tách bớt ảnh";
+    }
+    return null;
+  }
+
   async function submit() {
     setError("");
     setJustUploaded(false);
     if (!note.trim() && files.length === 0) {
       setError("Cần ít nhất ghi chú hoặc 1 ảnh cho đơn này");
+      return;
+    }
+
+    const fileErr = validateSelectedFiles(files);
+    if (fileErr) {
+      setError(fileErr);
       return;
     }
 
@@ -78,7 +121,7 @@ export default function AiIntakeForm() {
     setSaving(true);
     try {
       const res = await fetch("/api/admin/ai-intake", { method: "POST", body: formData });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(json.error || "Tải lên thất bại");
         return;
@@ -95,12 +138,20 @@ export default function AiIntakeForm() {
 
   async function removeOrder(id: number) {
     if (!await ask("Xoá đơn này? Không hoàn tác được.")) return;
-    const res = await fetch(`/api/admin/ai-intake/${id}`, { method: "DELETE" });
-    if (res.ok) {
-      setPending((prev) => prev.filter((o) => o.id !== id));
-    } else {
-      const json = await res.json().catch(() => null);
-      toast(json?.error || "Xoá thất bại", "error");
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/admin/ai-intake/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setPending((prev) => prev.filter((o) => o.id !== id));
+        toast("Đã xoá đơn chờ xử lý");
+      } else {
+        const json = await res.json().catch(() => null);
+        toast(json?.error || "Xoá thất bại", "error");
+      }
+    } catch {
+      toast("Không kết nối được tới máy chủ — thử lại sau", "error");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -125,13 +176,26 @@ export default function AiIntakeForm() {
         </div>
 
         <div className="mt-4">
-          <label className="text-xs font-semibold text-ink/60">Ảnh (kiện hàng, địa chỉ viết tay, CCCD...)</label>
+          <label className="text-xs font-semibold text-ink/60">
+            Ảnh (kiện hàng, địa chỉ viết tay, CCCD...) — tối đa 20 ảnh, 20MB/ảnh, JPG/PNG/WebP/HEIC
+          </label>
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif"
             multiple
-            onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+            onChange={(e) => {
+              const selected = Array.from(e.target.files ?? []);
+              const err = validateSelectedFiles(selected);
+              if (err) {
+                setError(err);
+                setFiles([]);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+                return;
+              }
+              setError("");
+              setFiles(selected);
+            }}
             className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-flame-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-flame-700"
           />
           {previews.length > 0 && (
@@ -144,7 +208,7 @@ export default function AiIntakeForm() {
           )}
         </div>
 
-        {error && <p className="mt-3 text-xs font-medium text-flame-700">{error}</p>}
+        {error && <p className="mt-3 text-xs font-medium text-flame-700" role="alert">{error}</p>}
         {justUploaded && (
           <p className="mt-3 text-xs font-medium text-green-700">Đã tải lên — có thể tạo tiếp đơn khác ngay.</p>
         )}
@@ -191,7 +255,8 @@ export default function AiIntakeForm() {
               <button
                 type="button"
                 onClick={() => removeOrder(order.id)}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/40 hover:bg-flame-50 hover:text-flame-700"
+                disabled={deletingId === order.id}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/40 hover:bg-flame-50 hover:text-flame-700 disabled:opacity-50"
                 title="Xoá đơn này"
               >
                 <TrashIcon className="h-4 w-4" />
@@ -207,7 +272,7 @@ export default function AiIntakeForm() {
             <a href="/admin/kango-bills" className="font-medium text-flame-700 hover:underline">
               Tạo bill
             </a>{" "}
-            và đánh dấu các đơn đã đọc là "đã xử lý".
+            và đánh dấu các đơn đã đọc là &quot;đã xử lý&quot;.
           </p>
         )}
       </div>

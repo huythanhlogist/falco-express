@@ -1,6 +1,6 @@
 "use client";
 
-import { useConfirm } from "@/components/ui/Toast";
+import { useConfirm, useToast } from "@/components/ui/Toast";
 import { useRef, useState, useTransition } from "react";
 import { EyeIcon } from "@/components/icons";
 
@@ -16,6 +16,7 @@ export default function StaffManager({
   canManage: boolean;
 }) {
   const ask = useConfirm();
+  const toast = useToast();
   const [staff, setStaff] = useState(initialStaff);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -47,33 +48,50 @@ export default function StaffManager({
     }
 
     startTransition(async () => {
-      const res = await fetch("/api/admin/staff", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setError(json.error || "Có lỗi xảy ra");
-        return;
+      try {
+        const res = await fetch("/api/admin/staff", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { id?: number; error?: string };
+        if (!res.ok || typeof json.id !== "number") {
+          const msg = json.error || "Có lỗi xảy ra";
+          setError(msg);
+          toast(msg, "error");
+          return;
+        }
+        setStaff((prev) => [
+          ...prev,
+          { id: json.id!, email: email.toLowerCase(), role: "staff", created_at: new Date().toISOString() },
+        ]);
+        form.reset();
+        setSuccess(
+          `Đã tạo tài khoản ${email} — hãy lưu lại mật khẩu vừa nhập để gửi cho nhân viên, mật khẩu sẽ không hiển thị lại được.`
+        );
+        toast("Đã tạo tài khoản nhân viên", "success");
+      } catch {
+        const msg = "Không kết nối được máy chủ";
+        setError(msg);
+        toast(msg, "error");
       }
-      setStaff((prev) => [
-        ...prev,
-        { id: json.id, email: email.toLowerCase(), role: "staff", created_at: new Date().toISOString() },
-      ]);
-      form.reset();
-      setSuccess(
-        `Đã tạo tài khoản ${email} — hãy lưu lại mật khẩu vừa nhập để gửi cho nhân viên, mật khẩu sẽ không hiển thị lại được.`
-      );
     });
   }
 
   async function removeStaff(id: number) {
-    if (!await ask("Xoá tài khoản này?")) return;
+    if (!(await ask("Xoá tài khoản này? Phiên đăng nhập hiện tại của nhân viên sẽ mất hiệu lực ngay."))) return;
     startTransition(async () => {
-      const res = await fetch(`/api/admin/staff/${id}`, { method: "DELETE" });
-      if (res.ok) {
+      try {
+        const res = await fetch(`/api/admin/staff/${id}`, { method: "DELETE" });
+        const json = (await res.json().catch(() => ({}))) as { error?: string };
+        if (!res.ok) {
+          toast(json.error || "Không xoá được tài khoản", "error");
+          return;
+        }
         setStaff((prev) => prev.filter((s) => s.id !== id));
+        toast("Đã xoá tài khoản nhân viên", "success");
+      } catch {
+        toast("Không kết nối được máy chủ", "error");
       }
     });
   }

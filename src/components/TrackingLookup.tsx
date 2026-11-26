@@ -96,7 +96,11 @@ const STAGE_STYLES: Record<StepStage, { dot: string; dotCurrent: string; text: s
   },
 };
 
-export default function TrackingLookup() {
+/**
+ * `initialCode` + `compact`: dùng trong admin (cửa sổ tracking) — tự tra ngay, ẩn ô nhập,
+ * bỏ khoảng cách lớn của trang công khai. Trang /tra-cuu-van-don vẫn dùng không props.
+ */
+export default function TrackingLookup({ initialCode, compact = false }: { initialCode?: string; compact?: boolean } = {}) {
   const searchParams = useSearchParams();
   const [value, setValue] = useState("");
   const [status, setStatus] = useState<Status>("idle");
@@ -128,16 +132,22 @@ export default function TrackingLookup() {
   }
 
   useEffect(() => {
+    if (initialCode) {
+      setValue(initialCode);
+      lookup(initialCode);
+      return;
+    }
     const ma = searchParams.get("ma");
     if (ma) {
       setValue(ma);
       lookup(ma);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [searchParams, initialCode]);
 
   return (
     <div>
+      {!compact && (
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -160,6 +170,7 @@ export default function TrackingLookup() {
           {status === "loading" ? "Đang tra cứu..." : "Tra cứu"}
         </button>
       </form>
+      )}
 
       {status === "loading" && (
         <p className="mx-auto mt-3 max-w-xl text-center text-xs text-ink/45">
@@ -168,7 +179,7 @@ export default function TrackingLookup() {
       )}
 
       {status === "done" && (
-        <div className="mx-auto mt-10 max-w-2xl">
+        <div className={compact ? "" : "mx-auto mt-10 max-w-2xl"}>
           {errorMsg ? (
             <div className="card p-8 text-center">
               <p className="font-semibold text-navy-900">{errorMsg}</p>

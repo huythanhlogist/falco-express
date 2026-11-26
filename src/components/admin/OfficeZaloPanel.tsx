@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useConfirm, useToast } from "@/components/ui/Toast";
+import { OFFICE_RULES } from "@/lib/office-agents";
 import { fmtTime, officeApi, type ZaloResponse } from "@/lib/office-api";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -22,11 +23,12 @@ export default function OfficeZaloPanel() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sendingId, setSendingId] = useState<number | null>(null);
+  const [retryingId, setRetryingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     const r = await officeApi<ZaloResponse>("zalo");
     if (!r.ok) {
-      setError(r.error);
+      if (!r.aborted) setError(r.error);
       return;
     }
     setError(null);
@@ -34,18 +36,38 @@ export default function OfficeZaloPanel() {
   }, []);
 
   useEffect(() => {
-    void load();
-    const id = window.setInterval(load, 15000);
-    return () => window.clearInterval(id);
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const tick = async () => {
+      if (!document.hidden) await load();
+      if (!cancelled) timer = window.setTimeout(tick, 15_000);
+    };
+
+    const onVisibility = () => {
+      if (!document.hidden && !cancelled) void load();
+    };
+
+    void tick();
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [load]);
 
+  const b = data?.bridge ?? null;
+  const dailyLimit = b?.dailyLimit ?? OFFICE_RULES.zaloDailyLimit;
+
   async function toggle() {
-    if (!data) return;
+    if (!data || busy) return;
     const next = !data.enabled;
     if (next) {
       const ok = await confirm(
-        "Bật gửi Zalo tự động? Các lead đã duyệt sẽ được gửi từng tin một (tối đa theo hạn mức mỗi ngày, T2 đến T7, 8h đến 19h).",
-        { confirmLabel: "Bật gửi" },
+        `Bật gửi Zalo tự động? Các lead đã duyệt sẽ được gửi từng tin một (tối đa ${dailyLimit} tin mỗi ngày, ${OFFICE_RULES.zaloSendDays}, ${OFFICE_RULES.zaloSendHours}).`,
+        { confirmLabel: "Bật gửi", danger: false },
       );
       if (!ok) return;
     }
@@ -58,9 +80,10 @@ export default function OfficeZaloPanel() {
   }
 
   async function sendNow(a: ZaloResponse["approved"][number]) {
+    if (sendingId !== null) return;
     const ok = await confirm(
-      `Gửi ngay tới ${a.phone} (${a.company})?\n\n"${a.draft}"\n\nTin vẫn phải qua hạn mức của Zalo (cách nhau tối thiểu 3 phút, 15 tin mỗi ngày, 8h đến 20h).`,
-      { confirmLabel: "Gửi ngay" },
+      `Gửi ngay tới ${a.phone} (${a.company})?\n\n"${a.draft}"\n\nTin vẫn phải qua hạn mức của Zalo (cách nhau tối thiểu ${OFFICE_RULES.zaloMinIntervalMinutes} phút, ${dailyLimit} tin mỗi ngày, ${OFFICE_RULES.zaloSendHours}).`,
+      { confirmLabel: "Gửi ngay", danger: false },
     );
     if (!ok) return;
     setSendingId(a.id);
@@ -72,16 +95,23 @@ export default function OfficeZaloPanel() {
   }
 
   async function retry(id: number) {
+    if (retryingId !== null) return;
+    setRetryingId(id);
     const r = await officeApi("zalo-action", { action: "retry", id });
+    setRetryingId(null);
     if (!r.ok) toast(r.error, "error");
     else toast("Đã đưa lại hàng chờ gửi", "success");
     void load();
   }
 
-  const b = data?.bridge ?? null;
-
   return (
     <div className="space-y-4">
+      {data?.stale ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+          Đang hiển thị dữ liệu tạm từ lúc {fmtTime(data.staleSince) || "trước đó"} do n8n phản hồi chậm hoặc tạm gián đoạn.
+        </p>
+      ) : null}
+
       {error ? (
         <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">Không đọc được trạng thái Zalo: {error}</p>
       ) : null}
@@ -92,7 +122,7 @@ export default function OfficeZaloPanel() {
             <div>
               <h2 className="font-bold text-navy-800">Gửi Zalo tự động</h2>
               <p className="text-xs text-slate-500">
-                Lead đạt kiểm tra (điểm từ 70, có SĐT Zalo) được duyệt tự động, lead khác chờ bạn duyệt. Mỗi lượt 1 tin, cách nhau ngẫu nhiên, T2 đến T7, 8h đến 19h, tối đa khoảng 30 tin mỗi ngày.
+                Lead đạt kiểm tra (điểm từ {OFFICE_RULES.autoApproveScore}, có SĐT Zalo) được duyệt tự động, lead khác chờ bạn duyệt. Mỗi lượt 1 tin, cách nhau tối thiểu {OFFICE_RULES.zaloMinIntervalMinutes} phút, {OFFICE_RULES.zaloSendDays}, {OFFICE_RULES.zaloSendHours}, tối đa {dailyLimit} tin mỗi ngày.
               </p>
             </div>
             <button
@@ -113,7 +143,9 @@ export default function OfficeZaloPanel() {
 
         <section className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="font-bold text-navy-800">Tài khoản Zalo (bridge)</h2>
-          {b ? (
+          {!data && !error ? (
+            <p className="text-sm text-slate-500">Đang tải trạng thái tài khoản Zalo...</p>
+          ) : b ? (
             <>
               <p className="text-sm">
                 <span className={`mr-2 inline-block h-2.5 w-2.5 rounded-full ${b.loggedIn ? "bg-emerald-500" : "bg-red-500"}`} />
@@ -165,7 +197,7 @@ export default function OfficeZaloPanel() {
                     </span>
                     <button
                       type="button"
-                      disabled={sendingId === a.id}
+                      disabled={sendingId !== null}
                       onClick={() => sendNow(a)}
                       className="rounded-lg bg-navy-800 px-3 py-1 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
                     >
@@ -198,10 +230,11 @@ export default function OfficeZaloPanel() {
                   {s.status === "gui_loi" ? (
                     <button
                       type="button"
+                      disabled={retryingId !== null}
                       onClick={() => retry(s.id)}
-                      className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-navy-800 hover:bg-slate-50"
+                      className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-navy-800 hover:bg-slate-50 disabled:opacity-40"
                     >
-                      Thử gửi lại
+                      {retryingId === s.id ? "Đang gửi lại..." : "Thử gửi lại"}
                     </button>
                   ) : null}
                 </div>

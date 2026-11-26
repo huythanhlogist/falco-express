@@ -1,20 +1,30 @@
 import { NextResponse } from "next/server";
 import { getCurrentAdminSession } from "@/lib/auth";
-import { deleteKangoBill, findKangoBillById, updateKangoBill, type KangoBillEditableFields } from "@/lib/db";
-import { validateCustomerNote, validateKangoInvoices, validateKangoPackages } from "@/lib/kango-bill-validate";
-
-function isValidAgentKey(request: Request): boolean {
-  const key = request.headers.get("x-agent-api-key");
-  const expected = process.env.AGENT_API_KEY;
-  return Boolean(key && expected && key === expected);
-}
+import { findKangoBillById, type KangoBillEditableFields } from "@/lib/db";
+import {
+  AGENT_CREATED_BY,
+  deleteKangoBillIfDraft,
+  isValidAgentKey,
+  updateKangoBillIfEditable,
+} from "@/lib/kango-bill-db";
+import {
+  parsePositiveId,
+  validateCustomerNote,
+  validateKangoInvoices,
+  validateKangoPackages,
+  validateShipmentExportAs,
+  validateShipmentValue,
+} from "@/lib/kango-bill-validate";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getCurrentAdminSession();
   if (!session) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const { id } = await params;
-  const bill = await findKangoBillById(Number(id));
+  const billId = parsePositiveId(id);
+  if (!billId) return NextResponse.json({ error: "ID bill không hợp lệ" }, { status: 400 });
+
+  const bill = await findKangoBillById(billId);
   if (!bill) return NextResponse.json({ error: "Không tìm thấy bill" }, { status: 404 });
   return NextResponse.json({ bill });
 }
@@ -25,7 +35,27 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!session && !isAgent) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const { id } = await params;
-  const body = await request.json();
+  const billId = parsePositiveId(id);
+  if (!billId) return NextResponse.json({ error: "ID bill không hợp lệ" }, { status: 400 });
+
+  const rawBody = await request.json().catch(() => null);
+  if (!rawBody || typeof rawBody !== "object") {
+    return NextResponse.json({ error: "Body JSON không hợp lệ" }, { status: 400 });
+  }
+  const body = rawBody as Record<string, unknown>;
+
+  const existing = await findKangoBillById(billId);
+  if (!existing) return NextResponse.json({ error: "Không tìm thấy bill" }, { status: 404 });
+  if (isAgent && existing.created_by !== AGENT_CREATED_BY) {
+    return NextResponse.json({ error: "Agent chỉ được sửa bill do agent tạo" }, { status: 403 });
+  }
+  if ((existing.status as string) !== "draft") {
+    return NextResponse.json(
+      { error: "Bill đã gửi hoặc đang gửi lên Kango, không thể sửa" },
+      { status: 409 }
+    );
+  }
+
   const fields: KangoBillEditableFields = {};
 
   const stringFields: (keyof KangoBillEditableFields)[] = [
@@ -43,17 +73,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   ];
   for (const key of stringFields) {
     if (body[key] !== undefined) {
-      if (typeof body[key] !== "string" || !body[key].trim()) {
+      const val = body[key];
+      if (typeof val !== "string" || !val.trim()) {
         return NextResponse.json({ error: `Thiếu trường bắt buộc: ${key}` }, { status: 400 });
       }
-      (fields as Record<string, unknown>)[key] = body[key].trim();
+      (fields as Record<string, unknown>)[key] = val.trim();
     }
   }
   if (body.receiverAddress2 !== undefined) {
-    fields.receiverAddress2 = typeof body.receiverAddress2 === "string" && body.receiverAddress2.trim() ? body.receiverAddress2.trim() : null;
+    fields.receiverAddress2 =
+      typeof body.receiverAddress2 === "string" && body.receiverAddress2.trim()
+        ? body.receiverAddress2.trim()
+        : null;
   }
   if (body.receiverAddress3 !== undefined) {
-    fields.receiverAddress3 = typeof body.receiverAddress3 === "string" && body.receiverAddress3.trim() ? body.receiverAddress3.trim() : null;
+    fields.receiverAddress3 =
+      typeof body.receiverAddress3 === "string" && body.receiverAddress3.trim()
+        ? body.receiverAddress3.trim()
+        : null;
   }
   if (body.shipmentReferenceCode !== undefined) {
     fields.shipmentReferenceCode =
@@ -63,15 +100,27 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
   if (body.shipmentSignatureFlg !== undefined) fields.shipmentSignatureFlg = Boolean(body.shipmentSignatureFlg);
   if (body.shipmentValue !== undefined) {
-    if (!Number.isFinite(Number(body.shipmentValue)) || Number(body.shipmentValue) < 0) {
-      return NextResponse.json({ error: "Giá trị kiện hàng không hợp lệ" }, { status: 400 });
+    const parsedValue = validateShipmentValue(body.shipmentValue);
+    if (parsedValue === null) {
+      return NextResponse.json({ error: "Giá trị kiện hàng (USD) phải lớn hơn 0" }, { status: 400 });
     }
-    fields.shipmentValue = Number(body.shipmentValue);
+    fields.shipmentValue = parsedValue;
   }
-  if (body.shipmentExportAs !== undefined) fields.shipmentExportAs = Number(body.shipmentExportAs) || 0;
+  if (body.shipmentExportAs !== undefined) {
+    const parsedExportAs = validateShipmentExportAs(body.shipmentExportAs);
+    if (parsedExportAs === null) {
+      return NextResponse.json({ error: "Lý do gửi hàng không hợp lệ" }, { status: 400 });
+    }
+    fields.shipmentExportAs = parsedExportAs;
+  }
   if (body.packages !== undefined) {
     const parsed = validateKangoPackages(body.packages);
-    if (!parsed) return NextResponse.json({ error: "Thiếu hoặc sai thông tin kiện hàng" }, { status: 400 });
+    if (!parsed) {
+      return NextResponse.json(
+        { error: "Thiếu hoặc sai thông tin kiện hàng (SL nguyên ≥ 1, kích thước & cân nặng > 0)" },
+        { status: 400 }
+      );
+    }
     fields.packages = parsed;
   }
   if (body.invoices !== undefined) {
@@ -85,8 +134,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     fields.customerNote = parsed.value;
   }
 
-  const ok = await updateKangoBill(Number(id), fields);
-  if (!ok) return NextResponse.json({ error: "Không tìm thấy bill" }, { status: 404 });
+  if (Object.keys(fields).length === 0) {
+    return NextResponse.json({ error: "Không có dữ liệu nào để cập nhật" }, { status: 400 });
+  }
+
+  const outcome = await updateKangoBillIfEditable(billId, fields);
+  if (outcome === "not_found") return NextResponse.json({ error: "Không tìm thấy bill" }, { status: 404 });
+  if (outcome === "locked") {
+    return NextResponse.json(
+      { error: "Bill đã gửi hoặc đang gửi lên Kango, không thể sửa" },
+      { status: 409 }
+    );
+  }
   return NextResponse.json({ ok: true });
 }
 
@@ -95,7 +154,16 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (!session) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const { id } = await params;
-  const ok = await deleteKangoBill(Number(id));
-  if (!ok) return NextResponse.json({ error: "Không tìm thấy bill" }, { status: 404 });
+  const billId = parsePositiveId(id);
+  if (!billId) return NextResponse.json({ error: "ID bill không hợp lệ" }, { status: 400 });
+
+  const outcome = await deleteKangoBillIfDraft(billId);
+  if (outcome === "not_found") return NextResponse.json({ error: "Không tìm thấy bill" }, { status: 404 });
+  if (outcome === "locked") {
+    return NextResponse.json(
+      { error: "Không thể xoá bill đã gửi hoặc đang gửi lên Kango" },
+      { status: 409 }
+    );
+  }
   return NextResponse.json({ ok: true });
 }

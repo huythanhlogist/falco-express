@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
 import { getCurrentAdminSession } from "@/lib/auth";
 import { insertKangoBill, listKangoBills } from "@/lib/db";
-import { validateCustomerNote, validateKangoInvoices, validateKangoPackages } from "@/lib/kango-bill-validate";
+import { AGENT_CREATED_BY, isValidAgentKey } from "@/lib/kango-bill-db";
+import {
+  validateCustomerNote,
+  validateKangoInvoices,
+  validateKangoPackages,
+  validateShipmentExportAs,
+  validateShipmentValue,
+} from "@/lib/kango-bill-validate";
 
 export async function GET() {
   const bills = await listKangoBills();
   return NextResponse.json({ bills });
-}
-
-function isValidAgentKey(request: Request): boolean {
-  const key = request.headers.get("x-agent-api-key");
-  const expected = process.env.AGENT_API_KEY;
-  return Boolean(key && expected && key === expected);
 }
 
 export async function POST(request: Request) {
@@ -21,7 +22,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
   }
 
-  const body = await request.json();
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "Body JSON không hợp lệ" }, { status: 400 });
+  }
+
   const {
     receiverCompanyName,
     receiverContactName,
@@ -43,7 +48,7 @@ export async function POST(request: Request) {
     packages,
     invoices,
     customerNote,
-  } = body ?? {};
+  } = body as Record<string, unknown>;
 
   const requiredStrings: Record<string, unknown> = {
     receiverCompanyName,
@@ -63,13 +68,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Thiếu trường bắt buộc: ${key}` }, { status: 400 });
     }
   }
-  if (!Number.isFinite(Number(shipmentValue)) || Number(shipmentValue) < 0) {
-    return NextResponse.json({ error: "Giá trị kiện hàng không hợp lệ" }, { status: 400 });
+
+  const parsedValue = validateShipmentValue(shipmentValue);
+  if (parsedValue === null) {
+    return NextResponse.json({ error: "Giá trị kiện hàng (USD) phải lớn hơn 0" }, { status: 400 });
+  }
+
+  const parsedExportAs =
+    shipmentExportAs === undefined || shipmentExportAs === null || shipmentExportAs === ""
+      ? 0
+      : validateShipmentExportAs(shipmentExportAs);
+  if (parsedExportAs === null) {
+    return NextResponse.json({ error: "Lý do gửi hàng không hợp lệ" }, { status: 400 });
   }
 
   const parsedPackages = validateKangoPackages(packages);
   if (!parsedPackages) {
-    return NextResponse.json({ error: "Thiếu hoặc sai thông tin kiện hàng" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Thiếu hoặc sai thông tin kiện hàng (SL nguyên ≥ 1, kích thước & cân nặng > 0)" },
+      { status: 400 }
+    );
   }
   const parsedInvoices = validateKangoInvoices(invoices);
   if (parsedInvoices === null) {
@@ -81,28 +99,28 @@ export async function POST(request: Request) {
   }
 
   const id = await insertKangoBill({
-    receiverCompanyName: receiverCompanyName.trim(),
-    receiverContactName: receiverContactName.trim(),
-    receiverTelephone: receiverTelephone.trim(),
-    receiverCountry: receiverCountry.trim(),
-    receiverStateName: receiverStateName.trim(),
-    receiverCity: receiverCity.trim(),
-    receiverPostalCode: receiverPostalCode.trim(),
-    receiverAddress1: receiverAddress1.trim(),
+    receiverCompanyName: (receiverCompanyName as string).trim(),
+    receiverContactName: (receiverContactName as string).trim(),
+    receiverTelephone: (receiverTelephone as string).trim(),
+    receiverCountry: (receiverCountry as string).trim(),
+    receiverStateName: (receiverStateName as string).trim(),
+    receiverCity: (receiverCity as string).trim(),
+    receiverPostalCode: (receiverPostalCode as string).trim(),
+    receiverAddress1: (receiverAddress1 as string).trim(),
     receiverAddress2: typeof receiverAddress2 === "string" && receiverAddress2.trim() ? receiverAddress2.trim() : null,
     receiverAddress3: typeof receiverAddress3 === "string" && receiverAddress3.trim() ? receiverAddress3.trim() : null,
-    shipmentService: shipmentService.trim(),
+    shipmentService: (shipmentService as string).trim(),
     shipmentSignatureFlg: Boolean(shipmentSignatureFlg),
-    shipmentBranch: shipmentBranch.trim(),
+    shipmentBranch: (shipmentBranch as string).trim(),
     shipmentReferenceCode:
       typeof shipmentReferenceCode === "string" && shipmentReferenceCode.trim() ? shipmentReferenceCode.trim() : null,
-    shipmentGoodsName: shipmentGoodsName.trim(),
-    shipmentValue: Number(shipmentValue),
-    shipmentExportAs: Number.isFinite(Number(shipmentExportAs)) ? Number(shipmentExportAs) : 0,
+    shipmentGoodsName: (shipmentGoodsName as string).trim(),
+    shipmentValue: parsedValue,
+    shipmentExportAs: parsedExportAs,
     packages: parsedPackages,
     invoices: parsedInvoices,
     customerNote: parsedCustomerNote.value,
-    createdBy: session ? session.email : "agent (API key)",
+    createdBy: session ? session.email : AGENT_CREATED_BY,
   });
 
   return NextResponse.json({ ok: true, id });

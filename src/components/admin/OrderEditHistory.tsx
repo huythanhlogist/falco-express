@@ -24,21 +24,37 @@ function formatDateTime(iso: string): string {
   });
 }
 
+function extractFalcoCode(beforeData: string, orderId: number): string {
+  try {
+    const parsed = JSON.parse(beforeData);
+    return parsed?.order?.falco_code || `#${orderId}`;
+  } catch {
+    return `#${orderId}`;
+  }
+}
+
 export default function OrderEditHistory() {
   const ask = useConfirm();
   const toast = useToast();
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
+  const [loadError, setLoadError] = useState("");
   const [undoingId, setUndoingId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
 
   async function loadHistory() {
+    setLoadError("");
     try {
       const res = await fetch("/api/admin/order-edit-history");
-      if (!res.ok) return;
-      const json = await res.json();
-      setHistory(json.history as HistoryEntry[]);
+      if (!res.ok) {
+        setLoadError("Không tải được lịch sử chỉnh sửa");
+        setHistory((prev) => prev ?? []);
+        return;
+      }
+      const json = await res.json().catch(() => ({}));
+      setHistory(Array.isArray(json.history) ? (json.history as HistoryEntry[]) : []);
     } catch {
-      // Không quan trọng bằng thao tác chính — bỏ qua âm thầm.
+      setLoadError("Không tải được lịch sử chỉnh sửa");
+      setHistory((prev) => prev ?? []);
     }
   }
 
@@ -47,27 +63,22 @@ export default function OrderEditHistory() {
   }, []);
 
   async function handleUndo(h: HistoryEntry) {
-    let falcoCode = `#${h.order_id}`;
-    try {
-      falcoCode = JSON.parse(h.before_data)?.order?.falco_code ?? falcoCode;
-    } catch {
-      // giữ nguyên fallback
-    }
+    const falcoCode = extractFalcoCode(h.before_data, h.order_id);
     if (!await ask(`Hoàn tác lượt ${h.action === "delete" ? "xoá" : "sửa"} đơn ${falcoCode}?`, { confirmLabel: "Hoàn tác" })) {
       return;
     }
     setUndoingId(h.id);
     try {
       const res = await fetch(`/api/admin/order-edit-history/${h.id}/undo`, { method: "POST" });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         toast(json.error || "Hoàn tác thất bại", "error");
         return;
       }
+      toast(`Đã hoàn tác đơn ${falcoCode}`);
       loadHistory();
       // Đơn có thể đã đổi (sửa lại field / tạo lại đơn bị xoá) — reload để
-      // các bảng khác trên trang cùng cập nhật theo, đơn giản và chắc chắn
-      // hơn là tự đồng bộ state rải rác nhiều nơi.
+      // các bảng khác trên trang (kể cả Kế toán) cùng cập nhật theo.
       window.location.reload();
     } catch {
       toast("Không kết nối được tới máy chủ — thử lại sau", "error");
@@ -91,6 +102,7 @@ export default function OrderEditHistory() {
       <p className="mt-0.5 text-xs text-ink/50">
         Mỗi lần sửa hoặc xoá đơn (ở Đơn hàng hoặc Kế toán) đều lưu lại ở đây — hoàn tác được nếu lỡ sửa nhầm.
       </p>
+      {loadError && <p className="mt-2 text-xs font-medium text-flame-700">{loadError}</p>}
       <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-white">
         <table className="w-full text-sm">
           <thead>
@@ -103,13 +115,15 @@ export default function OrderEditHistory() {
             </tr>
           </thead>
           <tbody>
+            {history === null && (
+              <tr>
+                <td colSpan={5} className="px-5 py-6 text-center text-xs text-ink/45">
+                  Đang tải lịch sử...
+                </td>
+              </tr>
+            )}
             {visibleHistory.map((h) => {
-              let falcoCode = `#${h.order_id}`;
-              try {
-                falcoCode = JSON.parse(h.before_data)?.order?.falco_code ?? falcoCode;
-              } catch {
-                // giữ nguyên fallback
-              }
+              const falcoCode = extractFalcoCode(h.before_data, h.order_id);
               return (
                 <tr key={h.id} className="border-b border-line last:border-0 hover:bg-mist/40">
                   <td className="px-3 py-2 text-ink/70">{formatDateTime(h.created_at)}</td>

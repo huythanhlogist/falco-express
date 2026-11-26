@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { OFFICE_RULES } from "@/lib/office-agents";
 import { CHANNEL_LABEL, fmtTime, officeApi, type OutreachCounts, type OutreachMessage, type OutreachResponse } from "@/lib/office-api";
 
 type ResultFilter = "all" | "da_phan_hoi" | "da_gui" | "gui_loi";
@@ -44,11 +45,12 @@ function FunnelStep({ label, value, sub, tone }: { label: string; value: number;
 }
 
 function Bar({ replied, sent, failed }: OutreachCounts) {
-  const total = Math.max(1, sent + failed);
+  const waiting = Math.max(0, sent - replied);
+  const total = Math.max(1, replied + waiting + failed);
   return (
     <span className="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
       <span className="bg-emerald-500" style={{ width: `${(100 * replied) / total}%` }} />
-      <span className="bg-sky-400" style={{ width: `${(100 * (sent - replied)) / total}%` }} />
+      <span className="bg-sky-400" style={{ width: `${(100 * waiting) / total}%` }} />
       <span className="bg-red-400" style={{ width: `${(100 * failed) / total}%` }} />
     </span>
   );
@@ -64,7 +66,7 @@ export default function OfficeOutreachPanel() {
   const load = useCallback(async () => {
     const r = await officeApi<OutreachResponse>("outreach");
     if (!r.ok) {
-      setError(r.error);
+      if (!r.aborted) setError(r.error);
       return;
     }
     setError(null);
@@ -72,9 +74,26 @@ export default function OfficeOutreachPanel() {
   }, []);
 
   useEffect(() => {
-    void load();
-    const id = window.setInterval(load, 30000);
-    return () => window.clearInterval(id);
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const tick = async () => {
+      if (!document.hidden) await load();
+      if (!cancelled) timer = window.setTimeout(tick, 30_000);
+    };
+
+    const onVisibility = () => {
+      if (!document.hidden && !cancelled) void load();
+    };
+
+    void tick();
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [load]);
 
   const shown = useMemo<OutreachMessage[]>(() => {
@@ -82,13 +101,24 @@ export default function OfficeOutreachPanel() {
     return data.messages.filter((m) => (channel === "all" || m.channel === channel) && (result === "all" || m.status === result));
   }, [data, channel, result]);
 
-  const maxDay = useMemo(() => Math.max(1, ...(data?.byDay.map((d) => d.sent + d.failed) ?? [1])), [data]);
+  const maxDay = useMemo(
+    () => Math.max(1, ...(data?.byDay.map((d) => Math.max(d.sent, d.replied) + d.failed) ?? [1])),
+    [data],
+  );
   const f = data?.funnel;
-  const target = data?.dailyTarget ?? 30;
-  const todayPct = Math.min(100, pct((data?.today.sent ?? 0) + (data?.today.failed ?? 0), target));
+  const target = data?.dailyTarget ?? OFFICE_RULES.zaloDailyLimit;
+  const autoApproveScore = data?.autoApproveScore ?? OFFICE_RULES.autoApproveScore;
+  // Chỉ tính tin đã gửi thành công trên thanh tiến độ xanh lá (không cộng tin gửi lỗi).
+  const todayPct = Math.min(100, pct(data?.today.sent ?? 0, target));
 
   return (
     <div className="space-y-5">
+      {data?.stale ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+          Đang hiển thị dữ liệu tạm từ lúc {fmtTime(data.staleSince) || "trước đó"} do n8n phản hồi chậm hoặc tạm gián đoạn.
+        </p>
+      ) : null}
+
       {error ? <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">Không đọc được thống kê: {error}</p> : null}
 
       <div className="flex flex-wrap gap-2">
@@ -103,7 +133,7 @@ export default function OfficeOutreachPanel() {
           detail={data ? (data.systems.whatsapp.status === "WORKING" ? "đang chạy" : `lỗi: ${data.systems.whatsapp.status}`) : "đang tải"}
         />
         <Chip ok={null} label="Facebook" detail="chưa kết nối" />
-        <Chip ok label="Tự duyệt" detail="điểm từ 65 trở lên" />
+        <Chip ok label="Tự duyệt" detail={`điểm từ ${autoApproveScore} trở lên`} />
       </div>
 
       <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-navy-800 to-slate-700 p-5 text-white">
@@ -114,6 +144,9 @@ export default function OfficeOutreachPanel() {
               {data?.today.sent ?? 0}
               <span className="text-xl font-semibold opacity-70"> / {target} tin đã gửi</span>
             </p>
+            {data?.today.failed ? (
+              <p className="mt-1 text-xs font-semibold text-red-200">{data.today.failed} tin gửi lỗi hôm nay</p>
+            ) : null}
           </div>
           <div className="text-right text-sm">
             <p className="text-2xl font-bold">{data?.today.replied ?? 0}</p>
@@ -169,14 +202,16 @@ export default function OfficeOutreachPanel() {
           <h3 className="mb-3 text-sm font-bold text-navy-800">7 ngày gần nhất</h3>
           <div className="flex h-40 items-end gap-2">
             {data?.byDay.map((d) => {
-              const h = Math.max(4, (100 * (d.sent + d.failed)) / maxDay);
+              const waiting = Math.max(0, d.sent - d.replied);
+              const denom = d.replied + waiting + d.failed;
+              const h = Math.max(4, (100 * denom) / maxDay);
               return (
                 <div key={d.day} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
                   <span className="text-xs font-semibold text-navy-800">{d.sent + d.failed || ""}</span>
                   <div className="flex w-full flex-col-reverse overflow-hidden rounded-t-md" style={{ height: `${h}%` }}>
-                    <div className="bg-emerald-500" style={{ height: `${pct(d.replied, d.sent + d.failed)}%` }} />
-                    <div className="bg-sky-400" style={{ height: `${pct(d.sent - d.replied, d.sent + d.failed)}%` }} />
-                    <div className="bg-red-400" style={{ height: `${pct(d.failed, d.sent + d.failed)}%` }} />
+                    <div className="bg-emerald-500" style={{ height: `${pct(d.replied, denom)}%` }} />
+                    <div className="bg-sky-400" style={{ height: `${pct(waiting, denom)}%` }} />
+                    <div className="bg-red-400" style={{ height: `${pct(d.failed, denom)}%` }} />
                   </div>
                   <span className="text-[11px] text-slate-500">{d.day.slice(8)}/{d.day.slice(5, 7)}</span>
                 </div>

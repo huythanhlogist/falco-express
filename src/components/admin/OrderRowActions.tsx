@@ -1,11 +1,11 @@
 "use client";
 
-import { useConfirm } from "@/components/ui/Toast";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import Modal from "@/components/ui/Modal";
-import { useToast } from "@/components/ui/Toast";
+import { useConfirm, useToast } from "@/components/ui/Toast";
 import { PencilIcon, TrashIcon } from "@/components/icons";
+import { toIsoDateLocal } from "@/lib/vn-date";
 
 type OrderDetail = {
   awb: string;
@@ -18,24 +18,14 @@ type OrderDetail = {
   weight_kg: string | null;
 };
 
-/**
- * Chuyển ISO datetime (UTC) từ API sang "YYYY-MM-DD" cho input type=date, dùng
- * các thành phần giờ ĐỊA PHƯƠNG (getFullYear/getMonth/getDate) thay vì cắt
- * chuỗi UTC — cắt chuỗi trực tiếp sẽ lùi mất 1 ngày ở múi giờ UTC+7 vì DATE
- * lúc 00:00 giờ VN ứng với 17:00 UTC hôm trước.
- */
-function toDateInputValue(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
 export default function OrderRowActions({
   orderId,
   falcoCode,
+  onDeleted,
 }: {
   orderId: number;
   falcoCode: string;
+  onDeleted?: (id: number) => void;
 }) {
   const ask = useConfirm();
   const router = useRouter();
@@ -50,11 +40,20 @@ export default function OrderRowActions({
 
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
     setLoading(true);
     setError("");
+    setForm(null);
     fetch(`/api/admin/orders/${orderId}`)
-      .then((res) => res.json())
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.order) {
+          throw new Error(data.error || "Không tải được dữ liệu đơn hàng");
+        }
+        return data;
+      })
       .then((data) => {
+        if (cancelled) return;
         const o = data.order;
         setForm({
           awb: o.awb || "",
@@ -63,19 +62,44 @@ export default function OrderRowActions({
           recipient_postcode: o.recipient_postcode || "",
           service: o.service || "",
           destination: o.destination || "",
-          received_date: o.received_date ? toDateInputValue(o.received_date) : "",
+          received_date: toIsoDateLocal(o.received_date) ?? "",
           weight_kg: o.weight_kg ?? "",
         });
         setTrackingCodes(
-          (data.parcels as { tracking_code: string }[]).map((p) => p.tracking_code).join("\n")
+          Array.isArray(data.parcels)
+            ? (data.parcels as { tracking_code: string }[]).map((p) => p.tracking_code).join("\n")
+            : ""
         );
       })
-      .catch(() => setError("Không tải được dữ liệu đơn hàng"))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Không tải được dữ liệu đơn hàng");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [open, orderId]);
 
   async function save() {
     if (!form) return;
+    if (!form.awb.trim()) {
+      setError("AWB không được để trống");
+      return;
+    }
+    let parsedWeight: number | null = null;
+    if (form.weight_kg !== null && String(form.weight_kg).trim() !== "") {
+      const n = Number(form.weight_kg);
+      if (!Number.isFinite(n) || n < 0) {
+        setError("Cân nặng phải là số không âm hợp lệ");
+        return;
+      }
+      parsedWeight = n;
+    }
+
     setSaving(true);
     setError("");
     try {
@@ -83,14 +107,14 @@ export default function OrderRowActions({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          awb: form.awb,
+          awb: form.awb.trim(),
           recipientName: form.recipient_name,
           recipientPhone: form.recipient_phone,
           recipientPostcode: form.recipient_postcode,
           service: form.service,
           destination: form.destination,
           receivedDate: form.received_date || null,
-          weightKg: form.weight_kg === "" ? null : Number(form.weight_kg),
+          weightKg: parsedWeight,
           trackingCodes: trackingCodes.split("\n"),
         }),
       });
@@ -102,22 +126,28 @@ export default function OrderRowActions({
       setOpen(false);
       toast(`Đã lưu đơn ${falcoCode}`);
       router.refresh();
+    } catch {
+      setError("Không kết nối được tới máy chủ — thử lại sau");
     } finally {
       setSaving(false);
     }
   }
 
   async function remove() {
-    if (!await ask(`Xoá đơn ${falcoCode}? Hành động này không thể hoàn tác.`)) return;
+    if (!await ask(`Xoá đơn ${falcoCode}? Đơn xoá vẫn có thể khôi phục từ Lịch sử chỉnh sửa đơn.`)) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/admin/orders/${orderId}`, { method: "DELETE" });
       if (res.ok) {
+        onDeleted?.(orderId);
         toast(`Đã xoá đơn ${falcoCode}`);
         router.refresh();
       } else {
-        toast("Không xoá được đơn hàng", "error");
+        const json = await res.json().catch(() => ({}));
+        toast(json.error || "Không xoá được đơn hàng", "error");
       }
+    } catch {
+      toast("Không kết nối được tới máy chủ — thử lại sau", "error");
     } finally {
       setDeleting(false);
     }
@@ -159,7 +189,7 @@ export default function OrderRowActions({
             <button type="button" onClick={() => setOpen(false)} disabled={saving} className="btn-outline !px-4 !py-2 text-sm">
               Huỷ
             </button>
-            <button type="submit" form={`edit-order-${orderId}`} disabled={saving || loading} className="btn-primary !px-5 !py-2 text-sm disabled:opacity-60">
+            <button type="submit" form={`edit-order-${orderId}`} disabled={saving || loading || !form} className="btn-primary !px-5 !py-2 text-sm disabled:opacity-60">
               {saving ? "Đang lưu…" : "Lưu thay đổi"}
             </button>
           </>
@@ -207,7 +237,7 @@ export default function OrderRowActions({
             )}
           </form>
         ) : (
-          error && <p className="text-sm text-flame-700">{error}</p>
+          error && <p className="text-sm text-flame-700" role="alert">{error}</p>
         )}
       </Modal>
     </>
@@ -227,7 +257,7 @@ function Field({
   type?: "text" | "date" | "number";
   hint?: string;
 }) {
-  const id = `f-${label}`;
+  const id = useId();
   return (
     <div>
       <label htmlFor={id} className="text-xs font-semibold text-ink/60">
@@ -236,6 +266,7 @@ function Field({
       <input
         id={id}
         type={type}
+        min={type === "number" ? "0" : undefined}
         step={type === "number" ? "0.1" : undefined}
         value={value}
         onChange={(e) => onChange(e.target.value)}

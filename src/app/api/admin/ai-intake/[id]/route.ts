@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getCurrentAdminSession } from "@/lib/auth";
 import { deleteAiIntakeOrder, markAiIntakeOrderProcessed } from "@/lib/db";
@@ -5,7 +6,15 @@ import { deleteAiIntakeOrder, markAiIntakeOrderProcessed } from "@/lib/db";
 function isValidAgentKey(request: Request): boolean {
   const key = request.headers.get("x-agent-api-key");
   const expected = process.env.AGENT_API_KEY;
-  return Boolean(key && expected && key === expected);
+  if (!key || !expected) return false;
+  const a = Buffer.from(key);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+function parsePositiveId(raw: string): number | null {
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : null;
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +22,10 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (!session) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const { id } = await params;
-  const ok = await deleteAiIntakeOrder(Number(id));
+  const orderId = parsePositiveId(id);
+  if (orderId === null) return NextResponse.json({ error: "ID không hợp lệ" }, { status: 400 });
+
+  const ok = await deleteAiIntakeOrder(orderId);
   if (!ok) return NextResponse.json({ error: "Không tìm thấy đơn" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
@@ -28,6 +40,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const { id } = await params;
-  await markAiIntakeOrderProcessed(Number(id));
+  const orderId = parsePositiveId(id);
+  if (orderId === null) return NextResponse.json({ error: "ID không hợp lệ" }, { status: 400 });
+
+  const ok = await markAiIntakeOrderProcessed(orderId);
+  if (!ok) return NextResponse.json({ error: "Không tìm thấy đơn" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useConfirm, useToast } from "@/components/ui/Toast";
 import { fmtTime, officeApi, TASK_STATUS_LABEL } from "@/lib/office-api";
-import type { OfficeLive } from "@/lib/office-agents";
-
-const BOT_OPTIONS = [
-  { id: "any", label: "Bot nào rảnh trước" },
-  { id: "musehuythanh", label: "Muse Huy Thanh" },
-  { id: "videomuse", label: "Muse Video" },
-];
+import {
+  OFFICE_BOT_OPTIONS,
+  OFFICE_RULES,
+  OFFICE_SALES,
+  OFFICE_SALE_IDS,
+  museBotLabel,
+  type OfficeLive,
+} from "@/lib/office-agents";
 
 const STATUS_STYLE: Record<string, string> = {
   cho_giao: "bg-slate-100 text-slate-700",
@@ -21,14 +22,6 @@ const STATUS_STYLE: Record<string, string> = {
   huy: "bg-slate-200 text-slate-500",
 };
 
-const SALES = [
-  { id: "linh", label: "Linh: đặc sản châu Âu" },
-  { id: "nam", label: "Nam: shop bán Việt kiều (Âu, Úc)" },
-  { id: "vy", label: "Vy: đại lý & CTV" },
-  { id: "mai", label: "Mai: khách lẻ ở châu Âu" },
-  { id: "khoa", label: "Khoa: linh kiện đi Mỹ" },
-];
-
 export default function OfficeQueuePanel() {
   const toast = useToast();
   const confirm = useConfirm();
@@ -38,11 +31,14 @@ export default function OfficeQueuePanel() {
   const [objective, setObjective] = useState("");
   const [instructions, setInstructions] = useState("");
   const [sending, setSending] = useState(false);
+  const [busyRun, setBusyRun] = useState(false);
+  const [busyPing, setBusyPing] = useState<string | null>(null);
+  const [busyTask, setBusyTask] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const r = await officeApi<OfficeLive>("status");
     if (!r.ok) {
-      setError(r.error);
+      if (!r.aborted) setError(r.error);
       return;
     }
     setError(null);
@@ -50,12 +46,30 @@ export default function OfficeQueuePanel() {
   }, []);
 
   useEffect(() => {
-    void load();
-    const id = window.setInterval(load, 10000);
-    return () => window.clearInterval(id);
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const tick = async () => {
+      if (!document.hidden) await load();
+      if (!cancelled) timer = window.setTimeout(tick, 10_000);
+    };
+
+    const onVisibility = () => {
+      if (!document.hidden && !cancelled) void load();
+    };
+
+    void tick();
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [load]);
 
   async function createTask() {
+    if (sending) return;
     setSending(true);
     const r = await officeApi("task-action", { action: "create", bot, objective, instructions });
     setSending(false);
@@ -69,33 +83,43 @@ export default function OfficeQueuePanel() {
     void load();
   }
 
-  async function runSales(agents: string[]) {
+  async function runSales(agents: readonly string[]) {
+    if (busyRun) return;
+    const names = agents.map((id) => OFFICE_SALES.find((s) => s.id === id)?.name ?? id);
     const ok = await confirm(
-      agents.length === 4
-        ? "Giao cả 4 việc tìm lead (Linh, Nam, Vy, Mai) cho Muse ngay bây giờ?"
-        : `Giao việc tìm lead cho ${agents[0]} ngay bây giờ?`,
-      { confirmLabel: "Giao việc" },
+      agents.length > 1
+        ? `Giao cả ${agents.length} việc tìm lead (${names.join(", ")}) cho Muse ngay bây giờ?`
+        : `Giao việc tìm lead cho ${names[0]} ngay bây giờ?`,
+      { confirmLabel: "Giao việc", danger: false },
     );
     if (!ok) return;
-    const r = await officeApi("run-sales", { agents });
+    setBusyRun(true);
+    const r = await officeApi("run-sales", { agents: [...agents] });
+    setBusyRun(false);
     if (!r.ok) toast(r.error, "error");
     else toast("Đã tạo việc tìm lead, chờ vài giây rồi làm mới", "success");
     window.setTimeout(load, 3000);
   }
 
   async function ping(botId: string) {
+    if (busyPing) return;
+    setBusyPing(botId);
     const r = await officeApi("task-action", { action: "ping", bot: botId });
+    setBusyPing(null);
     if (!r.ok) toast(r.error, "error");
     else toast("Đã gửi ping", "success");
     window.setTimeout(load, 2000);
   }
 
   async function taskAction(action: "cancel" | "requeue", taskCode: string) {
+    if (busyTask) return;
     if (action === "cancel") {
       const ok = await confirm(`Hủy việc ${taskCode}?`, { confirmLabel: "Hủy việc", danger: true });
       if (!ok) return;
     }
+    setBusyTask(taskCode);
     const r = await officeApi("task-action", { action, task_code: taskCode });
+    setBusyTask(null);
     if (!r.ok) toast(r.error, "error");
     else toast(action === "cancel" ? "Đã hủy việc" : "Đã giao lại việc", "success");
     void load();
@@ -103,6 +127,12 @@ export default function OfficeQueuePanel() {
 
   return (
     <div className="space-y-4">
+      {live?.stale ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+          Đang hiển thị dữ liệu tạm từ lúc {fmtTime(live.staleSince) || "trước đó"} do n8n phản hồi chậm hoặc tạm gián đoạn.
+        </p>
+      ) : null}
+
       {error ? (
         <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">Không đọc được n8n: {error}</p>
       ) : null}
@@ -111,7 +141,7 @@ export default function OfficeQueuePanel() {
         {(live?.muse ?? []).map((m) => (
           <div key={m.bot} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4">
             <div>
-              <p className="font-bold text-navy-800">{m.bot === "musehuythanh" ? "Muse Huy Thanh" : "Muse Video"}</p>
+              <p className="font-bold text-navy-800">{museBotLabel(m.bot)}</p>
               <p className="text-xs text-slate-500">
                 {m.online ? "Online" : "Mất kết nối"}
                 {m.lastSeen ? ` · nhịp sống ${fmtTime(m.lastSeen)}` : " · chưa từng báo"}
@@ -122,10 +152,11 @@ export default function OfficeQueuePanel() {
               <span className={`h-2.5 w-2.5 rounded-full ${m.online ? "bg-emerald-500" : "bg-red-500"}`} />
               <button
                 type="button"
+                disabled={busyPing !== null}
                 onClick={() => ping(m.bot)}
-                className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-navy-800 hover:bg-slate-50"
+                className="rounded-lg border border-slate-200 px-3 py-1 text-xs font-semibold text-navy-800 hover:bg-slate-50 disabled:opacity-40"
               >
-                Ping
+                {busyPing === m.bot ? "Đang ping..." : "Ping"}
               </button>
             </div>
           </div>
@@ -143,7 +174,7 @@ export default function OfficeQueuePanel() {
                 onChange={(e) => setBot(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
               >
-                {BOT_OPTIONS.map((b) => (
+                {OFFICE_BOT_OPTIONS.map((b) => (
                   <option key={b.id} value={b.id}>{b.label}</option>
                 ))}
               </select>
@@ -186,25 +217,27 @@ export default function OfficeQueuePanel() {
         <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="font-bold text-navy-800">Tìm lead ngay</h2>
           <p className="text-xs text-slate-500">
-            Lịch tự động chạy 20:30 mỗi tối. Bấm đây để chạy thêm bất cứ lúc nào, mỗi lần tối đa 5 lead mỗi người.
+            Lịch tự động chạy {OFFICE_RULES.autoSearchSchedule} mỗi tối. Bấm đây để chạy thêm bất cứ lúc nào, mỗi lần tối đa {OFFICE_RULES.maxLeadsPerRun} lead mỗi người.
           </p>
           <div className="flex flex-wrap gap-2">
-            {SALES.map((s) => (
+            {OFFICE_SALES.map((s) => (
               <button
                 key={s.id}
                 type="button"
+                disabled={busyRun}
                 onClick={() => runSales([s.id])}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-slate-50"
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-slate-50 disabled:opacity-40"
               >
-                {s.label}
+                {s.queueLabel}
               </button>
             ))}
             <button
               type="button"
-              onClick={() => runSales(["linh", "nam", "vy", "mai", "khoa"])}
-              className="rounded-lg bg-navy-800 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+              disabled={busyRun}
+              onClick={() => runSales(OFFICE_SALE_IDS)}
+              className="rounded-lg bg-navy-800 px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
             >
-              Cả 5 người
+              {busyRun ? "Đang giao..." : `Cả ${OFFICE_SALES.length} người`}
             </button>
           </div>
           {live ? (
@@ -230,7 +263,7 @@ export default function OfficeQueuePanel() {
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[t.status] ?? "bg-slate-100 text-slate-600"}`}>
                     {TASK_STATUS_LABEL[t.status] ?? t.status}
                   </span>
-                  {t.bot ? <span className="text-xs text-slate-400"> · {t.bot}</span> : null}
+                  {t.bot ? <span className="text-xs text-slate-400"> · {museBotLabel(t.bot)}</span> : null}
                 </p>
                 <p className="truncate text-xs text-slate-500">
                   {t.found ? `${t.passed}/${t.found} lead đạt · ` : ""}
@@ -242,19 +275,21 @@ export default function OfficeQueuePanel() {
                 {t.status === "cho_giao" || t.status === "dang_lam" ? (
                   <button
                     type="button"
+                    disabled={busyTask !== null}
                     onClick={() => taskAction("cancel", t.taskCode)}
-                    className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
+                    className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40"
                   >
-                    Hủy
+                    {busyTask === t.taskCode ? "Đang xử lý..." : "Hủy"}
                   </button>
                 ) : null}
                 {["dang_lam", "blocked", "failed", "huy"].includes(t.status) ? (
                   <button
                     type="button"
+                    disabled={busyTask !== null}
                     onClick={() => taskAction("requeue", t.taskCode)}
-                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-navy-800 hover:bg-slate-50"
+                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-navy-800 hover:bg-slate-50 disabled:opacity-40"
                   >
-                    Giao lại
+                    {busyTask === t.taskCode ? "Đang xử lý..." : "Giao lại"}
                   </button>
                 ) : null}
               </div>

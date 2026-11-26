@@ -7,24 +7,43 @@ export function vnDateString(daysAgo = 0): string {
   return vnNow.toISOString().slice(0, 10);
 }
 
-// Cột DATE của MySQL được mysql2 trả về dạng Date lúc 00:00 giờ local của
-// tiến trình — nên đọc ngày/tháng/năm bằng getter local để ra đúng ngày.
-export function formatDateVN(value: string | Date | null): string {
-  if (!value) return "";
-  const d = value instanceof Date ? value : new Date(value);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+/** Kiểm tra chuỗi ngày YYYY-MM-DD có phải ngày lịch hợp lệ không (chặn 2026-02-31, 2026-13-01...). */
+export function isValidIsoDate(value: string): boolean {
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return false;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d;
 }
 
 /**
- * Giá trị DATE sau khi qua JSON.stringify/parse (vd snapshot lịch sử sửa đơn)
- * thành chuỗi ISO giờ UTC (vd "2026-08-31T17:00:00.000Z" cho ngày 1/9 giờ
- * VN) — KHÔNG được cắt 10 ký tự đầu (sẽ lùi mất 1 ngày ở UTC+7). Dựng lại
- * Date rồi lấy thành phần ngày theo giờ local.
+ * Chuẩn hoá giá trị DATE (chuỗi "YYYY-MM-DD", ISO timestamp UTC từ snapshot
+ * JSON, hoặc Date object) sang chuỗi "YYYY-MM-DD" theo giờ Việt Nam (UTC+7),
+ * không phụ thuộc múi giờ máy chủ Node hay trình duyệt.
  */
 export function toIsoDateLocal(value: string | Date | null): string | null {
   if (!value) return null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return isValidIsoDate(trimmed) ? trimmed : null;
+    }
+  }
   const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  const vn = new Date(d.getTime() + VN_OFFSET_MS);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${vn.getUTCFullYear()}-${pad(vn.getUTCMonth() + 1)}-${pad(vn.getUTCDate())}`;
+}
+
+/** Định dạng giá trị DATE sang "DD/MM/YYYY" theo giờ Việt Nam (UTC+7). */
+export function formatDateVN(value: string | Date | null): string {
+  const iso = toIsoDateLocal(value);
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
 }

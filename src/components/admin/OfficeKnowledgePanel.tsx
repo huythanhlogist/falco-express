@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useToast } from "@/components/ui/Toast";
+import { useConfirm, useToast } from "@/components/ui/Toast";
 import {
+  fmtTime,
   KNOWLEDGE_KIND_LABEL,
   officeApi,
+  safeHttpUrl,
   type KnowledgeItem,
   type KnowledgeResponse,
 } from "@/lib/office-api";
@@ -22,7 +24,7 @@ const KINDS = Object.keys(KNOWLEDGE_KIND_LABEL);
 type Pillar = "chan_dung" | "cong_cu" | "bai_hoc" | "khac" | "all";
 
 const PILLARS: { id: Pillar; label: string; hint: string; kinds: string[] }[] = [
-  { id: "chan_dung", label: "Chân dung khách", hint: "Ai đáng gọi, vì sao cần Falco, khi nào mua, loại ai. Chỉ anh sửa.", kinds: ["chan_dung"] },
+  { id: "chan_dung", label: "Chân dung khách", hint: "Ai đáng gọi, vì sao cần Falco, khi nào mua, loại ai. Chỉ chủ tài khoản được sửa.", kinds: ["chan_dung"] },
   { id: "cong_cu", label: "Công cụ tìm", hint: "Kênh tìm, từ khóa, khách mẫu, câu mẫu. Muse tự bổ sung.", kinds: ["kenh_tim", "tu_khoa", "khach_mau", "cau_mau"] },
   { id: "bai_hoc", label: "Bài học", hint: "Sai ở đâu, làm gì để tốt hơn lần sau.", kinds: ["bai_hoc", "tieu_chi_lead"] },
   { id: "khac", label: "Khác", hint: "Từ cấm, hỏi đáp Zalo, đối thủ.", kinds: ["tu_cam", "faq", "doi_thu", "khac"] },
@@ -31,6 +33,7 @@ const PILLARS: { id: Pillar; label: string; hint: string; kinds: string[] }[] = 
 
 export default function OfficeKnowledgePanel() {
   const toast = useToast();
+  const confirm = useConfirm();
   const [data, setData] = useState<KnowledgeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("da_duyet");
@@ -41,11 +44,13 @@ export default function OfficeKnowledgePanel() {
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     const r = await officeApi<KnowledgeResponse>("knowledge");
     if (!r.ok) {
-      setError(r.error);
+      if (!r.aborted) setError(r.error);
       return;
     }
     setError(null);
@@ -53,9 +58,26 @@ export default function OfficeKnowledgePanel() {
   }, []);
 
   useEffect(() => {
-    void load();
-    const id = window.setInterval(load, 20000);
-    return () => window.clearInterval(id);
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const tick = async () => {
+      if (!document.hidden) await load();
+      if (!cancelled) timer = window.setTimeout(tick, 20_000);
+    };
+
+    const onVisibility = () => {
+      if (!document.hidden && !cancelled) void load();
+    };
+
+    void tick();
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [load]);
 
   const nameOf = (code: string) => {
@@ -64,8 +86,16 @@ export default function OfficeKnowledgePanel() {
     return a ? `${a.name} (${code})` : code;
   };
 
-  async function act(body: Record<string, unknown>, okText: string) {
+  async function act(body: Record<string, unknown>, okText: string, itemId?: number) {
+    if (submitting || busyId !== null) return false;
+    if (itemId !== undefined) setBusyId(itemId);
+    else setSubmitting(true);
+
     const r = await officeApi("knowledge-action", body);
+
+    if (itemId !== undefined) setBusyId(null);
+    else setSubmitting(false);
+
     if (!r.ok) {
       toast(r.error, "error");
       return false;
@@ -80,11 +110,24 @@ export default function OfficeKnowledgePanel() {
     setDraft({ area: i.area, kind: i.kind, title: i.title, content: i.content });
   }
 
+  const draftValid =
+    draft.area.trim().length > 0 &&
+    draft.title.trim().length > 0 &&
+    draft.content.trim().length > 0;
+
   async function saveEdit(id: number) {
-    if (await act({ action: "edit", id, ...draft }, "Đã lưu")) setEditing(null);
+    if (!draftValid) {
+      toast("Vui lòng chọn agent và điền đủ tiêu đề, nội dung", "error");
+      return;
+    }
+    if (await act({ action: "edit", id, ...draft }, "Đã lưu", id)) setEditing(null);
   }
 
   async function addNew() {
+    if (!draftValid) {
+      toast("Vui lòng chọn agent và điền đủ tiêu đề, nội dung", "error");
+      return;
+    }
     if (await act({ action: "add", ...draft }, "Đã thêm và duyệt")) {
       setAdding(false);
       setDraft({ area: "", kind: "faq", title: "", content: "" });
@@ -112,27 +155,36 @@ export default function OfficeKnowledgePanel() {
   }
 
   async function bulk(status: Filter, okText: string) {
-    const ids = selectedShown.map((i) => i.id);
-    if (ids.length === 0) return;
+    if (selectedShown.length === 0 || bulkBusy) return;
+    if (status === "loai") {
+      const ok = await confirm(`Loại ${selectedShown.length} mục kiến thức đã chọn?`, {
+        confirmLabel: "Loại tất cả",
+        danger: true,
+      });
+      if (!ok) return;
+    }
     setBulkBusy(true);
     let fail = 0;
-    for (let n = 0; n < ids.length; n += 4) {
+    for (let n = 0; n < selectedShown.length; n += 4) {
       const results = await Promise.all(
-        ids.slice(n, n + 4).map((id) => officeApi("knowledge-action", { action: "set_status", id, status })),
+        selectedShown.slice(n, n + 4).map((item) =>
+          officeApi("knowledge-action", { action: "set_status", id: item.id, kind: item.kind, status }),
+        ),
       );
       fail += results.filter((r) => !r.ok).length;
     }
     setBulkBusy(false);
     setSelected(new Set());
-    if (fail > 0) toast(`${okText}: ${ids.length - fail} mục, lỗi ${fail} mục`, "error");
-    else toast(`${okText}: ${ids.length} mục`, "success");
+    if (fail > 0) toast(`${okText}: ${selectedShown.length - fail} mục, lỗi ${fail} mục`, "error");
+    else toast(`${okText}: ${selectedShown.length} mục`, "success");
     void load();
   }
+
   const areaOptions = data
     ? [{ code: "ALL", name: "Dùng chung" }, ...data.agents.map((a) => ({ code: a.code, name: a.name }))]
     : [];
 
-  const form = (onSave: () => void, onCancel: () => void, saveLabel: string) => (
+  const form = (onSave: () => void, onCancel: () => void, saveLabel: string, isBusy: boolean) => (
     <div className="space-y-2">
       <div className="grid gap-2 sm:grid-cols-2">
         <select value={draft.area} onChange={(e) => setDraft({ ...draft, area: e.target.value })} className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm">
@@ -147,17 +199,27 @@ export default function OfficeKnowledgePanel() {
           ))}
         </select>
       </div>
-      <input value={draft.title} maxLength={120} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Tiêu đề" className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-navy-800" />
-      <textarea value={draft.content} rows={4} maxLength={1500} onChange={(e) => setDraft({ ...draft, content: e.target.value })} placeholder="Nội dung" className="w-full rounded-lg border border-slate-300 p-2 text-sm outline-none focus:border-navy-800" />
+      <input value={draft.title} maxLength={120} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Tiêu đề (bắt buộc)" className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-navy-800" />
+      <textarea value={draft.content} rows={4} maxLength={1500} onChange={(e) => setDraft({ ...draft, content: e.target.value })} placeholder="Nội dung (bắt buộc)" className="w-full rounded-lg border border-slate-300 p-2 text-sm outline-none focus:border-navy-800" />
       <div className="flex gap-2">
-        <button type="button" onClick={onSave} className="rounded-lg bg-navy-800 px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90">{saveLabel}</button>
-        <button type="button" onClick={onCancel} className="rounded-lg border border-slate-200 px-4 py-1.5 text-sm font-semibold text-navy-800 hover:bg-slate-50">Hủy</button>
+        <button type="button" disabled={isBusy || !draftValid} onClick={onSave} className="rounded-lg bg-navy-800 px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40">
+          {isBusy ? "Đang lưu..." : saveLabel}
+        </button>
+        <button type="button" disabled={isBusy} onClick={onCancel} className="rounded-lg border border-slate-200 px-4 py-1.5 text-sm font-semibold text-navy-800 hover:bg-slate-50 disabled:opacity-40">
+          Hủy
+        </button>
       </div>
     </div>
   );
 
   return (
     <div className="space-y-4">
+      {data?.stale ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+          Đang hiển thị dữ liệu tạm từ lúc {fmtTime(data.staleSince) || "trước đó"} do n8n phản hồi chậm hoặc tạm gián đoạn.
+        </p>
+      ) : null}
+
       {error ? (
         <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">Không đọc được kho kiến thức: {error}</p>
       ) : null}
@@ -241,7 +303,7 @@ export default function OfficeKnowledgePanel() {
       {adding ? (
         <section className="rounded-2xl border border-slate-200 bg-white p-4">
           <h2 className="mb-2 font-bold text-navy-800">Thêm mục (tự động ở trạng thái đã duyệt)</h2>
-          {form(addNew, () => setAdding(false), "Thêm")}
+          {form(addNew, () => setAdding(false), "Thêm", submitting)}
         </section>
       ) : null}
 
@@ -250,51 +312,55 @@ export default function OfficeKnowledgePanel() {
       ) : null}
 
       <ul className="space-y-3">
-        {shown.map((i) => (
-          <li key={i.id} className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4">
-            {editing === i.id ? (
-              form(() => saveEdit(i.id), () => setEditing(null), "Lưu")
-            ) : (
-              <>
-                <div className="flex flex-wrap items-center gap-2">
-                  <input type="checkbox" checked={selected.has(i.id)} onChange={() => toggleOne(i.id)} aria-label={`Chọn mục ${i.id}`} className="h-4 w-4" />
-                  <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">{nameOf(i.area)}</span>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                    {KNOWLEDGE_KIND_LABEL[i.kind] ?? i.kind}
-                  </span>
-                  <span className="text-xs text-slate-400">#{i.id} · {i.addedBy || "?"}</span>
-                </div>
-                <p className="font-semibold text-navy-800">{i.title}</p>
-                <p className="whitespace-pre-wrap text-sm text-slate-700">{i.content}</p>
-                {i.sourceUrl ? (
-                  <a href={i.sourceUrl} target="_blank" rel="noopener noreferrer" className="block truncate text-xs text-sky-700 underline">
-                    {i.sourceUrl}
-                  </a>
-                ) : null}
-                <div className="flex flex-wrap gap-2">
-                  {i.status !== "da_duyet" ? (
-                    <button type="button" onClick={() => act({ action: "set_status", id: i.id, status: "da_duyet" }, "Đã duyệt")} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">
-                      Duyệt
-                    </button>
+        {shown.map((i) => {
+          const safeUrl = safeHttpUrl(i.sourceUrl);
+          const itemBusy = busyId === i.id;
+          return (
+            <li key={i.id} className="space-y-2 rounded-2xl border border-slate-200 bg-white p-4">
+              {editing === i.id ? (
+                form(() => saveEdit(i.id), () => setEditing(null), "Lưu", itemBusy)
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input type="checkbox" checked={selected.has(i.id)} onChange={() => toggleOne(i.id)} aria-label={`Chọn mục ${i.id}`} className="h-4 w-4" />
+                    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">{nameOf(i.area)}</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                      {KNOWLEDGE_KIND_LABEL[i.kind] ?? i.kind}
+                    </span>
+                    <span className="text-xs text-slate-400">#{i.id} · {i.addedBy || "?"}</span>
+                  </div>
+                  <p className="font-semibold text-navy-800">{i.title}</p>
+                  <p className="whitespace-pre-wrap text-sm text-slate-700">{i.content}</p>
+                  {safeUrl ? (
+                    <a href={safeUrl} target="_blank" rel="noopener noreferrer" className="block truncate text-xs text-sky-700 underline">
+                      {safeUrl}
+                    </a>
                   ) : null}
-                  {i.status !== "loai" ? (
-                    <button type="button" onClick={() => act({ action: "set_status", id: i.id, status: "loai" }, "Đã loại")} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50">
-                      Loại
+                  <div className="flex flex-wrap gap-2">
+                    {i.status !== "da_duyet" ? (
+                      <button type="button" disabled={busyId !== null} onClick={() => act({ action: "set_status", id: i.id, kind: i.kind, status: "da_duyet" }, "Đã duyệt", i.id)} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-40">
+                        Duyệt
+                      </button>
+                    ) : null}
+                    {i.status !== "loai" ? (
+                      <button type="button" disabled={busyId !== null} onClick={() => act({ action: "set_status", id: i.id, kind: i.kind, status: "loai" }, "Đã loại", i.id)} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40">
+                        Loại
+                      </button>
+                    ) : null}
+                    {i.status !== "de_xuat" ? (
+                      <button type="button" disabled={busyId !== null} onClick={() => act({ action: "set_status", id: i.id, kind: i.kind, status: "de_xuat" }, "Đã đưa về chờ duyệt", i.id)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-slate-50 disabled:opacity-40">
+                        Về chờ duyệt
+                      </button>
+                    ) : null}
+                    <button type="button" disabled={busyId !== null} onClick={() => startEdit(i)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-slate-50 disabled:opacity-40">
+                      Sửa
                     </button>
-                  ) : null}
-                  {i.status !== "de_xuat" ? (
-                    <button type="button" onClick={() => act({ action: "set_status", id: i.id, status: "de_xuat" }, "Đã đưa về chờ duyệt")} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-slate-50">
-                      Về chờ duyệt
-                    </button>
-                  ) : null}
-                  <button type="button" onClick={() => startEdit(i)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-navy-800 hover:bg-slate-50">
-                    Sửa
-                  </button>
-                </div>
-              </>
-            )}
-          </li>
-        ))}
+                  </div>
+                </>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

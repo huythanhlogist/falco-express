@@ -1,15 +1,18 @@
 "use client";
 
+import OrderTrackingButton from "@/components/admin/OrderTrackingButton";
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import OrderRowActions from "@/components/admin/OrderRowActions";
 import CopyOrderInfoButton from "@/components/admin/CopyOrderInfoButton";
 import CtvOrderReviewActions from "@/components/admin/CtvOrderReviewActions";
+import { useConfirm, useToast } from "@/components/ui/Toast";
 import { CopyIcon, CheckIcon } from "@/components/icons";
 import type { OrderListItem } from "@/lib/db";
 import { shipmentStatusClassName, shipmentStatusLabel } from "@/lib/shipment-status";
 import { loadDraft, saveDraft, clearDraft } from "@/lib/session-draft";
 import { ORDERS_SELECTION_KEY, QUOTE_HANDOFF_KEY, type QuoteHandoffOrder } from "@/lib/quote-handoff";
+import { formatDateVN } from "@/lib/vn-date";
 
 async function copyText(text: string): Promise<void> {
   try {
@@ -41,34 +44,52 @@ type CtvOption = { id: number; ctv_code: string; full_name: string };
 
 export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListItem[]; ctvs?: CtvOption[] }) {
   const router = useRouter();
+  const ask = useConfirm();
+  const toast = useToast();
   // Giữ cả thông tin đơn đã chọn (không chỉ id) để lựa chọn sống qua phân
   // trang/đổi bộ lọc — các link đó tải lại trang nên state thường bị mất.
   const [selected, setSelected] = useState<Map<number, QuoteHandoffOrder>>(new Map());
   const [selectionRestored, setSelectionRestored] = useState(false);
   const [copiedBulk, setCopiedBulk] = useState(false);
   const [assignCtv, setAssignCtv] = useState("");
-  const [assignMsg, setAssignMsg] = useState("");
   const [assigning, setAssigning] = useState(false);
   const [refreshing, startRefresh] = useTransition();
 
   async function assign(ctvId: number | null) {
+    if (selected.size === 0) return;
+    if (
+      ctvId === null &&
+      !(await ask(`Bỏ gán FWD khỏi ${selected.size} đơn đã chọn?`, { confirmLabel: "Bỏ gán" }))
+    ) {
+      return;
+    }
     setAssigning(true);
-    setAssignMsg("");
     try {
       const res = await fetch("/api/admin/orders/assign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderIds: [...selected.keys()], ctvId }),
       });
-      const j = await res.json();
+      const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j.error ?? "Lỗi gán FWD");
-      setAssignMsg(ctvId ? `Đã gán ${j.changed} đơn` : `Đã bỏ gán ${j.changed} đơn`);
+      toast(ctvId ? `Đã gán ${j.changed} đơn cho FWD` : `Đã bỏ gán ${j.changed} đơn`);
+      setSelected(new Map());
+      setAssignCtv("");
       startRefresh(() => router.refresh());
     } catch (e) {
-      setAssignMsg((e as Error).message);
+      toast(e instanceof Error ? e.message : "Không kết nối được tới máy chủ", "error");
     } finally {
       setAssigning(false);
     }
+  }
+
+  function handleOrderDeleted(deletedId: number) {
+    setSelected((prev) => {
+      if (!prev.has(deletedId)) return prev;
+      const next = new Map(prev);
+      next.delete(deletedId);
+      return next;
+    });
   }
 
   useEffect(() => {
@@ -164,7 +185,6 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
                 >
                   Bỏ gán
                 </button>
-                {assignMsg && <span className="text-xs text-ink/60">{assignMsg}</span>}
               </span>
             )}
             <button
@@ -198,7 +218,7 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
       )}
 
       <div className={`max-h-[calc(100vh-16rem)] min-h-[320px] overflow-auto rounded-xl border border-line bg-white shadow-sm transition-opacity duration-150 ${refreshing ? "opacity-60" : ""}`}>
-        <table className="w-full min-w-[1480px] text-sm">
+        <table className="w-full min-w-[960px] text-sm">
           <thead>
             <tr className="sticky top-0 z-10 border-b border-line bg-mist text-left text-[11px] font-semibold uppercase tracking-wide text-ink/50 shadow-[0_1px_0_0_rgba(0,0,0,0.04)]">
               <th className="w-9 px-3 py-2">
@@ -210,19 +230,14 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
                   className="h-4 w-4 rounded border-line accent-navy-800"
                 />
               </th>
-              <th className="px-3 py-2">Mã Falco</th>
-              <th className="px-3 py-2">AWB</th>
+              <th className="px-3 py-2">Đơn / AWB</th>
               <th className="px-3 py-2">Người nhận</th>
-              <th className="px-3 py-2">Điện thoại</th>
-              <th className="px-3 py-2">Postcode</th>
               <th className="px-3 py-2">Điểm đến</th>
-              <th className="px-3 py-2">Kiện</th>
+              <th className="px-3 py-2">Dịch vụ</th>
               <th className="px-3 py-2">Ngày nhận</th>
               <th className="px-3 py-2">Vận chuyển</th>
               <th className="px-3 py-2">Nguồn</th>
-              <th className="px-3 py-2">Dịch vụ</th>
-              <th className="px-3 py-2" />
-              <th className="px-3 py-2">Gửi khách</th>
+              <th className="px-3 py-2 text-right">Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -244,17 +259,30 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
                       className="h-4 w-4 rounded border-line accent-navy-800"
                     />
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 font-semibold text-navy-900">{o.falco_code}</td>
-                  <td className="px-3 py-2 text-ink/70">{o.awb}</td>
-                  <td className="max-w-[200px] px-3 py-2 text-ink/80"><span className="block truncate" title={o.recipient_name ?? ""}>{o.recipient_name || "—"}</span></td>
-                  <td className="px-3 py-2 text-ink/70">{o.recipient_phone || "—"}</td>
-                  <td className="px-3 py-2 text-ink/70">{o.recipient_postcode || "—"}</td>
-                  <td className="max-w-[200px] px-3 py-2 text-ink/70"><span className="block truncate" title={o.destination ?? ""}>{o.destination || "—"}</span></td>
-                  <td className="px-3 py-2 text-ink/70">{o.parcel_count}</td>
-                  <td className="px-3 py-2 text-ink/70">
-                    {o.received_date
-                      ? new Date(o.received_date).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
-                      : "—"}
+                  <td className="whitespace-nowrap px-3 py-2">
+                    <OrderTrackingButton falcoCode={o.falco_code} />
+                    {o.awb && o.awb !== o.falco_code && <span className="block text-xs text-ink/50">{o.awb}</span>}
+                  </td>
+                  <td className="max-w-[190px] px-3 py-2">
+                    <span className="block truncate text-ink/85" title={o.recipient_name ?? ""}>{o.recipient_name || "—"}</span>
+                    {o.recipient_phone && <span className="block truncate text-xs text-ink/50">{o.recipient_phone}</span>}
+                  </td>
+                  <td className="max-w-[170px] px-3 py-2">
+                    <span className="block truncate text-ink/75" title={o.destination ?? ""}>{o.destination || "—"}</span>
+                    {o.recipient_postcode && <span className="block text-xs text-ink/50">{o.recipient_postcode}</span>}
+                  </td>
+                  <td className="px-3 py-2">
+                    {o.service ? (
+                      <span className="inline-flex items-center whitespace-nowrap rounded-full bg-mist px-2.5 py-1 text-xs font-bold text-navy-800">
+                        {o.service}
+                      </span>
+                    ) : (
+                      <span className="text-ink/30">—</span>
+                    )}
+                    <span className="mt-0.5 block text-xs text-ink/50">{o.parcel_count} kiện</span>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-ink/70">
+                    {formatDateVN(o.received_date) || "—"}
                   </td>
                   <td className="px-3 py-2">
                     {o.shipment_status ? (
@@ -276,26 +304,17 @@ export default function OrdersTable({ orders, ctvs = [] }: { orders: OrderListIt
                     <CtvOrderReviewActions orderId={o.id} reviewStatus={o.review_status} ctvCode={o.ctv_code} />
                   </td>
                   <td className="px-3 py-2">
-                    {o.service ? (
-                      <span className="inline-flex items-center whitespace-nowrap rounded-full bg-mist px-2.5 py-1 text-xs font-bold text-navy-800">
-                        {o.service}
-                      </span>
-                    ) : (
-                      <span className="text-ink/30">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <OrderRowActions orderId={o.id} falcoCode={o.falco_code} />
-                  </td>
-                  <td className="px-3 py-2">
-                    <CopyOrderInfoButton text={copyTextValue} />
+                    <div className="flex items-center justify-end gap-1.5">
+                      <OrderRowActions orderId={o.id} falcoCode={o.falco_code} onDeleted={handleOrderDeleted} />
+                      <CopyOrderInfoButton text={copyTextValue} />
+                    </div>
                   </td>
                 </tr>
               );
             })}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={14} className="px-5 py-10 text-center text-ink/45">
+                <td colSpan={9} className="px-5 py-10 text-center text-ink/45">
                   Không tìm thấy đơn hàng nào.
                 </td>
               </tr>

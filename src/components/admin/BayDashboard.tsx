@@ -1,15 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BAY_SERVICE_CLASSES, BAY_SERVICE_LABELS, BAY_STATUS_LABELS } from "@/lib/bay-labels";
 import BayCreateOrder from "@/components/admin/BayCreateOrder";
+import { useToast } from "@/components/ui/Toast";
 import type { BayMe, BayShipment, BayShipmentList, BayTracking } from "@/lib/bay-api";
 
 type ApiError = { error: string; code?: string; requestId?: string | null };
 
-async function bayGet<T>(path: string, query?: Record<string, string | number>): Promise<T> {
+async function bayGet<T>(path: string, query?: Record<string, string | number>, signal?: AbortSignal): Promise<T> {
   const qs = query ? "?" + new URLSearchParams(Object.entries(query).map(([k, v]) => [k, String(v)])) : "";
-  const res = await fetch(`/api/admin/bay/${path}${qs}`);
+  const res = await fetch(`/api/admin/bay/${path}${qs}`, { signal });
   const json = await res.json().catch(() => null);
   if (!res.ok) {
     const e = (json ?? { error: `Lỗi HTTP ${res.status}` }) as ApiError;
@@ -18,14 +19,25 @@ async function bayGet<T>(path: string, query?: Record<string, string | number>):
   return json as T;
 }
 
-const fmt = (iso: string | null | undefined) =>
-  iso ? new Date(iso).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
+const fmt = (iso: string | null | undefined) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
+};
 
-// Ảnh hiển thị qua tên miền Falco (route /api/admin/bay/img/<uuid>), không lộ link Bay.
-const UUID_AT_END = /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
+// Chỉ proxy ảnh thuộc origin https://img.bayonlinevn.com/<uuid> qua /api/admin/bay/img/<uuid>,
+// tránh làm gãy ảnh từ domain ngoài tình cờ có UUID ở cuối URL.
+const BAY_IMG_ORIGIN = "https://img.bayonlinevn.com";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const proxied = (u: string) => {
-  const m = u.match(UUID_AT_END);
-  return m ? `/api/admin/bay/img/${m[1].toLowerCase()}` : u;
+  try {
+    const parsed = new URL(u);
+    if (parsed.origin !== BAY_IMG_ORIGIN) return u;
+    const id = parsed.pathname.replace(/^\/+|\/+$/g, "");
+    return UUID_RE.test(id) ? `/api/admin/bay/img/${id.toLowerCase()}` : u;
+  } catch {
+    return u;
+  }
 };
 
 function Images({ urls }: { urls: string[] }) {
@@ -46,15 +58,15 @@ function TrackingPanel({ reference, onClose }: { reference: string; onClose: () 
   const [data, setData] = useState<BayTracking | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
-    let alive = true;
+    const controller = new AbortController();
     setData(null);
     setError("");
-    bayGet<BayTracking>(`shipments/${encodeURIComponent(reference)}/tracking`)
-      .then((d) => alive && setData(d))
-      .catch((e: Error) => alive && setError(e.message));
-    return () => {
-      alive = false;
-    };
+    bayGet<BayTracking>(`shipments/${encodeURIComponent(reference)}/tracking`, undefined, controller.signal)
+      .then((d) => setData(d))
+      .catch((e: Error) => {
+        if (e.name !== "AbortError") setError(e.message);
+      });
+    return () => controller.abort();
   }, [reference]);
 
   return (
@@ -136,6 +148,7 @@ function TrackingPanel({ reference, onClose }: { reference: string; onClose: () 
 }
 
 export default function BayDashboard({ configured }: { configured: boolean }) {
+  const toast = useToast();
   const [me, setMe] = useState<BayMe | null>(null);
   const [list, setList] = useState<BayShipmentList | null>(null);
   const [error, setError] = useState("");
@@ -143,54 +156,76 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("");
   const [ref, setRef] = useState("");
+  const [debouncedRef, setDebouncedRef] = useState("");
   const [service, setService] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [febCodes, setFebCodes] = useState<Record<string, string>>({});
-  const [syncMsg, setSyncMsg] = useState("");
+  const [syncMsg, setSyncMsg] = useState<{ text: string; isError?: boolean } | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const loadAbortRef = useRef<AbortController | null>(null);
 
-  async function syncOrders() {
-    setSyncing(true);
-    setSyncMsg("");
-    try {
-      const res = await fetch("/api/admin/bay/sync?force=1", { method: "POST" });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error ?? `Lỗi HTTP ${res.status}`);
-      setSyncMsg(
-        j.created.length
-          ? `Đã tạo ${j.created.length} đơn mới: ${j.created.map((c: { reference: string; falcoCode: string }) => `${c.falcoCode} (${c.reference})`).join(", ")}. ${j.alreadySynced} đơn đã có từ trước.`
-          : `Không có đơn mới — cả ${j.alreadySynced} vận đơn đã có mã FEB.`
-      );
-      void load();
-    } catch (e) {
-      setSyncMsg((e as Error).message);
-    } finally {
-      setSyncing(false);
-    }
-  }
+  // Debounce 350ms cho ô tìm kiếm mã tham chiếu để tránh spam Bay API (hạn mức 60 req/phút).
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedRef(ref), 350);
+    return () => clearTimeout(timer);
+  }, [ref]);
 
   const load = useCallback(async () => {
+    loadAbortRef.current?.abort();
+    const controller = new AbortController();
+    loadAbortRef.current = controller;
+
     setLoading(true);
     setError("");
     try {
       const q: Record<string, string | number> = { page, limit: 20 };
       if (status) q.status = status;
-      if (ref.trim()) q.partnerReference = ref.trim();
-      const data = await bayGet<BayShipmentList>("shipments", q);
+      if (debouncedRef.trim()) q.partnerReference = debouncedRef.trim();
+      const data = await bayGet<BayShipmentList>("shipments", q, controller.signal);
+      if (controller.signal.aborted) return;
       setList(data);
       const refs = data.data.map((s) => s.reference).join(",");
       if (refs) {
-        fetch(`/api/admin/bay/sync?refs=${encodeURIComponent(refs)}`)
+        fetch(`/api/admin/bay/sync?refs=${encodeURIComponent(refs)}`, { signal: controller.signal })
           .then((r) => (r.ok ? r.json() : {}))
-          .then(setFebCodes)
+          .then((codes) => {
+            if (!controller.signal.aborted) setFebCodes(codes);
+          })
           .catch(() => undefined);
+      } else {
+        setFebCodes({});
       }
     } catch (e) {
+      if ((e as Error).name === "AbortError") return;
       setError((e as Error).message);
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
-  }, [page, status, ref]);
+  }, [page, status, debouncedRef]);
+
+  async function syncOrders() {
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res = await fetch("/api/admin/bay/sync?force=1", { method: "POST" });
+      const j = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(j?.error ?? `Lỗi HTTP ${res.status}`);
+      const created = Array.isArray(j?.created) ? j.created : [];
+      const alreadySynced = Number(j?.alreadySynced ?? 0);
+      const text = created.length
+        ? `Đã tạo ${created.length} đơn mới: ${created.map((c: { reference: string; falcoCode: string }) => `${c.falcoCode} (${c.reference})`).join(", ")}. ${alreadySynced} đơn đã có từ trước.`
+        : `Không có đơn mới — cả ${alreadySynced} vận đơn đã có mã FEB.`;
+      setSyncMsg({ text });
+      toast(created.length ? `Đã đồng bộ thêm ${created.length} đơn FEB` : "Tất cả vận đơn đã có mã FEB");
+      void load();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Đồng bộ mã đơn FEB thất bại";
+      setSyncMsg({ text: msg, isError: true });
+      toast(msg, "error");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   useEffect(() => {
     if (!configured) return;
@@ -200,7 +235,11 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
   }, [configured]);
 
   useEffect(() => {
-    if (configured) void load();
+    if (!configured) return;
+    void load();
+    return () => {
+      loadAbortRef.current?.abort();
+    };
   }, [configured, load]);
 
   // Mở tab là tự đồng bộ 1 lần (server bỏ qua nếu vừa đồng bộ < 2 phút): vận đơn mới bên Bay có ngay mã FEB…
@@ -209,9 +248,11 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
     void (async () => {
       try {
         const res = await fetch("/api/admin/bay/sync", { method: "POST" });
-        const j = await res.json();
-        if (res.ok && j.created?.length) {
-          setSyncMsg(`Đã tự tạo ${j.created.length} đơn mới: ${j.created.map((c: { falcoCode: string }) => c.falcoCode).join(", ")}.`);
+        const j = await res.json().catch(() => null);
+        if (res.ok && j?.created?.length) {
+          const text = `Đã tự tạo ${j.created.length} đơn mới: ${j.created.map((c: { falcoCode: string }) => c.falcoCode).join(", ")}.`;
+          setSyncMsg({ text });
+          toast(`Đã tự đồng bộ ${j.created.length} đơn FEB mới`);
           void load();
         }
       } catch {
@@ -231,6 +272,8 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
       </div>
     );
   }
+
+  const filteredShipments = (list?.data ?? []).filter((s) => !service || s.serviceType === service);
 
   return (
     <div>
@@ -284,12 +327,20 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
         <button type="button" onClick={() => void load()} className="btn-primary !px-4 !py-2 text-sm" disabled={loading}>
           {loading ? "Đang tải…" : "Làm mới"}
         </button>
-        <button type="button" onClick={syncOrders} disabled={syncing} className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-mist/60 disabled:opacity-50" title="Tạo đơn Falco mã FEB… cho mọi vận đơn Bay chưa có mã, để khách tra cứu được trên web">
+        <button
+          type="button"
+          onClick={syncOrders}
+          disabled={syncing}
+          className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-mist/60 disabled:opacity-50"
+          title="Tạo đơn Falco mã FEB… cho mọi vận đơn Bay chưa có mã, để khách tra cứu được trên web"
+        >
           {syncing ? "Đang đồng bộ…" : "Đồng bộ mã đơn FEB"}
         </button>
         <BayCreateOrder onChanged={() => void load()} />
       </div>
-      {syncMsg && <p className="mt-2 text-sm text-ink/70">{syncMsg}</p>}
+      {syncMsg && (
+        <p className={`mt-2 text-sm ${syncMsg.isError ? "text-rose-600" : "text-ink/70"}`}>{syncMsg.text}</p>
+      )}
 
       {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
 
@@ -310,7 +361,7 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
             </tr>
           </thead>
           <tbody>
-            {(list?.data ?? []).filter((s) => !service || s.serviceType === service).map((s: BayShipment) => (
+            {filteredShipments.map((s: BayShipment) => (
               <tr
                 key={s.reference}
                 onClick={() => setOpen(s.reference)}
@@ -343,10 +394,12 @@ export default function BayDashboard({ configured }: { configured: boolean }) {
                 <td className="px-3 py-2 text-ink/55">{fmt(s.updatedAt)}</td>
               </tr>
             ))}
-            {list && list.data.length === 0 && (
+            {list && filteredShipments.length === 0 && (
               <tr>
                 <td colSpan={10} className="px-5 py-10 text-center text-ink/45">
-                  Chưa có vận đơn nào.
+                  {list.data.length === 0
+                    ? "Chưa có vận đơn nào."
+                    : "Không có vận đơn thuộc loại hàng đã chọn ở trang này."}
                 </td>
               </tr>
             )}

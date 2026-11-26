@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { parsePositiveId, parseKangoPackagesJson, parseKangoInvoicesJson } from "@/lib/kango-bill-validate";
 import { findKangoBillById, listKangoBillImages, type KangoInvoiceItem, type KangoPackage } from "@/lib/db";
 import KangoBillForm, { type KangoBillInitial } from "@/components/admin/KangoBillForm";
 import KangoBillImages from "@/components/admin/KangoBillImages";
@@ -15,7 +16,9 @@ export default async function KangoBillDetailPage({
   searchParams: Promise<{ imageUploadError?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  const bill = await findKangoBillById(Number(id));
+  const billId = parsePositiveId(id);
+  if (billId === null) notFound();
+  const bill = await findKangoBillById(billId);
   if (!bill) notFound();
 
   const imageRows = await listKangoBillImages(bill.id);
@@ -26,7 +29,7 @@ export default async function KangoBillDetailPage({
     url: `/api/admin/kango-bills/images/${img.id}`,
   }));
 
-  const packages = (JSON.parse(bill.packages_json) as KangoPackage[]).map((p) => ({
+  const packages = parseKangoPackagesJson(bill.packages_json).map((p) => ({
     packageQuantity: String(p.packageQuantity),
     packageType: p.packageType,
     packageLength: String(p.packageLength),
@@ -35,7 +38,7 @@ export default async function KangoBillDetailPage({
     packageWeight: String(p.packageWeight),
   }));
   const invoices = bill.invoices_json
-    ? (JSON.parse(bill.invoices_json) as KangoInvoiceItem[]).map((i) => ({
+    ? parseKangoInvoicesJson(bill.invoices_json).map((i) => ({
         invoiceGoodsDetails: i.invoiceGoodsDetails,
         invoiceQuantity: String(i.invoiceQuantity),
         invoiceUnit: i.invoiceUnit,
