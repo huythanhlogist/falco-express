@@ -155,6 +155,7 @@ export function isQuietHoursVn(now: Date = new Date()): boolean {
 
 type NotifyOrderRow = OrderTrackingQueryRow & {
   received_date: string | null;
+  recipient_postcode: string | null;
 };
 
 type EnrichedOrder = {
@@ -163,6 +164,8 @@ type EnrichedOrder = {
   lotDate: string | null;
   carrier: string;
   trackingCode: string;
+  /** Mọi mã chặng cuối của đơn (đơn nhiều kiện có nhiều mã) */
+  trackingCodes: string[];
   isCustomsReleased: boolean;
 };
 
@@ -276,18 +279,55 @@ function enrichOrderRow(row: NotifyOrderRow): EnrichedOrder {
     lotDate: extractLotDate(kango),
     carrier,
     trackingCode,
+    trackingCodes: extractAllTrackingCodes(kango, trackingCode),
     isCustomsReleased: hasCustomsReleased(row.shipment_status, kango),
   };
 }
 
 // ---------- Định dạng 1 dòng đơn & cắt giới hạn 30 dòng ----------
 
+function extractAllTrackingCodes(kango: KangoTrackingResponse | null, primary: string): string[] {
+  const codes = (kango?.shipment_information?.order_numbers ?? [])
+    .map((n) => (n.package_tracking_code || "").trim())
+    .filter(Boolean);
+  const all = [...(primary ? [primary] : []), ...codes];
+  return [...new Set(all)];
+}
+
+/** Mã nước 2 chữ từ "Thành phố, Nước" (tiếng Anh/Việt) — để dòng tin ngắn gọn. */
+const COUNTRY_ISO2: Record<string, string> = {
+  GERMANY: "DE", "ĐỨC": "DE", DUC: "DE", "UNITED KINGDOM": "UK", UK: "UK", ANH: "UK", ENGLAND: "UK",
+  POLAND: "PL", "BA LAN": "PL", SPAIN: "ES", "TÂY BAN NHA": "ES", SLOVAKIA: "SK", "CZECH REPUBLIC": "CZ",
+  CZECHIA: "CZ", "SÉC": "CZ", FRANCE: "FR", "PHÁP": "FR", NETHERLANDS: "NL", "HÀ LAN": "NL", ITALY: "IT",
+  "Ý": "IT", AUSTRIA: "AT", "ÁO": "AT", BELGIUM: "BE", "BỈ": "BE", SWITZERLAND: "CH", DENMARK: "DK",
+  SWEDEN: "SE", NORWAY: "NO", PORTUGAL: "PT", HUNGARY: "HU", IRELAND: "IE", ROMANIA: "RO", FINLAND: "FI",
+  "UNITED STATES": "US", USA: "US", "MỸ": "US", CANADA: "CA", AUSTRALIA: "AU", "ÚC": "AU", JAPAN: "JP",
+};
+function countryIso2(destination: string | null): string {
+  const raw = (destination || "").trim();
+  if (!raw) return "";
+  const last = raw.includes(",") ? raw.slice(raw.lastIndexOf(",") + 1).trim() : raw;
+  const key = last.toUpperCase();
+  return COUNTRY_ISO2[key] ?? (key.length <= 3 ? key : "");
+}
+
+/**
+ * 1 dòng đơn, ngắn gọn để đọc nhanh:
+ *   FL261120007 (19/11) Ha Sung · DE 10115 · DHL 00340434791629068686
+ *   FL260915001 (15/09) Lan Anh · DE 12681 · DHL 4 kiện: mã1, mã2, mã3, mã4
+ */
 function formatOrderLine(order: EnrichedOrder): string {
   const ddmm = formatDdMm(order.row.received_date);
-  const codePart = ddmm ? `${order.row.falco_code} (${ddmm})` : order.row.falco_code;
-  const recipientPart = order.row.recipient_name?.trim() || "";
-  const carrierPart = [order.carrier, order.trackingCode].filter(Boolean).join(" ");
-  return [codePart, recipientPart, carrierPart].filter(Boolean).join(" - ");
+  const head = [order.row.falco_code + (ddmm ? ` (${ddmm})` : ""), order.row.recipient_name?.trim() || ""]
+    .filter(Boolean)
+    .join(" ");
+  const place = [countryIso2(order.row.destination), order.row.recipient_postcode?.trim() || ""].filter(Boolean).join(" ");
+  const codes = order.trackingCodes;
+  const carrierPart =
+    codes.length > 1
+      ? `${order.carrier ? order.carrier + " " : ""}${codes.length} kiện: ${codes.join(", ")}`
+      : [order.carrier, codes[0] ?? ""].filter(Boolean).join(" ");
+  return [head, place, carrierPart].filter(Boolean).join(" · ");
 }
 
 function formatFallbackOrderLine(orderId: number): string {
@@ -312,7 +352,7 @@ async function queryTrackedOrdersLast60Days(now: Date): Promise<NotifyOrderRow[]
   const cutoffDate = vnDateStringAt(now, SCAN_WINDOW_DAYS);
   const [rows] = await getPool().query<mysql.RowDataPacket[]>(
     `SELECT
-       o.id, o.falco_code, o.awb, o.recipient_name, o.service, o.destination,
+       o.id, o.falco_code, o.awb, o.recipient_name, o.recipient_postcode, o.service, o.destination,
        DATE_FORMAT(o.received_date, '%Y-%m-%d') AS received_date,
        DATE_FORMAT(COALESCE(o.received_date, DATE(o.created_at)), '%Y-%m-%d') AS order_date,
        c.full_name AS ctv_full_name,
@@ -336,7 +376,7 @@ async function queryOrdersByIds(orderIds: number[]): Promise<NotifyOrderRow[]> {
     const placeholders = chunk.map(() => "?").join(", ");
     const [rows] = await getPool().query<mysql.RowDataPacket[]>(
       `SELECT
-         o.id, o.falco_code, o.awb, o.recipient_name, o.service, o.destination,
+         o.id, o.falco_code, o.awb, o.recipient_name, o.recipient_postcode, o.service, o.destination,
          DATE_FORMAT(o.received_date, '%Y-%m-%d') AS received_date,
          DATE_FORMAT(COALESCE(o.received_date, DATE(o.created_at)), '%Y-%m-%d') AS order_date,
          c.full_name AS ctv_full_name,
@@ -554,8 +594,8 @@ function buildCustomsLotMessages(
     if (lotKey === "unknown") {
       const shownNew = truncateLines(newlyClearedLines, MAX_LINES_PER_MESSAGE);
       const text = [
-        `🛃 THÔNG QUAN – Chưa rõ lô (${groupEvents.length})`,
-        `Vừa thông quan (${groupEvents.length}):`,
+        `🛃 THÔNG QUAN · chưa rõ lô (${groupEvents.length})`,
+        `✔ Vừa thông quan (${groupEvents.length}):`,
         ...shownNew,
       ].join("\n");
       messages.push({ key: "customs_released:unknown", text, eventIds });
@@ -592,21 +632,19 @@ function buildCustomsLotMessages(
     const pendingLimit = Math.max(0, MAX_LINES_PER_MESSAGE - Math.min(newlyClearedLines.length, newLimit));
 
     const sections: string[] = [
-      `🛃 THÔNG QUAN – Lô ${formatDdMm(lotKey)} (tổng ${totalInLot} kiện)`,
-      `Vừa thông quan (${groupEvents.length}):`,
+      `🛃 THÔNG QUAN · Lô ${formatDdMm(lotKey)} · ${previouslyClearedCount + groupEvents.length}/${totalInLot} đơn đã thông quan`,
+      `✔ Vừa thông quan (${groupEvents.length}):`,
       ...truncateLines(newlyClearedLines, newLimit),
-      `Đã thông quan trước đó: ${previouslyClearedCount}`,
+      ...(previouslyClearedCount > 0 ? [`Trước đó đã thông quan: ${previouslyClearedCount}`] : []),
     ];
 
     if (notYetClearedLines.length > 0) {
-      sections.push(`Chưa thông quan (${notYetClearedLines.length}):`);
+      sections.push(`⏳ Chưa thông quan (${notYetClearedLines.length}):`);
       if (pendingLimit > 0) {
         sections.push(...truncateLines(notYetClearedLines, pendingLimit));
       } else {
         sections.push(`… và ${notYetClearedLines.length} đơn khác`);
       }
-    } else {
-      sections.push("Chưa thông quan: 0");
     }
 
     messages.push({
@@ -690,7 +728,7 @@ export async function buildPendingMessages(opts?: {
     messages.push(
       buildSimpleListMessage({
         key: "handed_over",
-        header: `🔗 ĐÃ NỐI HÃNG VẬN CHUYỂN (${handedOverEvents.length})`,
+        header: `🔗 NỐI HÃNG VC (${handedOverEvents.length})`,
         lines,
         eventIds: handedOverEvents.map((e) => e.id),
       })
@@ -709,7 +747,7 @@ export async function buildPendingMessages(opts?: {
     messages.push(
       buildSimpleListMessage({
         key: "out_for_delivery",
-        header: `🚚 SẮP GIAO – đang trên xe giao (${outForDeliveryEvents.length})`,
+        header: `🚚 SẮP GIAO – trên xe giao (${outForDeliveryEvents.length})`,
         lines,
         eventIds: outForDeliveryEvents.map((e) => e.id),
       })
