@@ -952,3 +952,58 @@ export async function ackEvents(ids: number[]): Promise<{ updated: number }> {
   }
   return { updated };
 }
+
+/**
+ * Đơn thuộc 1 lô (lô = ngày rời kho VN, cùng cách tính với tin "THÔNG QUAN · Lô dd/mm").
+ * Chỉ đọc. Dùng cho trợ lý hỏi đáp nội bộ (key MUSE_READ_API_KEY).
+ */
+export async function listOrdersByLot(lotDate: string): Promise<{
+  lot: string;
+  total: number;
+  cleared: number;
+  orders: {
+    falco_code: string;
+    recipient_name: string;
+    destination: string | null;
+    received_date: string | null;
+    shipment_status: string | null;
+    current_status: string | null;
+    customs_cleared: boolean;
+    updated_vn: string | null;
+  }[];
+}> {
+  const [rows] = await getPool().query(
+    `SELECT o.falco_code, o.recipient_name, o.destination,
+            DATE_FORMAT(COALESCE(o.received_date, DATE(o.created_at)), '%Y-%m-%d') AS received_date,
+            tc.shipment_status, tc.current_status, tc.payload, tc.fetched_at
+     FROM orders o
+     JOIN order_tracking_cache tc ON tc.order_id = o.id AND tc.awb = o.awb
+     WHERE o.review_status IN ('auto_approved', 'approved')
+       AND tc.payload IS NOT NULL
+       AND COALESCE(o.received_date, DATE(o.created_at)) BETWEEN DATE_SUB(?, INTERVAL 20 DAY) AND ?`,
+    [lotDate, lotDate]
+  );
+  const orders = [];
+  for (const r of rows as mysql.RowDataPacket[]) {
+    let kango: KangoTrackingResponse | null = null;
+    try {
+      kango = JSON.parse(r.payload) as KangoTrackingResponse;
+    } catch {
+      continue;
+    }
+    if (extractLotDate(kango) !== lotDate) continue;
+    const status = (r.shipment_status ?? null) as ShipmentStatus | null;
+    orders.push({
+      falco_code: r.falco_code,
+      recipient_name: r.recipient_name,
+      destination: r.destination ?? null,
+      received_date: r.received_date ?? null,
+      shipment_status: status,
+      current_status: r.current_status ?? null,
+      customs_cleared: hasCustomsReleased(status, kango),
+      updated_vn: r.fetched_at ? epochMsToVnDateTime(Number(r.fetched_at)) : null,
+    });
+  }
+  orders.sort((a, b) => a.falco_code.localeCompare(b.falco_code));
+  return { lot: lotDate, total: orders.length, cleared: orders.filter((o) => o.customs_cleared).length, orders };
+}

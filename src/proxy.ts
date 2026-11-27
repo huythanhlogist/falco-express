@@ -52,8 +52,19 @@ function isAgentApiRequest(request: NextRequest): boolean {
 const MUSE_READ_ROUTES: RegExp[] = [
   /^\/api\/admin\/orders$/,
   /^\/api\/admin\/orders\/\d+$/,
+  /^\/api\/admin\/orders\/lot$/,
+  /^\/api\/admin\/ctv$/,
   /^\/api\/admin\/ctv\/payables$/,
   /^\/api\/admin\/ctv\/collections$/,
+  /^\/api\/admin\/dashboard\/alerts$/,
+  /^\/api\/admin\/dbn$/,
+  /^\/api\/admin\/expenses$/,
+  /^\/api\/admin\/kango-bills$/,
+  /^\/api\/admin\/kango-bills\/\d+$/,
+  /^\/api\/admin\/kango-bills\/receivers$/,
+  /^\/api\/admin\/order-edit-history$/,
+  /^\/api\/admin\/upload-history$/,
+  /^\/api\/admin\/office\/status$/,
 ];
 
 function isMuseReadRequest(request: NextRequest): boolean {

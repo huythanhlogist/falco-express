@@ -1493,6 +1493,9 @@ export async function listOrders(params: {
   ctvId?: number;
   /** true: chỉ đơn đã gắn FWD (ctv_id không rỗng); false: chỉ đơn không gắn FWD. */
   hasCtv?: boolean;
+  /** Lọc ngày nhận hàng (YYYY-MM-DD, gồm cả 2 đầu). */
+  receivedFrom?: string;
+  receivedTo?: string;
 }): Promise<{
   orders: OrderListItem[];
   total: number;
@@ -1503,7 +1506,7 @@ export async function listOrders(params: {
   pendingReviewCount: number;
 }> {
   await ensureOrdersSchema();
-  const { search, limit, offset, status = "all", month, source = "all", reviewStatus = "all", ctvId, hasCtv } = params;
+  const { search, limit, offset, status = "all", month, source = "all", reviewStatus = "all", ctvId, hasCtv, receivedFrom, receivedTo } = params;
   const like = `%${search.trim()}%`;
 
   const conditions: string[] = [];
@@ -1537,6 +1540,14 @@ export async function listOrders(params: {
   }
   if (hasCtv === true) conditions.push("o.ctv_id IS NOT NULL");
   if (hasCtv === false) conditions.push("o.ctv_id IS NULL");
+  if (receivedFrom) {
+    conditions.push("COALESCE(o.received_date, DATE(o.created_at)) >= ?");
+    whereArgs.push(receivedFrom);
+  }
+  if (receivedTo) {
+    conditions.push("COALESCE(o.received_date, DATE(o.created_at)) <= ?");
+    whereArgs.push(receivedTo);
+  }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const rowsP = getPool().query(
