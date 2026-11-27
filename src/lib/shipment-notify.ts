@@ -140,8 +140,12 @@ function formatDdMm(ymd: string | null | undefined): string {
   return `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`;
 }
 
+/** Bật lại khung im lặng 22h–7h bằng cách đổi thành true. Chủ yêu cầu gửi cả ngày (27/11/2026). */
+const QUIET_HOURS_ENABLED = false;
+
 /** Khung giờ im lặng: 22:00 đến trước 07:00 giờ Việt Nam (UTC+7). */
 export function isQuietHoursVn(now: Date = new Date()): boolean {
+  if (!QUIET_HOURS_ENABLED) return false;
   const vn = new Date(now.getTime() + VN_OFFSET_MS);
   const hour = vn.getUTCHours();
   return hour >= 22 || hour < 7;
