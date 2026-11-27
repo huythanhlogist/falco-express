@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentAdminSession } from "@/lib/auth";
 import { buildPendingMessages, isValidNotifyAgentKey } from "@/lib/shipment-notify";
+import { refreshLastMileFast } from "@/lib/last-mile-fast-refresh";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,11 @@ export async function GET(request: NextRequest) {
   const preview = request.nextUrl.searchParams.get("preview") === "1";
 
   try {
+    // Làn nhanh: lấy lại tracking các đơn chặng cuối cũ nhất để tin "Sắp giao"/"Đã giao" đến sớm.
+    // Lỗi ở bước này không chặn việc trả tin.
+    if (!preview) {
+      await refreshLastMileFast().catch((err) => console.error("[admin/notify/pending] Làn nhanh lỗi:", err));
+    }
     const data = await buildPendingMessages({ ignoreQuiet: preview });
     return NextResponse.json(data, {
       headers: {
