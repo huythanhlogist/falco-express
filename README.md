@@ -578,7 +578,7 @@ npx tsx scripts/setup-tracking-cache-table.ts
 
 Biến môi trường `CRON_SECRET` (chuỗi ngẫu nhiên dài, chỉ đặt trên server, đừng
 commit): bảo vệ route `POST /api/cron/refresh-tracking`. Đặt lịch trong hPanel
-→ Nâng cao → Công việc định kỳ, chọn "Tùy chỉnh", lịch mỗi giờ (`0 * * * *`),
+→ Nâng cao → Công việc định kỳ, chọn "Tùy chỉnh", lịch 30 phút/lần (`0,30 * * * *`, từ 27/11/2026),
 lệnh lấy secret từ file env của app lúc chạy nên không phải gõ secret vào cấu hình
 cron (chế độ "Node.js" của hPanel không dùng được vì thư mục triển khai không có
 `scripts/`):
@@ -587,9 +587,11 @@ cron (chế độ "Node.js" của hPanel không dùng được vì thư mục tr
 curl -s -i -X POST -H "x-cron-secret: $(grep '^CRON_SECRET=' /home/<user>/domains/falcoexpress.com/hbuilds/config/.env | cut -d= -f2- | tr -d "\"'\r")" https://falcoexpress.com/api/cron/refresh-tracking
 ```
 
-Mỗi giờ, đơn chưa giao có bản cache cũ hơn 50 phút được làm mới (~20–40 lượt gọi
-Kango/giờ, tuần tự, mất 2–5 phút; đơn đã giao/hoàn không bị gọi lại). Kango lỗi liên tiếp 5
-lần thì lượt đó dừng, giờ sau thử lại. Xem kết quả: nút "Xem đầu ra"
+Mỗi 30 phút, đơn chưa giao có bản cache cũ hơn 25 phút được làm mới (`staleAfterMs` trong
+`src/lib/tracking-cache.ts`; ~50 đơn/lượt, tuần tự ~6–7s/đơn, mất 5–6 phút; đơn đã giao/hoàn
+không bị gọi lại). Đổi lịch cron thì đổi ngưỡng này theo (≈ 80% chu kỳ cron). Đơn ở chặng cuối
+còn có "làn nhanh" mỗi 5 phút khi n8n hỏi tin Zalo (`src/lib/last-mile-fast-refresh.ts`).
+Kango lỗi liên tiếp 5 lần thì lượt đó dừng, lượt sau thử lại. Xem kết quả: nút "Xem đầu ra"
 của job (dòng `HTTP/2 202` là thành công, `401` là sai secret).
 
 Route trả 202 ngay và chạy nền (tối đa ~20 phút, gọi tuần tự từng đơn). Thêm
