@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { getCurrentAdminSession } from "@/lib/auth";
+import { hasMuseReadKey } from "@/lib/muse-read-key";
 import { insertDbnQuote, listDbnQuotes, type DbnRow } from "@/lib/db";
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await getCurrentAdminSession();
-  if (!session) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  if (!session && !hasMuseReadKey(request)) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
   const quotes = await listDbnQuotes();
   return NextResponse.json({ quotes });
