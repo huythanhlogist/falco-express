@@ -12,7 +12,7 @@ import { isFinalShipmentStatus, mapKangoStatus, type ShipmentStatus } from "./sh
 import { vnDateString } from "./vn-date";
 
 // Đơn đã giao/hoàn: dữ liệu không đổi nữa nên cache dùng mãi. Đơn đang đi: cron
-// làm mới mỗi giờ, nhưng khách tra giữa 2 lượt cron vẫn phải thấy mốc mới nhất nên
+// làm mới 30 phút/lần, nhưng khách tra giữa 2 lượt cron vẫn phải thấy mốc mới nhất nên
 // trang tra cứu chỉ tin cache 20 phút rồi gọi live lại (lỗi thì dùng cache cũ).
 // Đơn Kango chưa có dữ liệu (payload null) có thể có dữ liệu bất cứ lúc nào
 // nên chỉ tin cache ngắn hơn.
@@ -186,10 +186,10 @@ export async function refreshTrackingCache(opts?: {
   // của họ, nên không dồn nhiều request song song.
   const concurrency = opts?.concurrency ?? 1;
   const budgetMs = opts?.budgetMs ?? 20 * 60 * 1000;
-  // Cron gọi mỗi giờ: chỉ làm mới bản cache đã quá 50 phút, nên mỗi đơn chưa
-  // giao được cập nhật khoảng mỗi giờ 1 lần, và gọi chồng/gọi thừa thì chỉ
+  // Cron gọi 30 phút/lần (từ 27/11/2026): chỉ làm mới bản cache đã quá 25 phút, nên mỗi đơn chưa
+  // giao được cập nhật khoảng 30 phút 1 lần, và gọi chồng/gọi thừa thì chỉ
   // xử lý phần còn lại (hoặc không làm gì).
-  const staleAfterMs = opts?.staleAfterMs ?? 50 * 60 * 1000;
+  const staleAfterMs = opts?.staleAfterMs ?? 25 * 60 * 1000;
   const startedAt = Date.now();
 
   const candidates = await listOrdersNeedingTrackingRefresh(
@@ -201,7 +201,7 @@ export async function refreshTrackingCache(opts?: {
   let refreshed = 0;
   let failed = 0;
   // Kango lỗi/treo liên tiếp (sự cố hoặc bị giới hạn tần suất) thì dừng cả
-  // lượt thay vì tiếp tục dồn request; lượt sau (1 giờ nữa) sẽ thử lại.
+  // lượt thay vì tiếp tục dồn request; lượt sau (30 phút nữa) sẽ thử lại.
   const MAX_CONSECUTIVE_FAILURES = 5;
   let consecutiveFailures = 0;
 
