@@ -6,11 +6,14 @@ import {
   OUT_FOR_DELIVERY_RE,
   parseKangoPayload,
   parseTrackingEventTime,
+  PICKUP_READY_RE,
+  PICKUP_REDIRECT_RE,
   type AlertReason,
   type DashboardAlertItem,
   type OrderTrackingQueryRow,
   type ParsedVnTime,
 } from "./dashboard";
+import { correctCarrierLocalTime } from "./carrier-time";
 import { getPool } from "./db";
 import type { KangoTrackingResponse } from "./kango";
 import { resolveLastMile } from "./last-mile";
@@ -22,6 +25,8 @@ export type NotifyEventKind =
   | "handed_over"
   | "out_for_delivery"
   | "delivered"
+  | "pickup_ready"
+  | "pickup_reminder"
   | "customs_released"
   | "alert_customs_stuck"
   | "alert_no_update"
@@ -56,6 +61,9 @@ const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
 const SCAN_WINDOW_DAYS = 60;
 const MAX_LINES_PER_MESSAGE = 30;
 const SQL_BATCH_SIZE = 500;
+/** Hàng nằm ở bưu cục/Packstation quá số ngày này mà khách chưa lấy → nhắc (DHL thường giữ ~7 ngày rồi hoàn). */
+const PICKUP_REMINDER_DAYS = 4;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const EXPORT_SCAN_LEAVE_RE = /export scan\s*&\s*leave our warehouse/i;
 const DEPARTED_RE = /\bdeparted\b/i;
@@ -245,6 +253,43 @@ function extractLatestMatchingDateTime(
     }
   }
   return latest ? epochMsToVnDateTime(latest.epochMs) : null;
+}
+
+/** Mốc mới nhất khớp `re` của HÃNG CHẶNG CUỐI, đã quy giờ địa phương nước nhận → giờ VN đúng. */
+function latestCarrierEvent(
+  order: EnrichedOrder,
+  re: RegExp
+): { title: string; time: ParsedVnTime } | null {
+  const iso2 = countryIso2(order.row.destination);
+  const fetchedAtMs = order.row.fetched_at !== null ? Number(order.row.fetched_at) : null;
+  let best: { title: string; time: ParsedVnTime } | null = null;
+  for (const ev of order.kango?.trackings ?? []) {
+    if (!re.test(ev.title ?? "")) continue;
+    const t = correctCarrierLocalTime(parseTrackingEventTime(ev.time), iso2, fetchedAtMs);
+    if (t && (!best || t.epochMs > best.time.epochMs)) best = { title: ev.title ?? "", time: t };
+  }
+  return best;
+}
+
+function latestCarrierDateTime(order: EnrichedOrder, re: RegExp): string | null {
+  const ev = latestCarrierEvent(order, re);
+  return ev ? epochMsToVnDateTime(ev.time.epochMs) : null;
+}
+
+/** Giờ giao (đã quy đổi múi giờ). Mốc dự phòng từ fetched_at vốn đúng epoch nên không quy đổi. */
+function deliveredTimeOf(order: EnrichedOrder): ParsedVnTime | null {
+  const fetchedAtMs = order.row.fetched_at !== null ? Number(order.row.fetched_at) : null;
+  const t = extractDeliveredTime(order.kango, fetchedAtMs);
+  if (!t || (fetchedAtMs && t.epochMs === fetchedAtMs)) return t;
+  return correctCarrierLocalTime(t, countryIso2(order.row.destination), fetchedAtMs);
+}
+
+/** Địa chỉ điểm nhận trích từ câu của DHL, vd "Filiale Goeckestr. 12, 12345 Berlin". */
+export function extractPickupPlace(title: string): string {
+  const m = title.match(
+    /((?:Filiale|Packstation|Paketshop|Parcel ?shop|Pickup shop|Post ?office|Service ?point)\b.*?)(?:\s+as of now|\s+and is expected|\s*\.\s+(?:As soon|The information|The recipient|Please)|\s*\.?\s*$)/i
+  );
+  return (m?.[1] ?? "").replace(/[\s,.]+$/, "").replace(/\s+/g, " ").trim();
 }
 
 function hasCustomsReleased(
@@ -460,15 +505,34 @@ async function scanShipmentEventsInternal(now: Date = new Date()): Promise<Inter
           orderId: row.id,
           kind: "out_for_delivery",
           lotDate: null,
-          eventAt: extractLatestMatchingDateTime(enriched.kango, OUT_FOR_DELIVERY_RE),
+          eventAt: latestCarrierDateTime(enriched, OUT_FOR_DELIVERY_RE),
         });
+      }
+
+      // 3b. DHL không giao được → chuyển ra bưu cục/Packstation chờ khách tự lấy
+      const pickupEv =
+        latestCarrierEvent(enriched, PICKUP_READY_RE) ?? latestCarrierEvent(enriched, PICKUP_REDIRECT_RE);
+      if (pickupEv) {
+        candidates.push({
+          orderId: row.id,
+          kind: "pickup_ready",
+          lotDate: null,
+          eventAt: epochMsToVnDateTime(pickupEv.time.epochMs),
+        });
+        if (now.getTime() - pickupEv.time.epochMs > PICKUP_REMINDER_DAYS * DAY_MS) {
+          candidates.push({
+            orderId: row.id,
+            kind: "pickup_reminder",
+            lotDate: null,
+            eventAt: epochMsToVnDateTime(pickupEv.time.epochMs),
+          });
+        }
       }
     }
 
     // 4. Đã giao hàng (event_at = giờ giao theo giờ VN)
     if (status === "delivered") {
-      const fetchedAtMs = row.fetched_at !== null ? Number(row.fetched_at) : null;
-      const deliveredTime = extractDeliveredTime(enriched.kango, fetchedAtMs);
+      const deliveredTime = deliveredTimeOf(enriched);
       candidates.push({
         orderId: row.id,
         kind: "delivered",
@@ -706,6 +770,8 @@ export async function buildPendingMessages(opts?: {
   const handedOverEvents: PendingEventRow[] = [];
   const outForDeliveryEvents: PendingEventRow[] = [];
   const deliveredEvents: PendingEventRow[] = [];
+  const pickupEvents: PendingEventRow[] = [];
+  const pickupReminderEvents: PendingEventRow[] = [];
   const customsEvents: PendingEventRow[] = [];
   const alertEvents: PendingEventRow[] = [];
 
@@ -713,6 +779,8 @@ export async function buildPendingMessages(opts?: {
     if (ev.kind === "handed_over") handedOverEvents.push(ev);
     else if (ev.kind === "out_for_delivery") outForDeliveryEvents.push(ev);
     else if (ev.kind === "delivered") deliveredEvents.push(ev);
+    else if (ev.kind === "pickup_ready") pickupEvents.push(ev);
+    else if (ev.kind === "pickup_reminder") pickupReminderEvents.push(ev);
     else if (ev.kind === "customs_released") customsEvents.push(ev);
     else if (ALERT_KINDS.has(ev.kind)) alertEvents.push(ev);
   }
@@ -764,8 +832,7 @@ export async function buildPendingMessages(opts?: {
       const base = ord ? formatOrderLine(ord) : formatFallbackOrderLine(ev.order_id);
       let hhmm = ev.event_at && ev.event_at.length >= 16 ? ev.event_at.slice(11, 16) : "";
       if (!hhmm && ord) {
-        const fetchedAtMs = ord.row.fetched_at !== null ? Number(ord.row.fetched_at) : null;
-        hhmm = extractDeliveredTime(ord.kango, fetchedAtMs)?.hhmm ?? "";
+        hhmm = deliveredTimeOf(ord)?.hhmm ?? "";
       }
       return hhmm ? `${base} · ${hhmm}` : base;
     });
@@ -775,6 +842,45 @@ export async function buildPendingMessages(opts?: {
         header: `✅ ĐÃ GIAO (${sortedDelivered.length})`,
         lines,
         eventIds: sortedDelivered.map((e) => e.id),
+      })
+    );
+  }
+
+  // 4b. Chờ khách nhận tại bưu cục / Packstation, và nhắc khi để quá lâu
+  const pickupLines = (events: PendingEventRow[], withDays: boolean) =>
+    events.map((ev) => {
+      const ord = ordersById.get(ev.order_id);
+      if (!ord) return formatFallbackOrderLine(ev.order_id);
+      const parts = [formatOrderLine(ord)];
+      const ready = latestCarrierEvent(ord, PICKUP_READY_RE) ?? latestCarrierEvent(ord, PICKUP_REDIRECT_RE);
+      const place = ready ? extractPickupPlace(ready.title) : "";
+      if (place) parts.push(`📍 ${place}`);
+      if (ready) {
+        parts.push(
+          withDays
+            ? `đã chờ ${Math.floor((now.getTime() - ready.time.epochMs) / DAY_MS)} ngày`
+            : `từ ${ready.time.hhmm} ${formatDdMm(ready.time.dateVn)}`
+        );
+      }
+      return parts.join(" · ");
+    });
+  if (pickupEvents.length > 0) {
+    messages.push(
+      buildSimpleListMessage({
+        key: "pickup_ready",
+        header: `🏤 CHỜ KHÁCH NHẬN TẠI BƯU CỤC (${pickupEvents.length}) – nhắn khách ra lấy`,
+        lines: pickupLines(pickupEvents, false),
+        eventIds: pickupEvents.map((e) => e.id),
+      })
+    );
+  }
+  if (pickupReminderEvents.length > 0) {
+    messages.push(
+      buildSimpleListMessage({
+        key: "pickup_reminder",
+        header: `⏰ KHÁCH CHƯA LẤY HÀNG Ở BƯU CỤC (${pickupReminderEvents.length}) – sắp bị hoàn`,
+        lines: pickupLines(pickupReminderEvents, true),
+        eventIds: pickupReminderEvents.map((e) => e.id),
       })
     );
   }

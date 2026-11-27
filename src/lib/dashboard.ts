@@ -140,7 +140,14 @@ const FAILURE_EVENT_RE =
   /could not be delivered|\bnot\b.{0,40}\bdelivered\b|delivery (attempt(ed)?|failed|unsuccessful)|failed delivery|undeliverable|refused by recipient|incorrect address|address issue|insufficient address|\bexception\b|giao thất bại|không giao được|đơn đã hủy/i;
 const CUSTOMS_EVENT_RE = /destination customs|arrived destination airport|\bcustoms\b|thông quan|hải quan/i;
 export const OUT_FOR_DELIVERY_RE = /out for delivery|with you today|delivery vehicle|đang giao hàng|đang phát/i;
-const PICKUP_POINT_RE = /packstation|parcel shop|available for pickup|pick.?up point|chờ nhận/i;
+const PICKUP_POINT_RE =
+  /packstation|parcel ?shop|paketshop|pickup shop|available for pick-?up|ready for (?:pick-?up|collection)|retail outlet|filiale|pick.?up point|chờ nhận/i;
+/** DHL không giao được (vd chung cư) và chuyển hàng ra bưu cục/Packstation cho khách tự lấy — KHÔNG phải giao thất bại. */
+export const PICKUP_REDIRECT_RE =
+  /could not be delivered and (?:will be|is being) (?:sent|taken|forwarded) to (?:a |the )?(?:filiale|packstation|retail outlet|paketshop|parcel ?shop|pick-?up|post ?office|service ?point)/i;
+/** Hàng đã sẵn sàng ở điểm nhận (bưu cục, Packstation, Paketshop…). */
+export const PICKUP_READY_RE =
+  /available for pick-?up|ready for (?:pick-?up|collection)|expected to be ready for collection|is still on its way to the filiale/i;
 const DEPOT_RE = /parcel cent(er|re)|depot|hub|facility|kho đầu cuối|đến bưu cục/i;
 
 // ---------- Tiện ích ngày giờ Việt Nam (UTC+7, không phụ thuộc TZ tiến trình/MySQL) ----------
@@ -651,7 +658,10 @@ function evaluateActiveRows(
     const latestText = `${latestEv.title} ${row.current_status ?? ""}`;
     const isReturned = status === "returned";
     const isFailedDelivery =
-      status !== "delivered" && !isReturned && FAILURE_EVENT_RE.test(latestText);
+      status !== "delivered" &&
+      !isReturned &&
+      FAILURE_EVENT_RE.test(latestText) &&
+      !PICKUP_REDIRECT_RE.test(latestText);
 
     if (isReturned || isFailedDelivery) {
       failedOrReturnedCount++;
