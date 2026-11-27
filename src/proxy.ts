@@ -28,6 +28,8 @@ const AGENT_ALLOWED_ROUTES: { method: string; pattern: RegExp }[] = [
   { method: "GET", pattern: /^\/api\/admin\/ai-intake\/\d+\/images$/ },
   { method: "GET", pattern: /^\/api\/admin\/ai-intake\/image\/\d+$/ },
   { method: "PATCH", pattern: /^\/api\/admin\/ai-intake\/\d+$/ },
+  { method: "GET", pattern: /^\/api\/admin\/notify\/pending$/ },
+  { method: "POST", pattern: /^\/api\/admin\/notify\/ack$/ },
 ];
 
 function isAgentApiRequest(request: NextRequest): boolean {

@@ -139,7 +139,7 @@ const DELIVERED_EVENT_RE = /\bdelivered\b|picked up|pick-up was successful|hoàn
 const FAILURE_EVENT_RE =
   /could not be delivered|\bnot\b.{0,40}\bdelivered\b|delivery (attempt(ed)?|failed|unsuccessful)|failed delivery|undeliverable|refused by recipient|incorrect address|address issue|insufficient address|\bexception\b|giao thất bại|không giao được|đơn đã hủy/i;
 const CUSTOMS_EVENT_RE = /destination customs|arrived destination airport|\bcustoms\b|thông quan|hải quan/i;
-const OUT_FOR_DELIVERY_RE = /out for delivery|with you today|delivery vehicle|đang giao hàng|đang phát/i;
+export const OUT_FOR_DELIVERY_RE = /out for delivery|with you today|delivery vehicle|đang giao hàng|đang phát/i;
 const PICKUP_POINT_RE = /packstation|parcel shop|available for pickup|pick.?up point|chờ nhận/i;
 const DEPOT_RE = /parcel cent(er|re)|depot|hub|facility|kho đầu cuối|đến bưu cục/i;
 
@@ -252,13 +252,13 @@ function getRangeBoundsVn(
   };
 }
 
-type ParsedVnTime = {
+export type ParsedVnTime = {
   dateVn: string; // "YYYY-MM-DD"
   hhmm: string; // "HH:mm"
   epochMs: number;
 };
 
-function epochMsToVnTime(epochMs: number): ParsedVnTime {
+export function epochMsToVnTime(epochMs: number): ParsedVnTime {
   const iso = new Date(epochMs + VN_OFFSET_MS).toISOString();
   return {
     dateVn: iso.slice(0, 10),
@@ -272,7 +272,7 @@ function epochMsToVnTime(epochMs: number): ParsedVnTime {
  * Cả hai lưu chuẩn "YYYY-MM-DD HH:mm:ss" theo giờ VN (xem bay-tracking.ts:60);
  * nếu chuỗi có múi giờ ISO (Z hoặc +07:00) thì tự quy đổi sang giờ VN.
  */
-function parseTrackingEventTime(raw: string | null | undefined): ParsedVnTime | null {
+export function parseTrackingEventTime(raw: string | null | undefined): ParsedVnTime | null {
   if (!raw) return null;
   const trimmed = raw.trim();
   if (!trimmed) return null;
@@ -477,7 +477,7 @@ function normalizeCountryName(raw: string | null | undefined): string {
   return COUNTRY_EN[vn] ?? vn;
 }
 
-function parseKangoPayload(raw: string | null): KangoTrackingResponse | null {
+export function parseKangoPayload(raw: string | null): KangoTrackingResponse | null {
   if (!raw) return null;
   try {
     return JSON.parse(raw) as KangoTrackingResponse;
@@ -486,7 +486,7 @@ function parseKangoPayload(raw: string | null): KangoTrackingResponse | null {
   }
 }
 
-type OrderTrackingQueryRow = {
+export type OrderTrackingQueryRow = {
   id: number;
   falco_code: string;
   awb: string;
@@ -501,7 +501,7 @@ type OrderTrackingQueryRow = {
   fetched_at: number | string | null;
 };
 
-function resolveOrderMeta(row: OrderTrackingQueryRow, kango: KangoTrackingResponse | null): {
+export function resolveOrderMeta(row: OrderTrackingQueryRow, kango: KangoTrackingResponse | null): {
   recipientName: string;
   country: string;
   carrier: string;
@@ -526,7 +526,7 @@ function resolveOrderMeta(row: OrderTrackingQueryRow, kango: KangoTrackingRespon
 
 // ---------- Phân tích 3 cột "Hôm nay" và danh sách "Cần chú ý" ----------
 
-function extractDeliveredTime(
+export function extractDeliveredTime(
   kango: KangoTrackingResponse | null,
   fetchedAtMs: number | null
 ): ParsedVnTime | null {
