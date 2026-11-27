@@ -44,6 +44,29 @@ function isAgentApiRequest(request: NextRequest): boolean {
   );
 }
 
+/**
+ * Key CHỈ ĐỌC cho bot Muse (trả lời câu hỏi trong nhóm Zalo nội bộ): tra đơn
+ * và công nợ CTV/FWD. Chỉ GET, không tạo/sửa/xoá được gì. Key riêng
+ * MUSE_READ_API_KEY (header x-muse-read-key), khác AGENT_API_KEY.
+ */
+const MUSE_READ_ROUTES: RegExp[] = [
+  /^\/api\/admin\/orders$/,
+  /^\/api\/admin\/orders\/\d+$/,
+  /^\/api\/admin\/ctv\/payables$/,
+  /^\/api\/admin\/ctv\/collections$/,
+];
+
+function isMuseReadRequest(request: NextRequest): boolean {
+  if (request.method !== "GET") return false;
+  const key = request.headers.get("x-muse-read-key");
+  const expected = process.env.MUSE_READ_API_KEY;
+  if (!key || !expected) return false;
+  const a = Buffer.from(key, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return false;
+  return MUSE_READ_ROUTES.some((p) => p.test(request.nextUrl.pathname));
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -86,7 +109,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (isAgentApiRequest(request)) {
+  if (isAgentApiRequest(request) || isMuseReadRequest(request)) {
     return NextResponse.next();
   }
 
